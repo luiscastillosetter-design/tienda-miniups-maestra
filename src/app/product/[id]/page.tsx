@@ -7,6 +7,9 @@ import { getProductById } from '@/data/products';
 import { siteConfig } from '@/config/site';
 import { notFound } from 'next/navigation';
 
+const secondaryColor = '#172554';
+const primaryColor = '#f97316';
+
 interface PageProps {
   params: Promise<{
     id: string;
@@ -59,21 +62,26 @@ export default function ProductPage({ params }: PageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      {/* Header con breadcrumb */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-b border-gray-200/50 shadow-[0_2px_20px_rgba(0,0,0,0.05)]">
+    <div className="min-h-screen bg-white">
+      {/* Header Premium */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3 md:py-4 max-w-7xl mx-auto w-full">
           <Link href="/">
-            <h1 className="text-lg md:text-xl font-bold text-gray-900 tracking-tight cursor-pointer hover:text-opacity-80 transition-opacity">
-              {siteConfig.storeName}
-            </h1>
+            <Image
+              src="/logo-todomax.jpg"
+              alt="Importadora Todomax"
+              width={180}
+              height={50}
+              className="object-contain h-12 w-auto"
+              priority
+            />
           </Link>
 
-          {/* Botón WhatsApp en header */}
+          {/* Botón WhatsApp */}
           <button
             onClick={() => window.open(`https://wa.me/${siteConfig.whatsapp.number}`, '_blank')}
-            style={{ backgroundColor: siteConfig.theme.primaryColor }}
-            className="ml-4 p-2.5 rounded-full text-white hover:shadow-lg hover:opacity-90 transition-all duration-300 transform hover:scale-110"
+            className="ml-4 p-2.5 rounded-lg text-white hover:shadow-lg hover:opacity-90 transition-all duration-300"
+            style={{ backgroundColor: primaryColor }}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-5.031 1.378c-3.055 2.364-3.905 6.75-1.896 10.823 1.572 3.21 4.89 5.573 8.255 5.573 3.254 0 6.66-2.359 8.166-5.477 2.27-4.885.465-10.236-4.114-12.994a9.87 9.87 0 00-5.379-1.303zM12 0C5.383 0 0 5.383 0 12s5.383 12 12 12 12-5.383 12-12S18.617 0 12 0z" />
@@ -82,26 +90,26 @@ export default function ProductPage({ params }: PageProps) {
         </div>
       </header>
 
-      {/* Espaciado para header fijo */}
-      <div className="h-16 md:h-16"></div>
+      {/* Espaciado */}
+      <div className="h-16"></div>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN CONTENT PREMIUM */}
       <main className="w-full px-4 py-8 md:py-12 lg:py-16">
         <div className="max-w-6xl mx-auto">
           {/* Breadcrumb */}
-          <div className="mb-8 flex items-center gap-2 text-sm text-gray-600">
-            <Link href="/" className="hover:text-gray-900 transition-colors">
+          <div className="mb-8 flex items-center gap-2 text-sm" style={{ color: secondaryColor }}>
+            <Link href="/" className="hover:opacity-70 transition-opacity">
               Inicio
             </Link>
             <span>/</span>
-            <span className="text-gray-900 font-medium">{product.title}</span>
+            <span className="font-medium opacity-70">{product.title}</span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-            {/* GALERÍA DE IMÁGENES */}
+            {/* GALERÍA */}
             <div className="flex flex-col gap-4">
               {/* Imagen Principal */}
-              <div className="relative w-full aspect-square overflow-hidden rounded-3xl bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-100 shadow-lg">
+              <div className="relative w-full aspect-square overflow-hidden rounded-xl bg-gray-100 border border-gray-100">
                 <Image
                   src={product.images[selectedImageIndex]}
                   alt={product.title}
@@ -117,15 +125,18 @@ export default function ProductPage({ params }: PageProps) {
                   <button
                     key={index}
                     onClick={() => setSelectedImageIndex(index)}
-                    className={`relative flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${
+                    className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-300 ${
                       selectedImageIndex === index
-                        ? 'border-green-500 shadow-lg'
+                        ? 'shadow-lg'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
+                    style={{
+                      borderColor: selectedImageIndex === index ? primaryColor : undefined,
+                    }}
                   >
                     <Image
                       src={image}
-                      alt={`${product.title} - Imagen ${index + 1}`}
+                      alt={`Imagen ${index + 1}`}
                       fill
                       className="object-cover"
                     />
@@ -134,12 +145,12 @@ export default function ProductPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* INFORMACIÓN COMERCIAL */}
+            {/* INFORMACIÓN COMERCIAL PREMIUM */}
             <div className="flex flex-col gap-6">
               {/* Badge */}
               {product.badge && (
                 <div className="inline-block w-fit">
-                  <span className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  <span className="text-white px-4 py-2 rounded-lg text-sm font-bold" style={{ backgroundColor: primaryColor }}>
                     {product.badge}
                   </span>
                 </div>
@@ -147,16 +158,15 @@ export default function ProductPage({ params }: PageProps) {
 
               {/* Título */}
               <div>
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight mb-4">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-4" style={{ color: secondaryColor }}>
                   {product.title}
                 </h1>
               </div>
 
               {/* Precio */}
-              <div className="flex items-baseline gap-2">
-                <p className="text-5xl md:text-6xl font-bold" style={{ color: siteConfig.theme.primaryColor }}>
-                  {siteConfig.currencySymbol}
-                  {product.price}
+              <div className="flex items-baseline gap-1">
+                <p className="text-5xl md:text-6xl font-bold" style={{ color: primaryColor }}>
+                  {siteConfig.currencySymbol}{product.price}
                 </p>
               </div>
 
@@ -197,24 +207,18 @@ export default function ProductPage({ params }: PageProps) {
                 </div>
               </div>
 
-              {/* Botón de Compra Grande */}
+              {/* Botón de Compra */}
               <button
                 onClick={handleBuyWhatsApp}
                 disabled={isLoadingWhatsApp}
-                style={{
-                  backgroundColor: siteConfig.theme.primaryColor,
-                  color: siteConfig.theme.buttonTextColor,
-                }}
-                className="w-full py-4 md:py-5 rounded-2xl font-bold text-lg md:text-xl transition-all duration-300 cursor-pointer hover:shadow-2xl hover:opacity-90 active:scale-95 transform disabled:opacity-50"
+                className="w-full py-4 md:py-5 rounded-lg font-bold text-lg md:text-xl text-white transition-all duration-300 cursor-pointer hover:shadow-lg hover:opacity-90 active:scale-95 disabled:opacity-50"
+                style={{ backgroundColor: primaryColor }}
               >
                 {isLoadingWhatsApp ? 'Abriendo WhatsApp...' : '💬 Comprar por WhatsApp'}
               </button>
 
-              {/* Link de volver */}
-              <Link
-                href="/"
-                className="text-center py-3 text-gray-700 hover:text-gray-900 font-medium transition-colors"
-              >
+              {/* Link volver */}
+              <Link href="/" className="text-center py-3 font-medium transition-colors hover:opacity-70" style={{ color: secondaryColor }}>
                 ← Volver al catálogo
               </Link>
             </div>
@@ -222,13 +226,13 @@ export default function ProductPage({ params }: PageProps) {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border-t border-gray-700 py-8 md:py-12 px-4 mt-16">
+      {/* Footer Premium */}
+      <footer className="w-full border-t border-gray-100 py-12 px-4 mt-16" style={{ backgroundColor: secondaryColor }}>
         <div className="max-w-7xl mx-auto text-center">
-          <p className="text-gray-300 text-sm md:text-base font-light">
+          <p className="text-white text-sm md:text-base font-light">
             © 2024 <span className="font-semibold">{siteConfig.storeName}</span>. Todos los derechos reservados.
           </p>
-          <p className="text-gray-500 text-xs md:text-sm mt-3 font-light">Tecnología de respaldo de energía de alta gama</p>
+          <p className="text-gray-300 text-xs md:text-sm mt-3 font-light">Importadora Premium de Tecnología de Respaldo de Energía</p>
         </div>
       </footer>
     </div>
