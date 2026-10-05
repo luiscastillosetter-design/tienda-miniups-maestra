@@ -1,15 +1,233 @@
 'use client';
-import {useState,FormEvent} from 'react';
-import Image from 'next/image';
+
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import Link from 'next/link';
-import {siteConfig} from '@/config/site';
-const sc='#172554',pc='#f97316';
-type FD={n:string;w:string;e:string;c:string};
-type SB={data:FD;link:string}|null;
-export default function A(){
-const [fd,setFd]=useState<FD>({n:'',w:'',e:'',c:''});
-const [sb,setSb]=useState<SB>(null);
-const [er,setEr]=useState<Record<string,string>>({});
-const vl=():boolean=>{const e:Record<string,string>={};if(!fd.n.trim())e.n='R';if(!fd.w.trim())e.w='R';if(!fd.e.trim())e.e='R';if(!fd.c.trim())e.c='R';setEr(e);return Object.keys(e).length===0;};
-const sub=(x:FormEvent<HTMLFormElement>)=>{x.preventDefault();if(!vl())return;const b=typeof window!=='undefined'?window.location.origin:'tu-tienda.vercel.app';setSb({data:fd,link:`${b}/?ref=${fd.c}`});};
-return(<div className="min-h-screen bg-white"><header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100"><div className="flex items-center justify-between px-4 py-3 max-w-7xl mx-auto w-full"><Link href="/"><Image src="/logo-todomax.jpg" alt="Todomax" width={180} height={50} className="h-12 w-auto" priority/></Link><Link href="/" className="text-sm font-medium" style={{color:sc}}>← Catálogo</Link><button onClick={()=>window.open(`https://wa.me/${siteConfig.whatsapp.number}`,'_blank')} className="ml-4 p-2.5 rounded-lg text-white" style={{backgroundColor:pc}}><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-5.031 1.378c-3.055 2.364-3.905 6.75-1.896 10.823 1.572 3.21 4.89 5.573 8.255 5.573 3.254 0 6.66-2.359 8.166-5.477 2.27-4.885.465-10.236-4.114-12.994a9.87 9.87 0 00-5.379-1.303zM12 0C5.383 0 0 5.383 0 12s5.383 12 12 12 12-5.383 12-12S18.617 0 12 0z"/></svg></button></div></header><div className="h-16"/><section className="py-16 md:py-24 bg-gradient-to-br from-gray-50 to-white"><div className="max-w-7xl mx-auto px-4 text-center"><h1 className="text-5xl font-bold mb-4" style={{color:sc}}>Embajador</h1><p className="text-xl text-gray-700">Gana 30% por referral</p></div></section><main className="w-full px-4 py-16"><div className="max-w-5xl mx-auto">{!sb?(<div className="grid grid-cols-1 lg:grid-cols-2 gap-8"><div className="bg-white rounded-xl border p-8"><h2 className="text-3xl font-bold mb-8" style={{color:sc}}>Registro</h2><form onSubmit={sub} className="space-y-4"><input type="text" value={fd.n} onChange={e=>setFd({...fd,n:e.target.value})} className="w-full px-4 py-3 rounded-lg border" placeholder="Nombre"/><input type="tel" value={fd.w} onChange={e=>setFd({...fd,w:e.target.value})} className="w-full px-4 py-3 rounded-lg border" placeholder="WhatsApp"/><input type="email" value={fd.e} onChange={e=>setFd({...fd,e:e.target.value})} className="w-full px-4 py-3 rounded-lg border" placeholder="Email"/><input type="text" value={fd.c} onChange={e=>setFd({...fd,c:e.target.value.toLowerCase()})} className="w-full px-4 py-3 rounded-lg border" placeholder="Código"/><button type="submit" className="w-full py-3 rounded-lg font-bold text-white" style={{backgroundColor:pc}}>Registrarse</button></form></div><div className="bg-white rounded-xl border p-8"><h3 className="text-2xl font-bold mb-6" style={{color:sc}}>Beneficios</h3><ul className="space-y-2 text-sm"><li>✓ 30% comisión</li><li>✓ 30 días tracking</li><li>✓ Recursos Drive</li></ul><button onClick={()=>window.open('https://drive.google.com','_blank')} className="w-full py-3 rounded-lg font-bold text-white mt-6" style={{backgroundColor:pc}}>Recursos</button></div></div>):(<div className="max-w-2xl mx-auto"><div className="bg-white rounded-xl border p-8 text-center"><div className="text-6xl mb-4" style={{color:pc}}>✓</div><h2 className="text-2xl font-bold mb-4" style={{color:sc}}>Exitoso</h2><div className="text-left bg-gray-50 rounded-lg p-4 mb-6 space-y-1 text-sm"><div><strong>Nombre:</strong> {sb.data.n}</div><div><strong>WhatsApp:</strong> {sb.data.w}</div><div><strong>Email:</strong> {sb.data.e}</div><div style={{color:pc}}><strong>Código:</strong> {sb.data.c}</div><div><strong>Link:</strong> <code className="text-xs break-all">{sb.link}</code></div></div><button onClick={()=>setSb(null)} className="w-full py-3 rounded-lg font-bold text-white" style={{backgroundColor:pc}}>Nuevo</button></div></div>)}</div></main><footer className="w-full border-t py-8 px-4 text-center text-white text-sm" style={{backgroundColor:sc}}>© 2024 {siteConfig.storeName}</footer></div>);}
+
+const primaryColor = '#f97316';
+
+type FormData = {
+  nombre: string;
+  codigoPais: string;
+  numero: string;
+  email: string;
+  codigo: string;
+};
+
+type SubmittedData = {
+  data: FormData;
+  link: string;
+};
+
+export default function Afiliados() {
+  const [formData, setFormData] = useState<FormData>({
+    nombre: '',
+    codigoPais: '+58',
+    numero: '',
+    email: '',
+    codigo: '',
+  });
+  const [submitted, setSubmitted] = useState<SubmittedData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [codeAvailable, setCodeAvailable] = useState<boolean | null>(null);
+  const [checkingCode, setCheckingCode] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (formData.codigo.length > 2) {
+      setCheckingCode(true);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        try {
+          const api = process.env.NEXT_PUBLIC_API_UBUNTU;
+          if (api) {
+            const res = await fetch(`${api}/api/validar_afiliado?code=${formData.codigo}`);
+            const d = await res.json();
+            setCodeAvailable(d?.available === true);
+          }
+        } catch {
+          setCodeAvailable(null);
+        } finally {
+          setCheckingCode(false);
+        }
+      }, 500);
+    } else {
+      setCodeAvailable(null);
+    }
+  }, [formData.codigo]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const telefono = formData.codigoPais + formData.numero;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/afiliados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: formData.nombre,
+          telefono,
+          codigo: formData.codigo,
+        }),
+      });
+      if (res.ok) {
+        const base = typeof window !== 'undefined' ? window.location.origin : '';
+        setSubmitted({ data: formData, link: `${base}/?ref=${formData.codigo}` });
+      } else {
+        alert('Ocurrió un error al registrar. Intenta nuevamente.');
+      }
+    } catch {
+      alert('Ocurrió un error al registrar. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Encabezado de página */}
+      <div className="w-full bg-white border-b border-gray-200">
+        <div className="max-w-md mx-auto px-4 py-10 flex flex-col items-center text-center">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Programa de Afiliados
+          </h1>
+          <p className="text-sm text-gray-500 mt-2">
+            Regístrate y gana 30% por cada referido
+          </p>
+        </div>
+      </div>
+
+      <main className="w-full px-4 py-10">
+        <div className="max-w-md mx-auto">
+          {!submitted ? (
+            <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 sm:p-8">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Nombre */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Nombre completo
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nombre}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition disabled:opacity-60"
+                    placeholder="Tu nombre"
+                  />
+                </div>
+
+                {/* Teléfono integrado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    WhatsApp
+                  </label>
+                  <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-orange-200 focus-within:border-orange-400 overflow-hidden bg-white transition">
+                    <select
+                      value={formData.codigoPais}
+                      onChange={(e) => setFormData({ ...formData, codigoPais: e.target.value })}
+                      disabled={loading}
+                      className="px-3 py-2.5 bg-white text-gray-700 border-r border-gray-200 focus:outline-none disabled:opacity-60"
+                    >
+                      <option value="+58">🇻🇪 +58</option>
+                      <option value="+1">🇺🇸 +1</option>
+                      <option value="+57">🇨🇴 +57</option>
+                      <option value="+52">🇲🇽 +52</option>
+                      <option value="+56">🇨🇱 +56</option>
+                      <option value="+54">🇦🇷 +54</option>
+                    </select>
+                    <input
+                      type="tel"
+                      value={formData.numero}
+                      onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none disabled:opacity-60"
+                      placeholder="4121234567"
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition disabled:opacity-60"
+                    placeholder="tu@email.com"
+                  />
+                </div>
+
+                {/* Código de afiliado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Código de afiliado
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.codigo}
+                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toLowerCase() })}
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition disabled:opacity-60"
+                    placeholder="ej: juan2024"
+                  />
+                  <div className="mt-1.5 h-4">
+                    {checkingCode && (
+                      <p className="text-xs text-gray-400">Comprobando disponibilidad...</p>
+                    )}
+                    {!checkingCode && codeAvailable === true && (
+                      <p className="text-xs text-green-600">✅ Código disponible</p>
+                    )}
+                    {!checkingCode && codeAvailable === false && (
+                      <p className="text-xs text-red-500">❌ Código en uso</p>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || codeAvailable === false || checkingCode}
+                  className="w-full py-3 rounded-lg font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  {loading ? 'Procesando...' : 'Registrarme'}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 sm:p-8 text-center">
+              <div className="text-5xl mb-4" style={{ color: primaryColor }}>✓</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                ¡Registro exitoso!
+              </h2>
+              <div className="text-left bg-slate-50 border border-gray-200 rounded-lg p-4 mb-6 space-y-2 text-sm text-gray-700">
+                <div><span className="font-medium text-gray-900">Nombre:</span> {submitted.data.nombre}</div>
+                <div><span className="font-medium text-gray-900">WhatsApp:</span> {submitted.data.codigoPais}{submitted.data.numero}</div>
+                <div><span className="font-medium text-gray-900">Email:</span> {submitted.data.email}</div>
+                <div><span className="font-medium text-gray-900">Código:</span> {submitted.data.codigo}</div>
+                <div className="break-all"><span className="font-medium text-gray-900">Link:</span> {submitted.link}</div>
+              </div>
+              <button
+                onClick={() => setSubmitted(null)}
+                className="w-full py-3 rounded-lg font-semibold text-white transition"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Registrar otro afiliado
+              </button>
+            </div>
+          )}
+
+          <div className="text-center mt-6">
+            <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 transition">
+              ← Volver al catálogo
+            </Link>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+

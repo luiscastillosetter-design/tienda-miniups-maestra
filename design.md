@@ -1,0 +1,1 @@
+# Reglas de Diseño Todomax: Fondo general bg-white o bg-slate-50. Textos principales text-slate-900, textos secundarios text-slate-500. Bordes suaves border-gray-200 rounded-xl. Color primario naranja (bg-orange-500). Prohibidos los botones flotantes sin sentido. Prohibido el dark mode.
