@@ -126,7 +126,7 @@ export default function CartDrawer() {
         </div>
 
         {/* Footer: subtotal y checkout */}
-        <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50">
+        <div className="p-4 pb-28 bg-white border-t border-gray-100">
           <div className="space-y-2 mb-4">
             <div className="flex items-center justify-between text-sm text-gray-600">
               <span>Subtotal</span>

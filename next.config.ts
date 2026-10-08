@@ -1,16 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Ahora va en la raíz, como lo pide Next.js 16.3.8
+  allowedDevOrigins: ['192.168.31.239', 'localhost', '10.0.85.2'],
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
-      // Cuando vayas a usar las imágenes de tu catálogo local o de tu propio dominio web, 
-      // deberás agregar ese dominio aquí también siguiendo esta misma estructura.
     ],
   },
 };
 
-module.exports = nextConfig; 
-// Nota: Si tu archivo se llama next.config.mjs, la última línea debe ser: export default nextConfig;
+module.exports = nextConfig;

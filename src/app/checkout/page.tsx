@@ -54,7 +54,7 @@ export default function CheckoutPage() {
       `[PAGO]: ${metodoPago}` +
       (refCode !== 'DIRECTO' ? `%0A%0A[REF]: ${refCode}` : '');
 
-    const rawWhatsApp = siteConfig.whatsapp?.number || (siteConfig as any).whatsappNumber || '';
+    const rawWhatsApp = siteConfig.whatsapp?.number || siteConfig.whatsappNumber || '';
     const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
 
     window.open(`https://wa.me/${whatsappNum}?text=` + mensaje, '_blank');

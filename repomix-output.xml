@@ -1,0 +1,3142 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.claude/
+  settings.json
+  settings.local.json
+public/
+  file.svg
+  globe.svg
+  logo-todomax.png
+  next.svg
+  vercel.svg
+  window.svg
+src/
+  app/
+    afiliados/
+      page.tsx
+    api/
+      afiliados/
+        route.ts
+    catalogo/
+      page.tsx
+    checkout/
+      page.tsx
+    product/
+      [id]/
+        page.tsx
+    favicon.ico
+    globals.css
+    layout.tsx
+    page.tsx
+  components/
+    AuthModal.tsx
+    BackButton.tsx
+    BottomNav.tsx
+    CartDrawer.tsx
+    Footer.tsx
+    Header.tsx
+    HeroCarousel.tsx
+    OffersCarousel.tsx
+  config/
+    site.ts
+  data/
+    products.ts
+  services/
+    productService.ts
+  store/
+    cartStore.ts
+  middleware.ts
+.clinerules
+.gitignore
+design.md
+eslint.config.mjs
+memory.md
+next.config.ts
+package.json
+pnpm-workspace.yaml
+postcss.config.mjs
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".claude/settings.json">
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "haiku",
+  "enabledMcpServers": {
+    "github": {
+      "enabled": true,
+      "config": {}
+    },
+    "context7": {
+      "enabled": true,
+      "config": {}
+    }
+  },
+  "disabledMcpServers": [
+    "azure",
+    "aws",
+    "gcp",
+    "slack",
+    "jira",
+    "linear",
+    "figma",
+    "playwright",
+    "docker",
+    "kubernetes",
+    "terraform"
+  ],
+  "permissions": {
+    "allowedTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash"
+    ],
+    "autoAcceptPattern": "^(Read|Edit).*\\.(ts|tsx|json)$"
+  },
+  "alwaysThinkingEnabled": false,
+  "contextBudget": "preserve-last-20-percent",
+  "tokenManagement": {
+    "compactAfter": 150000,
+    "strategy": "aggressive"
+  }
+}
+</file>
+
+<file path=".claude/settings.local.json">
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"c:\\\\\\\\Users\\\\\\\\Luis Castillo\\\\\\\\OneDrive\\\\\\\\Desktop\\\\\\\\carpeta de proyectos\\\\\\\\mi-tienda-maestra\")",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(rm \"C:\\\\Users\\\\Luis Castillo\\\\OneDrive\\\\Desktop\\\\carpeta de proyectos\\\\mi-tienda-maestra\\\\next.config.js\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Luis Castillo\\OneDrive\\Desktop\\carpeta de proyectos\\mi-tienda-maestra"
+    ]
+  }
+}
+</file>
+
+<file path="src/app/catalogo/page.tsx">
+'use client';
+
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import type { Product } from '@/data/products';
+import { Smartphone, Headphones, Home as HomeIcon, Gamepad2, Zap, LayoutGrid, ChevronLeft } from 'lucide-react';
+
+const categories = [
+  { id: 0, name: 'Todos', icon: LayoutGrid },
+  { id: 1, name: 'Phones', icon: Smartphone },
+  { id: 2, name: 'Audio', icon: Headphones },
+  { id: 3, name: 'Smart Home', icon: HomeIcon },
+  { id: 4, name: 'Gaming', icon: Gamepad2 },
+  { id: 5, name: 'Gadgets', icon: Zap },
+];
+
+function CatalogoContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>('Todos');
+
+  // Cargar todos los productos al iniciar
+  useEffect(() => {
+    const loadProducts = async () => {
+      const data = await productService.getProducts();
+      setProducts(data);
+      setFilteredProducts(data);
+    };
+    loadProducts();
+  }, []);
+
+  // Escuchar la URL para filtrar si alguien entra directo a una categoría (ej: /catalogo?category=Audio)
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    
+    if (products.length > 0) {
+      if (!categoryParam || categoryParam.toLowerCase() === 'todos') {
+        setActiveCategory('Todos');
+        setFilteredProducts(products);
+      } else {
+        const foundCat = categories.find(c => c.name.toLowerCase() === categoryParam.toLowerCase());
+        setActiveCategory(foundCat ? foundCat.name : 'Todos');
+        const filtered = products.filter(p => p.category?.toLowerCase() === categoryParam.toLowerCase());
+        setFilteredProducts(filtered);
+      }
+    }
+  }, [searchParams, products]);
+
+  const handleCategoryClick = (categoryName: string) => {
+    if (categoryName === 'Todos') {
+      router.push('/catalogo');
+    } else {
+      router.push(`/catalogo?category=${categoryName}`);
+    }
+  };
+
+  return (
+    <div className="w-full bg-slate-50 min-h-screen pt-[70px] md:pt-[85px] pb-24 md:pb-12">
+      
+      {/* Banner Principal del Catálogo */}
+      <div className="w-full bg-[#0B132B] px-4 py-8 md:py-12 relative overflow-hidden">
+        {/* Decoración de fondo */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500 rounded-full blur-3xl -mr-20 -mt-20"></div>
+          <div className="absolute bottom-0 left-20 w-40 h-40 bg-white rounded-full blur-2xl -mb-10"></div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-center md:text-left">
+            <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tight mb-2">
+              {activeCategory === 'Todos' ? 'Catálogo Completo' : activeCategory}
+            </h1>
+            <p className="text-white/80 font-medium text-sm md:text-base">
+              Descubre los mejores equipos y tecnología de alta gama.
+            </p>
+          </div>
+          <Link href="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors backdrop-blur-sm text-sm">
+            <ChevronLeft className="w-4 h-4" />
+            Volver
+          </Link>
+        </div>
+      </div>
+
+      {/* Selectores de Categoría - Flexibles Móvil/Desktop */}
+      <div className="w-full max-w-7xl mx-auto px-2 md:px-8 mt-8 mb-10">
+        <div className="flex overflow-x-auto md:justify-center gap-4 md:gap-10 pb-4 scrollbar-hide px-4">
+          {categories.map((category) => {
+            const IconComponent = category.icon;
+            const isActive = activeCategory === category.name;
+            return (
+              <button
+                key={category.id}
+                onClick={() => handleCategoryClick(category.name)}
+                className={`flex flex-col items-center gap-3 flex-shrink-0 group cursor-pointer transition-all duration-300 ${
+                  isActive ? 'scale-110' : 'hover:scale-105'
+                }`}
+              >
+                <div className={`p-4 rounded-2xl drop-shadow-md transition-all duration-300 ${
+                  isActive 
+                    ? 'bg-orange-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.6)]' 
+                    : 'bg-white text-slate-800 hover:drop-shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:text-orange-500'
+                }`}>
+                  <IconComponent className="w-6 h-6 md:w-8 md:h-8" strokeWidth={isActive ? 2 : 1.5} />
+                </div>
+                <span className={`text-xs font-black uppercase tracking-widest transition-colors ${
+                  isActive ? 'text-orange-500' : 'text-slate-600 group-hover:text-orange-500'
+                }`}>
+                  {category.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grilla de Productos (Diseño Responsivo) */}
+      <div className="w-full max-w-7xl mx-auto px-4 md:px-8">
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-sm font-bold text-slate-500">
+            Mostrando {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+
+        {filteredProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl shadow-sm border border-gray-100">
+            <Zap className="w-16 h-16 text-gray-200 mb-4" />
+            <h3 className="text-xl font-black text-slate-800 mb-2">No hay productos en esta categoría</h3>
+            <p className="text-sm text-gray-500 mb-6">Estamos actualizando nuestro inventario. Vuelve pronto.</p>
+            <button onClick={() => handleCategoryClick('Todos')} className="px-6 py-3 bg-orange-500 text-white font-bold rounded-xl shadow-md hover:bg-orange-600 transition-colors">
+              Ver Catálogo Completo
+            </button>
+          </div>
+        ) : (
+          /* Ajuste de columnas: 2 en móvil, 3 en tablet, 4-5 en PC */
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+            {filteredProducts.map((product) => (
+              <Link key={product.id} href={`/product/${product.id}`} className="group h-full">
+                <div className="bg-white rounded-2xl md:rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300 flex flex-col h-full aspect-[9/16] relative border border-gray-100">
+                  <div className="relative w-full h-[55%] md:h-[60%] bg-gray-50 overflow-hidden">
+                    <Image
+                      src={product.images[0]}
+                      alt={product.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {product.badge && (
+                      <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-[#0B132B] text-white text-[10px] md:text-xs font-black px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-md uppercase tracking-wider">
+                        {product.badge}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-col flex-1 p-3 md:p-5 justify-between">
+                    <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-orange-500 transition-colors">
+                      {product.title}
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-base md:text-xl font-black text-[#0B132B] mb-2 md:mb-3">
+                        {siteConfig.currencySymbol}{product.price}
+                      </p>
+                      <button className="w-full py-2 md:py-3 rounded-xl font-black text-xs md:text-sm bg-slate-100 text-slate-900 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
+                        Ver Producto
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
+export default function CatalogoPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Cargando Catálogo...</div>}>
+      <CatalogoContent />
+    </Suspense>
+  );
+}
+</file>
+
+<file path="src/components/BottomNav.tsx">
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { Home, Grid3x3, ShoppingBag, Zap, User } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore';
+import AuthModal from './AuthModal';
+
+export default function BottomNav() {
+  const { items, toggleCart } = useCartStore();
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const cartItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
+
+  return (
+    <>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[999] bg-white border-t border-gray-200 py-2 px-4 shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
+        <div className="max-w-3xl mx-auto flex items-center justify-around">
+          {/* Home */}
+          <Link
+            href="/"
+            className="flex flex-col items-center gap-1 p-2 text-gray-600 hover:text-orange-500 transition-colors active:scale-95"
+            aria-label="Inicio"
+          >
+            <Home className="w-6 h-6" />
+            <span className="text-xs font-medium">Inicio</span>
+          </Link>
+
+          {/* Categorías */}
+          <Link
+            href="/catalogo"
+            className="flex flex-col items-center gap-1 p-2 text-gray-600 hover:text-orange-500 transition-colors active:scale-95"
+            aria-label="Categorías"
+          >
+            <Grid3x3 className="w-6 h-6" />
+            <span className="text-xs font-medium">Categorías</span>
+          </Link>
+
+          {/* Tienda/Shop - Centro */}
+          <button
+            onClick={() => toggleCart()}
+            className="flex flex-col items-center justify-center -mt-6 mb-2 relative cursor-pointer"
+            aria-label="Tienda"
+          >
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow active:scale-95">
+                <ShoppingBag className="w-7 h-7 text-white" />
+                {cartItemsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                    {cartItemsCount}
+                  </span>
+                )}
+              </div>
+            </div>
+          </button>
+
+          {/* Ofertas */}
+          <Link
+            href="/#ofertas"
+            className="flex flex-col items-center gap-1 p-2 text-gray-600 hover:text-orange-500 transition-colors active:scale-95"
+            aria-label="Ofertas"
+          >
+            <Zap className="w-6 h-6" />
+            <span className="text-xs font-medium">Ofertas</span>
+          </Link>
+
+          {/* Cuenta */}
+          <button
+            onClick={() => setIsAuthOpen(true)}
+            className="flex flex-col items-center gap-1 p-2 text-gray-600 hover:text-orange-500 transition-colors active:scale-95 relative cursor-pointer"
+            aria-label="Mi Cuenta"
+          >
+            <User className="w-6 h-6" />
+            <span className="text-xs font-medium">Cuenta</span>
+            {cartItemsCount > 0 && (
+              <span className="absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                {cartItemsCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+    </>
+  );
+}
+</file>
+
+<file path="src/components/HeroCarousel.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
+
+export function HeroCarousel() {
+  // Autoplay de 7 segundos configurado
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay({ delay: 7000, stopOnInteraction: false })]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    const onInit = () => {
+      setScrollSnaps(emblaApi.scrollSnapList());
+      onSelect();
+    };
+
+    emblaApi.on('init', onInit);
+    emblaApi.on('reInit', onInit);
+    emblaApi.on('select', onSelect);
+
+    return () => {
+      emblaApi.off('init', onInit);
+      emblaApi.off('reInit', onInit);
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi]);
+
+  const scrollTo = (index: number) => emblaApi?.scrollTo(index);
+
+  // Cada tarjeta tiene SU PROPIO BOTÓN y enlace exclusivo
+  const slides = [
+    {
+      id: 1,
+      title: 'Gana con nuestro Programa de Embajadores',
+      description: 'Sé parte de nuestra comunidad y genera ingresos pasivos mes a mes.',
+      bgGradient: 'from-slate-900 to-[#0B132B]',
+      btnText: 'Productos',
+      btnLink: '/catalogo',
+    },
+    {
+      id: 2,
+      title: 'Tecnología de Respaldo Ininterrumpido',
+      description: 'Mini UPS inteligentes de alta potencia para tu hogar y oficina.',
+      bgGradient: 'from-[#0B132B] to-slate-900',
+      btnText: 'Regístrate',
+      btnLink: '?auth=register',
+    },
+    {
+      id: 3,
+      title: 'Crea tu Cuenta Personalizada',
+      description: 'Acceso exclusivo a ofertas secretas y seguimiento en tiempo real de tus pedidos.',
+      bgGradient: 'from-slate-900 to-[#0B132B]',
+      btnText: 'Afíliate',
+      btnLink: '/afiliados',
+    },
+  ];
+
+  return (
+    <div className="w-full">
+      <div ref={emblaRef} className="overflow-hidden w-full">
+        <div className="flex w-full">
+          {slides.map((slide) => (
+            <div
+              key={slide.id}
+              // En móvil tiene padding lateral para crear el efecto "isla", en PC ocupa el 100% de lado a lado
+              className="flex-[0_0_100%] min-w-0 relative h-[60vh] md:h-[70vh] w-full px-4 md:px-0 flex items-center justify-center"
+            >
+              <div
+                // Bordes redondeados y sombra suave en móvil; cuadrado y sin márgenes en PC
+                className={`w-full h-full bg-gradient-to-br ${slide.bgGradient} flex flex-col justify-center px-6 md:px-20 relative overflow-hidden rounded-3xl md:rounded-none shadow-xl md:shadow-none`}
+              >
+                {/* Decoración de fondo sutil */}
+                <div className="absolute inset-0 opacity-5">
+                  <div className="absolute top-10 right-10 w-96 h-96 bg-white rounded-full blur-3xl"></div>
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-500 rounded-full blur-3xl"></div>
+                </div>
+
+                <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-start text-left">
+                  <h2 className="text-3xl md:text-6xl font-extrabold text-white mb-3 md:mb-4 leading-tight tracking-tight">
+                    {slide.title}
+                  </h2>
+                  <p className="text-sm md:text-xl text-white/80 max-w-xl font-light mb-12">
+                    {slide.description}
+                  </p>
+                </div>
+
+                {/* ÚNICO BOTÓN: Flotante esquina inferior izquierda, tamaño compacto y asegurado con whitespace-nowrap */}
+                <div className="absolute bottom-8 md:bottom-10 left-6 md:left-20 z-20">
+                  <Link
+                    href={slide.btnLink}
+                    className="inline-flex items-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-3.5 bg-orange-500 text-white font-black rounded-xl hover:shadow-[0_0_20px_rgba(249,115,22,0.6)] transform hover:-translate-y-1 transition-all duration-300 text-xs md:text-lg uppercase tracking-wide whitespace-nowrap"
+                  >
+                    {slide.btnText}
+                    <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+                  </Link>
+                </div>
+
+                {/* PUNTOS DE PAGINACIÓN: Flotando adentro en el centro inferior */}
+                <div className="absolute bottom-8 md:bottom-10 left-1/2 -translate-x-1/2 flex justify-center gap-2 md:gap-3 z-20">
+                  {scrollSnaps.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => scrollTo(index)}
+                      className={`rounded-full transition-all duration-500 shadow-md ${
+                        index === selectedIndex
+                          ? 'bg-orange-500 w-8 md:w-10 h-2'
+                          : 'bg-white/30 hover:bg-white/60 w-2 h-2'
+                      }`}
+                      aria-label={`Ir a tarjeta ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="src/components/OffersCarousel.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
+
+export function OffersCarousel() {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay({ delay: 7000, stopOnInteraction: false })]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    const onInit = () => {
+      setScrollSnaps(emblaApi.scrollSnapList());
+      onSelect();
+    };
+
+    emblaApi.on('init', onInit);
+    emblaApi.on('reInit', onInit);
+    emblaApi.on('select', onSelect);
+
+    return () => {
+      emblaApi.off('init', onInit);
+      emblaApi.off('reInit', onInit);
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi]);
+
+  const scrollTo = (index: number) => emblaApi?.scrollTo(index);
+
+  const offers = [
+    {
+      id: 1,
+      title: 'SÚPER OFERTA: 40% en Accesorios',
+      description: 'Todos nuestros accesorios con descuento increíble',
+      bgGradient: 'from-red-600 to-red-700',
+    },
+    {
+      id: 2,
+      title: 'PAQUETES ESPECIALES: 2x1',
+      description: 'Compra dos productos y lleva uno gratis',
+      bgGradient: 'from-purple-600 to-purple-700',
+    },
+    {
+      id: 3,
+      title: 'ENVÍO GRATIS A TODO EL PAÍS',
+      description: 'En compras mayores a $50',
+      bgGradient: 'from-green-600 to-green-700',
+    },
+  ];
+
+  return (
+    <div className="w-full" id="ofertas">
+      <div ref={emblaRef} className="overflow-hidden">
+        <div className="flex">
+          {offers.map((offer) => (
+            <div
+              key={offer.id}
+              className="flex-[0_0_100%] min-w-0 relative h-[55vh] md:h-[60vh] w-full px-4 md:px-0 flex items-center justify-center"
+            >
+              <div
+                className={`w-full h-full bg-gradient-to-br ${offer.bgGradient} flex flex-col items-center justify-center text-center px-6 py-8 relative overflow-hidden rounded-3xl md:rounded-none shadow-xl md:shadow-none`}
+              >
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -mr-20 -mt-20"></div>
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full -ml-16 -mb-16"></div>
+                </div>
+
+                <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-center">
+                  <h2 className="text-3xl md:text-5xl font-extrabold text-white mb-4 leading-tight">
+                    {offer.title}
+                  </h2>
+                  <p className="text-sm md:text-xl text-white/90 mb-12 max-w-xl mx-auto font-light">
+                    {offer.description}
+                  </p>
+                </div>
+
+                {/* Botón flotante esquina inferior izquierda */}
+                <div className="absolute bottom-8 left-6 md:left-20 z-20">
+                  <Link
+                    href="/catalogo"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-900 font-bold rounded-xl hover:shadow-lg transform hover:-translate-y-1 transition-all duration-300 text-sm md:text-base uppercase whitespace-nowrap"
+                  >
+                    Ver Oferta
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
+                </div>
+
+                {/* Paginación flotante centro inferior ADENTRO de la tarjeta */}
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex justify-center gap-3 z-20">
+                  {scrollSnaps.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => scrollTo(index)}
+                      className={`rounded-full transition-all duration-500 shadow-md ${
+                        index === selectedIndex
+                          ? 'bg-white w-10 h-2'
+                          : 'bg-white/40 hover:bg-white/70 w-2 h-2'
+                      }`}
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="src/services/productService.ts">
+import { Product, products } from '@/data/products';
+
+export const productService = {
+  async getProducts(): Promise<Product[]> {
+    return Promise.resolve(products);
+  },
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    return Promise.resolve(products.find((product) => product.id === id));
+  },
+};
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="src/app/api/afiliados/route.ts">
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { nombre, telefono, codigo } = await request.json();
+
+    if (!nombre || !telefono || !codigo) {
+      return NextResponse.json({ error: 'Faltan campos' }, { status: 400 });
+    }
+
+    const telefonoLimpio = telefono.replace(/\D/g, '');
+    const apiUbuntu = process.env.NEXT_PUBLIC_API_UBUNTU;
+    const googleDriveUrl = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_URL;
+
+    if (!googleDriveUrl) {
+      return NextResponse.json({ error: 'Configuración incompleta' }, { status: 500 });
+    }
+
+    // Validar código en la API de Ubuntu - REQUIRED
+    if (!apiUbuntu) {
+      return NextResponse.json({ error: 'API no configurada' }, { status: 500 });
+    }
+
+    try {
+      const validationResponse = await fetch(`${apiUbuntu}/api/validar_afiliado`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo }),
+      });
+
+      // Validación estricta: debe ser exitosa
+      if (!validationResponse.ok) {
+        console.error('Código rechazado por API:', validationResponse.status);
+        return NextResponse.json({ error: 'Código de afiliado no disponible' }, { status: 400 });
+      }
+
+      const validationData = await validationResponse.json();
+
+      // Verificar que el código esté disponible en la respuesta
+      if (!validationData.disponible) {
+        return NextResponse.json({ error: 'Código no está disponible' }, { status: 400 });
+      }
+    } catch (validateError) {
+      console.error('Error conectando con API Ubuntu:', validateError);
+      return NextResponse.json({ error: 'No se pudo validar el código' }, { status: 400 });
+    }
+
+    // Mensaje de bienvenida - solo llega aquí si validación fue exitosa
+    const mensajeBienvenida = `¡Hola ${nombre}! 🚀 Soy Sofía, asistente de Importadora Todomax. Tu solicitud de embajador fue recibida. Tu código oficial es: ${codigo}. Aquí tienes tu acceso al material: ${googleDriveUrl} ¡Cualquier duda, escríbeme!`;
+
+    const metaPhoneId = process.env.META_PHONE_ID;
+    const metaAccessToken = process.env.META_ACCESS_TOKEN;
+
+    if (!metaPhoneId || !metaAccessToken) {
+      return NextResponse.json({ error: 'Config incompleta' }, { status: 500 });
+    }
+
+    const metaResponse = await fetch(
+      `https://graph.facebook.com/v17.0/${metaPhoneId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${metaAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: telefonoLimpio,
+          type: 'text',
+          text: { body: mensajeBienvenida },
+        }),
+      }
+    );
+
+    if (!metaResponse.ok) {
+      const errorText = await metaResponse.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { raw: errorText };
+      }
+      console.error('Error Meta API:', errorData);
+      return NextResponse.json({ error: 'Error WhatsApp' }, { status: metaResponse.status });
+    }
+
+    const metaData = await metaResponse.json();
+
+    return NextResponse.json(
+      { success: true, messageId: metaData.messages?.[0]?.id },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
+</file>
+
+<file path="src/app/checkout/page.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCartStore } from '@/store/cartStore';
+import { siteConfig } from '@/config/site';
+import BackButton from '@/components/BackButton';
+
+export default function CheckoutPage() {
+  const { items } = useCartStore();
+  const router = useRouter();
+
+  // Contacto
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
+  const [telefono, setTelefono] = useState('');
+
+  // Envío
+  const [courier, setCourier] = useState('MRW');
+  const [estado, setEstado] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [direccion, setDireccion] = useState('');
+
+  // Pago
+  const [metodoPago, setMetodoPago] = useState('Zelle');
+  const [refCode, setRefCode] = useState('DIRECTO');
+
+  useEffect(() => {
+    const storedRef = localStorage.getItem('todomax_ref');
+    if (storedRef) {
+      setRefCode(storedRef);
+    }
+  }, []);
+
+  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
+  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
+
+  const enviarPedidoWhatsApp = () => {
+    const listaProductos = items
+      .map(
+        (item) =>
+          `- ${item.title} (x${item.quantity}) - ${siteConfig.currencySymbol}${subtotalPorItem(item.price, item.quantity).toFixed(2)}`
+      )
+      .join('%0A');
+
+    // Mensaje limpio en texto plano sin emojis corruptibles
+    const mensaje =
+      `Hola, quiero realizar este pedido:%0A%0A` +
+      `[PRODUCTOS]:%0A${listaProductos}%0A%0A` +
+      `[TOTAL]: ${siteConfig.currencySymbol}${total.toFixed(2)}%0A%0A` +
+      `[CLIENTE]: ${nombre} ${apellido}%0A` +
+      `[TELEFONO]: ${telefono}%0A` +
+      `[ENVIO]: ${courier} - ${estado}, ${ciudad}. ${direccion}%0A` +
+      `[PAGO]: ${metodoPago}` +
+      (refCode !== 'DIRECTO' ? `%0A%0A[REF]: ${refCode}` : '');
+
+    const rawWhatsApp = siteConfig.whatsapp?.number || siteConfig.whatsappNumber || '';
+    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
+
+    window.open(`https://wa.me/${whatsappNum}?text=` + mensaje, '_blank');
+  };
+
+  const handleConfirmarPedido = () => {
+    if (!nombre.trim() || !apellido.trim() || !telefono.trim() || !estado.trim() || !ciudad.trim() || !direccion.trim()) {
+      alert('Por favor completa todos los campos obligatorios antes de confirmar tu pedido.');
+      return;
+    }
+    if (items.length === 0) {
+      alert('Tu carrito está vacío.');
+      return;
+    }
+    enviarPedidoWhatsApp();
+  };
+
+  if (items.length === 0) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 bg-slate-50">
+        <h2 className="text-2xl font-bold text-slate-900 mb-4">Tu carrito está vacío</h2>
+        <button
+          onClick={() => router.push('/')}
+          className="bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-600 transition-colors cursor-pointer"
+        >
+          Volver a la tienda
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-50 min-h-screen py-10 px-4">
+      <div className="max-w-6xl mx-auto">
+        <BackButton label="Volver a la tienda" />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mt-4">
+          {/* COLUMNA IZQUIERDA: FORMULARIO */}
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-xs space-y-6">
+            <h1 className="text-xl font-bold text-slate-900 border-b pb-3">
+              Detalles de Facturación y Envío
+            </h1>
+
+            {/* Contacto */}
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700 mb-3">Contacto</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  placeholder="Nombre *"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition"
+                />
+                <input
+                  type="text"
+                  value={apellido}
+                  onChange={(e) => setApellido(e.target.value)}
+                  placeholder="Apellido *"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition"
+                />
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  placeholder="Teléfono / WhatsApp *"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition sm:col-span-2"
+                />
+              </div>
+            </div>
+
+            {/* Envío */}
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700 mb-3">Envío</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Courier</label>
+                  <select
+                    value={courier}
+                    onChange={(e) => setCourier(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition"
+                  >
+                    <option value="MRW">MRW</option>
+                    <option value="Zoom">Zoom</option>
+                    <option value="Delivery Local">Delivery Local</option>
+                    <option value="Retiro en Tienda">Retiro en Tienda</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    value={estado}
+                    onChange={(e) => setEstado(e.target.value)}
+                    placeholder="Estado *"
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition"
+                  />
+                  <input
+                    type="text"
+                    value={ciudad}
+                    onChange={(e) => setCiudad(e.target.value)}
+                    placeholder="Ciudad *"
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition"
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={direccion}
+                  onChange={(e) => setDireccion(e.target.value)}
+                  placeholder="Dirección detallada (Calle, casa, edificio) *"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition"
+                />
+              </div>
+            </div>
+
+            {/* Pago */}
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700 mb-3">Método de Pago</h2>
+              <select
+                value={metodoPago}
+                onChange={(e) => setMetodoPago(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-500 transition"
+              >
+                <option value="Zelle">Zelle</option>
+                <option value="Pago Móvil">Pago Móvil</option>
+                <option value="Binance Pay">Binance Pay</option>
+                <option value="Efectivo">Efectivo</option>
+              </select>
+            </div>
+          </div>
+
+          {/* COLUMNA DERECHA: RESUMEN DE ORDEN */}
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-xs sticky top-24 h-fit space-y-6">
+            <h2 className="text-xl font-bold text-slate-900 border-b pb-3">Resumen de tu Orden</h2>
+
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50">
+                  <div className="flex items-center gap-3">
+                    <img src={item.image} alt={item.title} className="w-12 h-12 object-cover rounded-lg border border-gray-100" />
+                    <div>
+                      <span className="font-medium text-slate-800 line-clamp-1">{item.title}</span>
+                      <span className="text-xs text-gray-500 block">Cant: {item.quantity}</span>
+                    </div>
+                  </div>
+                  <span className="font-semibold text-slate-900">
+                    {siteConfig.currencySymbol}{subtotalPorItem(item.price, item.quantity).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200 text-xl font-bold text-slate-900">
+              <span>Total Final</span>
+              <span className="text-orange-500 text-2xl">
+                {siteConfig.currencySymbol}{total.toFixed(2)}
+              </span>
+            </div>
+
+            <button
+              onClick={handleConfirmarPedido}
+              className="bg-orange-500 hover:bg-orange-600 text-white w-full py-4 rounded-xl font-bold text-lg transition-colors cursor-pointer shadow-sm"
+            >
+              Confirmar Pedido
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="src/components/AuthModal.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import { X, User, Lock, Mail, LogOut } from 'lucide-react';
+
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [userSession, setUserSession] = useState<{ name: string; email: string } | null>(null);
+
+  useEffect(() => {
+    const session = localStorage.getItem('todomax_user_session');
+    if (session) {
+      setUserSession(JSON.parse(session));
+    }
+  }, []);
+
+  if (!isOpen) return null;
+
+  const handleAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    const userData = { name: name || email.split('@')[0], email };
+    localStorage.setItem('todomax_user_session', JSON.stringify(userData));
+    setUserSession(userData);
+    alert(isLogin ? '¡Sesión iniciada correctamente!' : '¡Cuenta creada y guardada con éxito!');
+    onClose();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('todomax_user_session');
+    setUserSession(null);
+    alert('Sesión cerrada.');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-100 p-6 relative animate-in fade-in zoom-in-95 duration-200">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-slate-600 cursor-pointer">
+          <X className="w-5 h-5" />
+        </button>
+
+        {userSession ? (
+          <div className="text-center py-6 space-y-4">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+              {userSession.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">¡Hola, {userSession.name}!</h3>
+              <p className="text-xs text-gray-500 mt-1">{userSession.email}</p>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-xl text-xs text-slate-600">
+              Tu sesión está guardada de forma segura en este navegador.
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar Sesión
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <User className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">
+                {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {isLogin ? 'Tus datos se recordarán en este dispositivo' : 'Regístrate para una experiencia personalizada'}
+              </p>
+            </div>
+
+            <form onSubmit={handleAuth} className="space-y-4">
+              {!isLogin && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Nombre completo</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Tu nombre"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-500"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Correo electrónico</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Contraseña</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl text-sm transition-colors cursor-pointer mt-2"
+              >
+                {isLogin ? 'Entrar y Recordar Sesión' : 'Registrarse'}
+              </button>
+            </form>
+
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-xs text-orange-600 hover:underline font-medium cursor-pointer"
+              >
+                {isLogin ? '¿No tienes cuenta? Regístrate aquí' : '¿Ya tienes cuenta? Inicia sesión'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="src/components/BackButton.tsx">
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
+
+export default function BackButton({ label = "Volver" }: { label?: string }) {
+  const router = useRouter();
+
+  return (
+    <button
+      onClick={() => router.back()}
+      className="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors py-2 px-3 rounded-lg hover:bg-slate-100/80 mb-6 group cursor-pointer"
+    >
+      <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+      <span>{label}</span>
+    </button>
+  );
+}
+</file>
+
+<file path="src/components/CartDrawer.tsx">
+'use client';
+
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore';
+import { siteConfig } from '@/config/site';
+
+export default function CartDrawer() {
+  const router = useRouter();
+  const { items, isCartOpen, toggleCart, updateQuantity, removeItem } = useCartStore();
+
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const freeShippingThreshold = 50; 
+  const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
+  const remaining = Math.max(0, freeShippingThreshold - subtotal);
+
+  const handleCheckout = () => {
+    toggleCart();
+    router.push('/checkout');
+  };
+
+  return (
+    <>
+      {/* Overlay */}
+      {isCartOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity"
+          onClick={toggleCart}
+        />
+      )}
+
+      {/* Drawer */}
+      <div
+        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+          isCartOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-slate-800" />
+            <h2 className="text-lg font-bold text-slate-900">Tu Carrito ({items.reduce((acc, i) => acc + i.quantity, 0)})</h2>
+          </div>
+          <button 
+            onClick={toggleCart} 
+            aria-label="Cerrar carrito" 
+            className="p-1.5 text-gray-400 hover:text-slate-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Barra de incentivo de envío gratis */}
+        <div className="bg-orange-50 px-6 py-3 border-b border-orange-100 text-xs text-orange-800 font-medium">
+          {remaining > 0 ? (
+            <p>¡Agrega <span className="font-bold">{siteConfig.currencySymbol}{remaining.toFixed(2)}</span> más para obtener envío gratis!</p>
+          ) : (
+            <p className="font-bold text-emerald-700">🎉 ¡Felicitaciones! Calificas para envío gratis.</p>
+          )}
+          <div className="w-full bg-orange-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div 
+              className="bg-orange-500 h-full transition-all duration-300 rounded-full" 
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Lista de productos */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-12">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4">
+                <ShoppingBag className="w-8 h-8" />
+              </div>
+              <p className="text-base font-medium text-slate-800">Tu carrito está vacío</p>
+              <p className="text-sm text-gray-500 mt-1">Explora nuestro catálogo y descubre productos increíbles.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {items.map((item) => (
+                <div key={item.id} className="flex gap-4 items-center border-b border-gray-100 pb-4">
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0">
+                    <Image src={item.image} alt={item.title} fill className="object-cover" />
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800 line-clamp-1">{item.title}</p>
+                      <p className="text-sm font-extrabold text-orange-500 mt-0.5">
+                        {siteConfig.currencySymbol}{item.price}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
+                          aria-label="Disminuir cantidad"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-bold text-slate-900 w-6 text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
+                          aria-label="Aumentar cantidad"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors p-1 cursor-pointer"
+                        aria-label="Eliminar producto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer: subtotal y checkout */}
+        <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50">
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Subtotal</span>
+              <span className="font-semibold text-slate-900">{siteConfig.currencySymbol}{subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Envío</span>
+              <span className="font-medium text-emerald-600">Calculado en el checkout</span>
+            </div>
+            <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-base font-bold text-slate-900">
+              <span>Total Final</span>
+              <span className="text-orange-500 text-xl">{siteConfig.currencySymbol}{subtotal.toFixed(2)}</span>
+            </div>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={items.length === 0}
+            className="w-full py-4 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer text-base"
+          >
+            Proceder al Pago
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+</file>
+
+<file path="src/components/Footer.tsx">
+import Link from 'next/link';
+import { Phone, Mail, MapPin } from 'lucide-react';
+
+export default function Footer() {
+  return (
+    <footer className="w-full bg-white border-t border-gray-200 mt-auto px-4 md:px-12 py-12 md:py-16">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+        {/* Columna 1: Marca */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-xl font-black text-[#0B132B] mb-4">Importadora Todomax</h3>
+          <p className="text-sm text-gray-500 font-medium leading-relaxed max-w-sm">
+            Importadora premium de tecnología y respaldo de energía. Calidad y confianza para tus dispositivos.
+          </p>
+        </div>
+
+        {/* Columna 2: Enlaces */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Enlaces</h3>
+          <ul className="space-y-3">
+            <li>
+              <Link href="/" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Inicio
+              </Link>
+            </li>
+            <li>
+              <Link href="/catalogo" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Catálogo
+              </Link>
+            </li>
+            <li>
+              <Link href="/afiliados" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Embajadores
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Columna 3: Contacto */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Contacto</h3>
+          <ul className="space-y-4">
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <Phone className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">+1 754 341 1559</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <Mail className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">contacto@todomax.com</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">Caracas, Venezuela</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+      {/* Copyright */}
+      <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+        <p className="text-xs text-gray-400 font-medium">
+          © {new Date().getFullYear()} Importadora Todomax. Todos los derechos reservados.
+        </p>
+      </div>
+    </footer>
+  );
+}
+</file>
+
+<file path="src/components/Header.tsx">
+'use client';
+
+import { useState, useEffect, Suspense } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Menu, Search, Bell, ShoppingCart, X, LayoutGrid, Smartphone, Headphones, Home as HomeIcon, Gamepad2, Zap } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore';
+import { products } from '@/data/products';
+import AuthModal from './AuthModal';
+
+function HeaderContent() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showNotification, setShowNotification] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  
+  const searchParams = useSearchParams();
+  const { items, toggleCart } = useCartStore();
+  const cartItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
+
+  // Escuchar si el botón del Hero pide abrir el registro
+  useEffect(() => {
+    if (searchParams?.get('auth') === 'register') {
+      setIsAuthOpen(true);
+    }
+  }, [searchParams]);
+
+  // Lógica de Scroll para ocultar/mostrar header y buscador
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
+  const categories = [
+    { id: 0, name: 'Todos', icon: LayoutGrid },
+    { id: 1, name: 'Phones', icon: Smartphone },
+    { id: 2, name: 'Audio', icon: Headphones },
+    { id: 3, name: 'Smart Home', icon: HomeIcon },
+    { id: 4, name: 'Gaming', icon: Gamepad2 },
+    { id: 5, name: 'Gadgets', icon: Zap },
+  ];
+
+  const filteredProducts = searchQuery.trim() === ''
+    ? []
+    : products.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const handleNotificationClick = () => {
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 3000);
+  };
+
+  return (
+    <>
+      {/* Header Principal - Totalmente transparente y unificado */}
+      <header className={`fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-[100] w-full transition-transform duration-300 ${!isHeaderVisible ? '-translate-y-full' : 'translate-y-0'}`}>
+        <div className="flex items-center justify-between px-4 py-3 w-full relative">
+          
+          {/* Lado Izquierdo: Menú Hamburguesa (Unificado para Móvil y PC) */}
+          <div className="flex-1 flex items-center justify-start">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-slate-700 hover:text-orange-500 active:scale-95 transition-transform cursor-pointer flex items-center justify-center"
+              aria-label="Abrir menú"
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6 md:w-7 md:h-7"/> : <Menu className="w-6 h-6 md:w-7 md:h-7"/>}
+            </button>
+          </div>
+
+          {/* Centro: Logo Grande y Centrado Absoluto (Móvil y PC) */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto">
+            <Link className="flex-shrink-0" href="/">
+              <Image alt="Todomax" className="w-36 md:w-48 h-auto object-contain" height={60} priority src="/logo-todomax.png" width={200}/>
+            </Link>
+          </div>
+
+          {/* Lado Derecho: Iconos de Notificación y Carrito */}
+          <div className="flex-1 flex items-center justify-end gap-2 md:gap-4">
+            <div className="relative">
+              <button
+                onClick={handleNotificationClick}
+                className="p-2 text-slate-700 hover:text-orange-500 cursor-pointer flex items-center justify-center transition-colors"
+                aria-label="Notificaciones"
+              >
+                <Bell className="w-6 h-6"/>
+              </button>
+              {showNotification && (
+                <div className="absolute right-0 mt-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shadow-2xl">
+                  No hay notificaciones nuevas
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => toggleCart()}
+              className="relative p-2 text-slate-700 hover:text-orange-500 cursor-pointer flex items-center justify-center transition-colors"
+              aria-label="Carrito"
+            >
+              <ShoppingCart className="w-6 h-6"/>
+              {cartItemsCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-md">
+                  {cartItemsCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Menú Desplegable Unificado (Móvil y PC) - Alineado a la izquierda */}
+        {isMobileMenuOpen && (
+          <div className="absolute top-full left-0 w-full md:w-80 bg-white/95 backdrop-blur-xl shadow-2xl flex flex-col p-6 gap-4 z-[90] md:rounded-br-3xl border-r border-b border-gray-100">
+            <button
+              onClick={() => { setIsMobileMenuOpen(false); setIsAuthOpen(true); }}
+              className="text-slate-800 font-bold text-lg py-2 text-left cursor-pointer hover:text-orange-500 transition-colors"
+            >
+              Mi Cuenta / Registro
+            </button>
+            <Link href="/afiliados" onClick={() => setIsMobileMenuOpen(false)}
+              className="text-slate-800 font-bold text-lg py-2 hover:text-orange-500 transition-colors"
+            >
+              Afiliados
+            </Link>
+            <Link href="/catalogo" onClick={() => setIsMobileMenuOpen(false)}
+              className="text-slate-800 font-bold text-lg py-2 hover:text-orange-500 transition-colors"
+            >
+              Catálogo
+            </Link>
+            <div className="border-t border-gray-200 pt-4 mt-2">
+              <p className="text-xs text-orange-500 font-extrabold mb-4 uppercase tracking-wider">Categorías</p>
+              <div className="grid grid-cols-2 gap-4">
+                {categories.map((cat) => {
+                  const IconComponent = cat.icon;
+                  const isAll = cat.id === 0;
+                  return (
+                    <Link key={cat.id} href={isAll ? '/catalogo' : `/catalogo?category=${cat.name}`} onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 text-slate-700 hover:text-orange-500 transition-colors text-sm font-semibold group"
+                    >
+                      <IconComponent className="w-5 h-5 group-hover:scale-110 transition-transform"/>
+                      {cat.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Buscador Flotante SIN banda blanca de fondo */}
+      <div className={`fixed top-[70px] md:top-[85px] left-0 right-0 z-[80] pointer-events-none transition-transform duration-300 px-4 ${!isHeaderVisible ? '-translate-y-[200%]' : 'translate-y-0'}`}>
+        <div className="w-full md:w-1/2 mx-auto pointer-events-auto mt-2 relative">
+          <div className="flex items-center gap-3 bg-white/95 backdrop-blur-lg shadow-[0_4px_20px_rgba(0,0,0,0.1)] rounded-full px-5 py-3 border border-gray-100">
+            <Search className="w-5 h-5 text-orange-500"/>
+            <input
+              type="text"
+              placeholder="Buscar productos..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent outline-none text-sm md:text-base text-slate-900 placeholder:text-gray-400 font-medium"
+            />
+          </div>
+
+          {/* Resultados flotantes */}
+          {searchQuery.trim() !== '' && (
+            <div className="absolute top-full left-0 right-0 mt-3 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-2xl shadow-2xl max-h-80 overflow-y-auto z-[98]">
+              <div className="p-2 space-y-1">
+                {filteredProducts.length === 0 ? (
+                  <p className="text-sm text-gray-500 p-4 text-center font-medium">No se encontraron productos.</p>
+                ) : (
+                  filteredProducts.map((p) => (
+                    <Link href={`/product/${p.id}`} key={p.id} onClick={() => setSearchQuery('')}
+                      className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-colors"
+                    >
+                      <Image alt={p.title} className="w-12 h-12 object-cover rounded-lg shadow-sm" height={48} src={p.images[0]} width={48}/>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 line-clamp-1">{p.title}</p>
+                        <p className="text-sm text-orange-500 font-extrabold">${p.price}</p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+    </>
+  );
+}
+
+export default function Header() {
+  return (
+    <Suspense fallback={<div className="h-16 bg-white w-full shadow-sm" />}>
+      <HeaderContent/>
+    </Suspense>
+  );
+}
+</file>
+
+<file path="src/data/products.ts">
+export interface Product {
+  id: string;
+  title: string;
+  price: number;
+  badge?: string;
+  images: string[];
+  description: string;
+  features: string[];
+  paymentMethods: string[];
+  category: string;
+}
+
+export const products: Product[] = [
+  {
+    id: 'mini-ups-smart-12v',
+    title: 'Mini UPS Smart 12V para Router y Modem',
+    price: 35.00,
+    badge: 'Oferta',
+    category: 'Smart Home',
+    images: [
+      'https://images.unsplash.com/photo-1611532736580-6b47b0d4fc0b?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?q=80&w=1000&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1611532736651-41902b1fc6f0?q=80&w=1200&auto=format&fit=crop',
+    ],
+    description:
+      'Mini UPS Smart 12V de última generación diseñado específicamente para mantener operativo tu router y módem en caso de cortes de energía. Con capacidad de batería optimizada, tecnología inteligente de carga y compatibilidad universal con dispositivos 12V.',
+    features: [
+      'Voltaje: 12V DC',
+      'Capacidad: 2000mAh',
+      'Tiempo de respaldo: 4-6 horas para router',
+      'Carga rápida en 2 horas',
+      'LED indicador de estado',
+      'Protección contra sobrecarga',
+      'Tamaño compacto y portátil',
+      'Compatible con múltiples dispositivos',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+  },
+  {
+    id: 'respaldo-energia-camaras',
+    title: 'Respaldo de Energía DC 5V/9V/12V para Cámaras de Seguridad',
+    price: 45.00,
+    badge: 'Envío Gratis',
+    category: 'Smart Home',
+    images: [
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1000&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1200&auto=format&fit=crop',
+    ],
+    description:
+      'Sistema de respaldo de energía profesional multi-voltaje para cámaras de seguridad y sistemas de vigilancia. Proporciona energía continua en caso de cortes, asegurando que tus cámaras sigan operativas las 24 horas.',
+    features: [
+      'Voltajes múltiples: 5V, 9V, 12V',
+      'Capacidad: 5000mAh',
+      'Tiempo de respaldo: 8-12 horas',
+      'Salida USB y conectores DC',
+      'Ideal para sistemas de vigilancia',
+      'Batería LiFePO4 de larga duración',
+      'Indicadores LED de estado',
+      'Gestión térmica inteligente',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay', 'Transferencia Bancaria'],
+  },
+  {
+    id: 'mini-ups-litio-usb',
+    title: 'Mini UPS de Litio de Alta Capacidad con Salida USB',
+    price: 60.00,
+    category: 'Smart Home',
+    images: [
+      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?q=80&w=1000&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?q=80&w=1200&auto=format&fit=crop',
+    ],
+    description:
+      'UPS de litio de alta capacidad con tecnología de punta para mantener tus dispositivos conectados durante cortes de energía. Cuenta con múltiples puertos USB para cargar varios dispositivos simultáneamente.',
+    features: [
+      'Batería de Litio de 10000mAh',
+      'Salida USB Tipo-A y USB-C',
+      'Voltaje: 5V/2A',
+      'Tiempo de carga: 1.5 horas',
+      'Tiempo de respaldo: 15-20 horas',
+      'Pantalla LED digital',
+      'Protección contra cortocircuitos',
+      'Peso: 250g',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+  },
+  {
+    id: 'protector-voltaje-inteligente',
+    title: 'Protector de Voltaje Inteligente con Batería Interna',
+    price: 28.00,
+    badge: 'Envío Gratis',
+    category: 'Smart Home',
+    images: [
+      'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?q=80&w=1000&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?q=80&w=1200&auto=format&fit=crop',
+    ],
+    description:
+      'Protector de voltaje inteligente con batería interna integrada para proteger tus dispositivos electrónicos de fluctuaciones de energía y mantener el suministro durante apagones.',
+    features: [
+      'Protección contra sobrevoltaje',
+      'Batería interna de 3000mAh',
+      'Estabilización automática de voltaje',
+      'Entrada: 110-240V AC',
+      'Salida regulada: 12V DC',
+      'Protección contra cortocircuitos',
+      'Indicador de batería baja',
+      'Diseño compacto y discreto',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+  },
+  {
+    id: 'iphone-15-pro',
+    title: 'iPhone 15 Pro Max Titanio 256GB',
+    price: 1200.00,
+    badge: 'Premium',
+    category: 'Phones',
+    images: [
+      'https://images.unsplash.com/photo-1592286927505-1def25115558?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1511707267537-b85faf00021e?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?q=80&w=1200&auto=format&fit=crop',
+    ],
+    description: 'El smartphone premium con pantalla Super Retina XDR, procesador A17 Pro y cámara de 48MP.',
+    features: [
+      'Pantalla OLED 6.7"',
+      'Procesador A17 Pro',
+      'Cámara 48MP',
+      'Batería 4323mAh',
+      'Titanio grado aeronáutico',
+      'Resistencia IP68',
+      'Almacenamiento 256GB',
+      'Sensor de acción',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+  },
+  {
+    id: 'airpods-pro-2',
+    title: 'AirPods Pro (2ª generación) con cancelación activa',
+    price: 249.00,
+    badge: 'Envío Gratis',
+    category: 'Audio',
+    images: [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1487215078519-e21cc028cb29?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1484704849700-f032a568e944?q=80&w=1200&auto=format&fit=crop',
+    ],
+    description: 'Auriculares inalámbricos con cancelación de ruido adaptativa y audio espacial inmersivo.',
+    features: [
+      'Cancelación activa de ruido',
+      'Modo transparencia',
+      'Audio espacial',
+      'Batería 30 horas',
+      'Carga rápida',
+      'Resistencia IPX4',
+      'Micrófono de calidad',
+      'Controles adaptados',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+  },
+  {
+    id: 'ps5-console-edition',
+    title: 'PlayStation 5 Edición de Disco 1TB',
+    price: 499.00,
+    badge: 'Stock Limitado',
+    category: 'Gaming',
+    images: [
+      'https://images.unsplash.com/photo-1607853554248-a3c0b2c0d8c2?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1609710228159-0fa9bd7c9c0b?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1623326141638-89e169f56949?q=80&w=1200&auto=format&fit=crop',
+    ],
+    description: 'Consola de videojuegos de última generación con disco de 1TB y capacidad de juegos físicos.',
+    features: [
+      'Procesador AMD Ryzen',
+      'GPU RDNA 2 10.28 teraflops',
+      'RAM 16GB GDDR6',
+      'Almacenamiento 1TB SSD',
+      'Unidad de disco',
+      '4K hasta 120fps',
+      'DualSense incluido',
+      'Retrocompatibilidad PS4',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay', 'Transferencia Bancaria'],
+  },
+  {
+    id: 'smartwatch-ultra-2',
+    title: 'Apple Watch Ultra 2 Titanio',
+    price: 799.00,
+    badge: 'Oferta',
+    category: 'Gadgets',
+    images: [
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000&auto=format&fit=crop&brightness=1.1',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1200&auto=format&fit=crop&contrast=1.2',
+    ],
+    description: 'Reloj inteligente robusto con pantalla grande, autonomía extendida y resistencia extrema.',
+    features: [
+      'Pantalla LTPO OLED 2.0"',
+      'Titanio grado 5',
+      'Batería 36 horas',
+      'Resistencia 100m de profundidad',
+      'GPS dual',
+      'ECG integrado',
+      'Botón de acción personalizable',
+      'Cristal de zafiro',
+    ],
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+  },
+];
+
+export function getProductById(id: string): Product | undefined {
+  return products.find((product) => product.id === id);
+}
+
+export function getAllProductIds(): string[] {
+  return products.map((product) => product.id);
+}
+</file>
+
+<file path="src/store/cartStore.ts">
+import { create } from 'zustand';
+
+export type CartItem = {
+  id: string;
+  title: string;
+  price: number;
+  image: string;
+  quantity: number;
+};
+
+type CartState = {
+  items: CartItem[];
+  isCartOpen: boolean;
+  addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  toggleCart: () => void;
+};
+
+export const useCartStore = create<CartState>((set) => ({
+  items: [],
+  isCartOpen: false,
+
+  addItem: (item, quantity) =>
+    set((state) => {
+      const existing = state.items.find((i) => i.id === item.id);
+      if (existing) {
+        return {
+          items: state.items.map((i) =>
+            i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
+          ),
+        };
+      }
+      return { items: [...state.items, { ...item, quantity }] };
+    }),
+
+  removeItem: (id) =>
+    set((state) => ({
+      items: state.items.filter((i) => i.id !== id),
+    })),
+
+  updateQuantity: (id, quantity) =>
+    set((state) => ({
+      items: state.items.map((i) =>
+        i.id === id ? { ...i, quantity: Math.max(1, quantity) } : i
+      ),
+    })),
+
+  toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
+}));
+</file>
+
+<file path="src/middleware.ts">
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  // Continuar con la carga normal de la página
+  const response = NextResponse.next()
+  
+  // 1. Atrapar el parámetro "?ref=" de la URL
+  const refCode = request.nextUrl.searchParams.get('ref')
+  
+  if (refCode) {
+    // 2. Si existe un referido, lo guardamos en una Cookie "estilo Hotmart"
+    response.cookies.set({
+      name: 'store_ref',
+      value: refCode,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // Dura 30 días (en segundos)
+    })
+  }
+  
+  return response
+}
+
+// 3. Esto evita que el código se ejecute en imágenes o archivos internos para que la tienda vuele de rápido
+export const config = {
+  matcher: '/((?!api|_next/static|_next/image|favicon.ico).*)',
+}
+</file>
+
+<file path=".clinerules">
+# REGLAS DEL PROYECTO (CRÍTICO: AHORRO DE TOKENS)
+1. Eres un ejecutor táctico. NUNCA leas el repositorio completo ni uses herramientas de búsqueda global (Glob, Grep) a menos que se te pida explícitamente.
+2. Limítate a modificar ÚNICAMENTE el archivo o componente indicado en el prompt y detente.
+3. Esta es una tienda "Marca Blanca". NUNCA escribas textos fijos (hardcoded) en la UI (nombres de tienda, números de WhatsApp, monedas). 
+4. Todo el contenido dinámico de la tienda DEBE consumirse exportando `siteConfig` desde `src/config/site.ts`.
+5. Usa Tailwind CSS para todo el estilo. El diseño debe ser estrictamente minimalista, enfocado a conversión rápida y Mobile-First.
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="design.md">
+# Reglas de Diseño Todomax: Fondo general bg-white o bg-slate-50. Textos principales text-slate-900, textos secundarios text-slate-500. Bordes suaves border-gray-200 rounded-xl. Color primario naranja (bg-orange-500). Prohibidos los botones flotantes sin sentido. Prohibido el dark mode.
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="memory.md">
+# ROADMAP TODOMAX E-COMMERCE
+- [x] Fase 1: Layout base, Footer y UI blanca corporativa.
+- [x] Fase 2: Catálogo con insignias (Envío Gratis).
+- [x] Fase 3 Completada: Header funcional (Logo grande en móvil/desktop), Selectores de cantidad reales y Carrito lateral (Zustand).
+- [En progreso] Fase 4: Checkout y conexión a WhatsApp.
+</file>
+
+<file path="pnpm-workspace.yaml">
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="src/app/afiliados/page.tsx">
+'use client';
+
+import { useState, useEffect, useRef, FormEvent } from 'react';
+import Link from 'next/link';
+
+const primaryColor = '#f97316';
+
+type FormData = {
+  nombre: string;
+  codigoPais: string;
+  numero: string;
+  email: string;
+  codigo: string;
+};
+
+type SubmittedData = {
+  data: FormData;
+  link: string;
+};
+
+export default function Afiliados() {
+  const [formData, setFormData] = useState<FormData>({
+    nombre: '',
+    codigoPais: '+58',
+    numero: '',
+    email: '',
+    codigo: '',
+  });
+  const [submitted, setSubmitted] = useState<SubmittedData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [codeAvailable, setCodeAvailable] = useState<boolean | null>(null);
+  const [checkingCode, setCheckingCode] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (formData.codigo.length > 2) {
+      setCheckingCode(true);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        try {
+          const api = process.env.NEXT_PUBLIC_API_UBUNTU;
+          if (!api) {
+            setCodeAvailable(null);
+            setCheckingCode(false);
+            return;
+          }
+          const res = await fetch(`${api}/api/validar_afiliado?code=${formData.codigo}`);
+          if (!res.ok) {
+            setCodeAvailable(false);
+          } else {
+            const d = await res.json();
+            setCodeAvailable(d?.available === true);
+          }
+        } catch {
+          setCodeAvailable(false);
+        } finally {
+          setCheckingCode(false);
+        }
+      }, 500);
+    } else {
+      setCodeAvailable(null);
+    }
+  }, [formData.codigo]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const telefono = formData.codigoPais + formData.numero;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/afiliados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: formData.nombre,
+          telefono,
+          codigo: formData.codigo,
+        }),
+      });
+      if (res.ok) {
+        const base = typeof window !== 'undefined' ? window.location.origin : '';
+        setSubmitted({ data: formData, link: `${base}/?ref=${formData.codigo}` });
+      } else {
+        alert('Ocurrió un error al registrar. Intenta nuevamente.');
+      }
+    } catch {
+      alert('Ocurrió un error al registrar. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Encabezado de página */}
+      <div className="w-full bg-white border-b border-gray-200">
+        <div className="max-w-md mx-auto px-4 py-10 flex flex-col items-center text-center">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Programa de Afiliados
+          </h1>
+          <p className="text-sm text-gray-500 mt-2">
+            Regístrate y gana 30% por cada referido
+          </p>
+        </div>
+      </div>
+
+      <main className="w-full px-4 py-10">
+        <div className="max-w-md mx-auto">
+          {!submitted ? (
+            <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 sm:p-8">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Nombre */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Nombre completo
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nombre}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition disabled:opacity-60"
+                    placeholder="Tu nombre"
+                  />
+                </div>
+
+                {/* Teléfono integrado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    WhatsApp
+                  </label>
+                  <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-orange-200 focus-within:border-orange-400 overflow-hidden bg-white transition">
+                    <select
+                      value={formData.codigoPais}
+                      onChange={(e) => setFormData({ ...formData, codigoPais: e.target.value })}
+                      disabled={loading}
+                      className="px-3 py-2.5 bg-white text-gray-700 border-r border-gray-200 focus:outline-none disabled:opacity-60"
+                    >
+                      <option value="+58">🇻🇪 +58</option>
+                      <option value="+1">🇺🇸 +1</option>
+                      <option value="+57">🇨🇴 +57</option>
+                      <option value="+52">🇲🇽 +52</option>
+                      <option value="+56">🇨🇱 +56</option>
+                      <option value="+54">🇦🇷 +54</option>
+                    </select>
+                    <input
+                      type="tel"
+                      value={formData.numero}
+                      onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none disabled:opacity-60"
+                      placeholder="4121234567"
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition disabled:opacity-60"
+                    placeholder="tu@email.com"
+                  />
+                </div>
+
+                {/* Código de afiliado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Código de afiliado
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.codigo}
+                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toLowerCase() })}
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 transition disabled:opacity-60"
+                    placeholder="ej: juan2024"
+                  />
+                  <div className="mt-1.5 h-4">
+                    {checkingCode && (
+                      <p className="text-xs text-gray-400">Comprobando disponibilidad...</p>
+                    )}
+                    {!checkingCode && codeAvailable === true && (
+                      <p className="text-xs text-green-600">✅ Código disponible</p>
+                    )}
+                    {!checkingCode && codeAvailable === false && (
+                      <p className="text-xs text-red-500">❌ Código en uso</p>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || codeAvailable !== true || checkingCode}
+                  className="w-full py-3 rounded-lg font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  {loading ? 'Procesando...' : 'Registrarme'}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 sm:p-8 text-center">
+              <div className="text-5xl mb-4" style={{ color: primaryColor }}>✓</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                ¡Registro exitoso!
+              </h2>
+              <div className="text-left bg-slate-50 border border-gray-200 rounded-lg p-4 mb-6 space-y-2 text-sm text-gray-700">
+                <div><span className="font-medium text-gray-900">Nombre:</span> {submitted.data.nombre}</div>
+                <div><span className="font-medium text-gray-900">WhatsApp:</span> {submitted.data.codigoPais}{submitted.data.numero}</div>
+                <div><span className="font-medium text-gray-900">Email:</span> {submitted.data.email}</div>
+                <div><span className="font-medium text-gray-900">Código:</span> {submitted.data.codigo}</div>
+                <div className="break-all"><span className="font-medium text-gray-900">Link:</span> {submitted.link}</div>
+              </div>
+              <button
+                onClick={() => setSubmitted(null)}
+                className="w-full py-3 rounded-lg font-semibold text-white transition"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Registrar otro afiliado
+              </button>
+            </div>
+          )}
+
+          <div className="text-center mt-6">
+            <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 transition">
+              ← Volver al catálogo
+            </Link>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+</file>
+
+<file path="src/app/globals.css">
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* Forzar respuesta táctil inmediata y eliminar retrasos en móviles */
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Asegurar que los botones e inputs reciban eventos táctiles sin interferencias */
+button, a, input, select {
+  touch-action: manipulation;
+}
+</file>
+
+<file path="src/app/layout.tsx">
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import CartDrawer from "@/components/CartDrawer";
+import BottomNav from "@/components/BottomNav";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Importadora Todomax",
+  description: "Tienda premium de Mini UPS y tecnología de respaldo de energía",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html
+      lang="es"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-white">
+        <Header />
+        <main className="flex-1 md:pb-0 pb-20">{children}</main>
+        <Footer />
+        <BottomNav />
+        <CartDrawer />
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="next.config.ts">
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      // Cuando vayas a usar las imágenes de tu catálogo local o de tu propio dominio web, 
+      // deberás agregar ese dominio aquí también siguiendo esta misma estructura.
+    ],
+  },
+};
+
+module.exports = nextConfig; 
+// Nota: Si tu archivo se llama next.config.mjs, la última línea debe ser: export default nextConfig;
+</file>
+
+<file path="package.json">
+{
+  "name": "mi-tienda-maestra",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "embla-carousel-autoplay": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "lucide-react": "^1.52.0",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@12.9.1"
+}
+</file>
+
+<file path="src/app/product/[id]/page.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useRouter, useParams } from 'next/navigation';
+import { ShoppingCart, ChevronLeft, ShieldCheck, Truck } from 'lucide-react';
+import { productService } from '@/services/productService';
+import type { Product } from '@/data/products';
+import { siteConfig } from '@/config/site';
+import { notFound } from 'next/navigation';
+import { useCartStore } from '@/store/cartStore';
+
+export default function ProductPage() {
+  const params = useParams();
+  const productId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProduct = async () => {
+      setIsLoading(true);
+      const data = await productService.getProductById(productId || '');
+      setProduct(data || null);
+      setIsLoading(false);
+    };
+    loadProduct();
+  }, [productId]);
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
+  }
+
+  if (!product) {
+    notFound();
+  }
+
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [quantity, setQuantity] = useState(1);
+  const router = useRouter();
+  const { addItem, toggleCart } = useCartStore();
+
+  const handleAddToCart = () => {
+    addItem(
+      {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        image: product.images[0],
+      },
+      quantity
+    );
+    toggleCart();
+  };
+
+  const handleBuyNow = () => {
+    addItem(
+      {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        image: product.images[0],
+      },
+      quantity
+    );
+    router.push('/checkout');
+  };
+
+  return (
+    <div className="min-h-screen bg-white">
+      <main className="w-full px-4 py-6 md:py-10 lg:py-12">
+        <div className="max-w-6xl mx-auto">
+          
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors py-3 px-4 rounded-lg hover:bg-slate-100 mb-6 cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Volver</span>
+          </button>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+            {/* Imagen Principal */}
+            <div className="flex flex-col gap-4">
+              <div className="relative w-full aspect-square overflow-hidden rounded-2xl bg-gray-50 border border-gray-100">
+                <Image
+                  src={product.images[selectedImageIndex]}
+                  alt={product.title}
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              </div>
+
+              {/* Miniaturas */}
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {product.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                      selectedImageIndex === index
+                        ? 'border-orange-500 shadow-xs'
+                        : 'border-gray-200 opacity-70'
+                    }`}
+                  >
+                    <Image
+                      src={image}
+                      alt={`Miniatura ${index + 1}`}
+                      fill
+                      className="object-cover pointer-events-none"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Información del Producto */}
+            <div className="flex flex-col gap-6">
+              <div>
+                <span className="inline-block bg-orange-50 text-orange-600 text-xs font-semibold px-2.5 py-1 rounded-md mb-3">
+                  SKU: {product.id.toUpperCase()}
+                </span>
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
+                  {product.title}
+                </h1>
+              </div>
+
+              <p className="text-4xl font-extrabold text-orange-500">
+                {siteConfig.currencySymbol}{product.price}
+              </p>
+
+              <div className="py-4 border-y border-gray-100">
+                <p className="text-base text-gray-600 leading-relaxed font-light">
+                  {product.description}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-slate-900">Características principales:</h3>
+                <ul className="space-y-2.5">
+                  {product.features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <span className="w-2 h-2 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
+                      <span className="text-gray-700 text-sm md:text-base">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Selector de cantidad */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-700">Cantidad:</label>
+                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-gray-50 w-fit">
+                  <button
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="w-14 h-14 flex items-center justify-center font-bold text-slate-800 hover:bg-gray-200 cursor-pointer text-lg"
+                  >
+                    -
+                  </button>
+                  <span className="w-14 text-center font-bold text-slate-900 text-base">
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity((q) => q + 1)}
+                    className="w-14 h-14 flex items-center justify-center font-bold text-slate-800 hover:bg-gray-200 cursor-pointer text-lg"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Botones de acción principales */}
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={handleAddToCart}
+                  className="w-full py-4 rounded-xl font-bold bg-orange-500 text-white flex items-center justify-center gap-2 hover:bg-orange-600 shadow-sm cursor-pointer active:scale-98 text-base"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  Agregar al Carrito
+                </button>
+
+                <button
+                  onClick={handleBuyNow}
+                  className="w-full py-4 rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800 shadow-sm cursor-pointer active:scale-98 text-base"
+                >
+                  Comprar Ahora
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-6 border-t border-gray-100 text-xs text-gray-600">
+                <div className="flex items-center gap-2.5">
+                  <Truck className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                  <span>Envíos rápidos a nivel nacional</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                  <span>Compra 100% protegida y garantizada</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+</file>
+
+<file path="src/config/site.ts">
+export const siteConfig = {
+  storeName: "Importadora Todomax",
+  currencySymbol: "$",
+  whatsappNumber: "+17543411559", // Reemplaza aquí con el número real de WhatsApp de Sofía/el cliente
+  whatsapp: {
+    number: "+17543411559",
+  },
+};
+</file>
+
+<file path="src/app/page.tsx">
+'use client';
+
+import { useEffect, useState, Suspense, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import type { Product } from '@/data/products';
+import { Smartphone, Headphones, Home as HomeIcon, Gamepad2, Zap, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
+import { HeroCarousel } from '@/components/HeroCarousel';
+import { OffersCarousel } from '@/components/OffersCarousel';
+
+const categories = [
+  { id: 0, name: 'Todos', icon: LayoutGrid },
+  { id: 1, name: 'Phones', icon: Smartphone },
+  { id: 2, name: 'Audio', icon: Headphones },
+  { id: 3, name: 'Smart Home', icon: HomeIcon },
+  { id: 4, name: 'Gaming', icon: Gamepad2 },
+  { id: 5, name: 'Gadgets', icon: Zap },
+];
+
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+
+  // Referencias para las flechas del carrusel en Desktop
+  const trendsRef = useRef<HTMLDivElement>(null);
+  const catalogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      const data = await productService.getProducts();
+      setProducts(data);
+      setFilteredProducts(data);
+    };
+    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCategory === null || selectedCategory === 0) {
+      setFilteredProducts(products);
+    } else {
+      const categoryName = categories.find(c => c.id === selectedCategory)?.name || '';
+      const filtered = products.filter(p => p.category?.toLowerCase() === categoryName.toLowerCase());
+      setFilteredProducts(filtered);
+    }
+  }, [selectedCategory, products]);
+
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      localStorage.setItem('todomax_ref', ref);
+    }
+  }, [searchParams]);
+
+  const getProductsByCategory = (categoryName: string) => {
+    return products.filter(p => p.category?.toLowerCase() === categoryName.toLowerCase()).slice(0, 1);
+  };
+
+  const getCatalogProducts = () => {
+    return products.slice(0, 5);
+  };
+
+  const scrollLeft = (ref: React.RefObject<HTMLDivElement | null>) => {
+    if (ref.current) ref.current.scrollBy({ left: -350, behavior: 'smooth' });
+  };
+
+  const scrollRight = (ref: React.RefObject<HTMLDivElement | null>) => {
+    if (ref.current) ref.current.scrollBy({ left: 350, behavior: 'smooth' });
+  };
+
+  return (
+    <>
+      {/* Mobile View */}
+      <div className="md:hidden bg-white min-h-screen relative pb-24 pt-4">
+        {/* Hero Carousel */}
+        <section className="w-full">
+          <HeroCarousel />
+        </section>
+
+        {/* Categorías Horizontales (Sin línea gris intrusiva) */}
+        <section className="w-full bg-white py-4 px-4">
+          <div className="flex overflow-x-auto gap-4 scrollbar-hide">
+            {categories.map((category) => {
+              const IconComponent = category.icon;
+              const isAll = category.id === 0;
+              return (
+                <Link
+                  key={category.id}
+                  href={isAll ? '/catalogo' : `/catalogo?category=${category.name}`}
+                  onClick={() => setSelectedCategory(isAll ? 0 : category.id)}
+                  className="flex flex-col items-center gap-2 flex-shrink-0 group"
+                >
+                  <div className="p-3 bg-gray-50 rounded-2xl drop-shadow-sm group-hover:drop-shadow-md transition-all duration-300">
+                    <IconComponent className="w-7 h-7 text-slate-800 group-hover:text-orange-500 transition-colors" />
+                  </div>
+                  <span className="text-xs font-semibold text-center text-slate-700">{category.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Últimas Tendencias Carrusel */}
+        <main className="w-full px-4 py-4" id="productos">
+          <h2 className="text-lg font-bold text-slate-900 mb-4">Productos en tendencia</h2>
+
+          {products.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500 font-medium">No hay productos</p>
+            </div>
+          ) : (
+            <div className="flex overflow-x-auto gap-3 snap-x pb-2 scrollbar-hide">
+              {categories.slice(1).map((cat) => {
+                const catProducts = getProductsByCategory(cat.name);
+                return catProducts.map((product) => (
+                  <Link key={product.id} href={`/product/${product.id}`} className="group flex-shrink-0">
+                    <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden hover:shadow-xl hover:border-gray-300 transition-all duration-300 h-full flex flex-col w-[160px] aspect-[9/16]">
+                      <div className="relative w-full flex-1 bg-gray-50 overflow-hidden">
+                        <Image
+                          src={product.images[0]}
+                          alt={product.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-xs">
+                          {product.badge || 'Nuevo'}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col flex-1 p-3">
+                        <h3 className="text-xs font-semibold text-slate-900 mb-2 line-clamp-2 flex-1 group-hover:text-orange-600 transition-colors">
+                          {product.title}
+                        </h3>
+                        <p className="text-sm font-extrabold text-orange-500 mb-2">
+                          {siteConfig.currencySymbol}{product.price}
+                        </p>
+                        <button className="w-full py-1.5 rounded-lg font-bold text-xs bg-slate-900 text-white group-hover:bg-orange-500 transition-colors shadow-xs cursor-pointer">
+                          Ver
+                        </button>
+                      </div>
+                    </div>
+                  </Link>
+                ));
+              })}
+            </div>
+          )}
+        </main>
+
+        {/* Offers Carousel */}
+        <section className="w-full mt-6">
+          <OffersCarousel />
+        </section>
+
+        {/* Catálogo Carrusel */}
+        <section className="w-full px-4 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-slate-900">Catálogo</h2>
+            <Link href="/catalogo" className="text-xs font-bold text-orange-500">Ver todo</Link>
+          </div>
+          <div className="flex overflow-x-auto gap-3 snap-x pb-2 scrollbar-hide">
+            {getCatalogProducts().map((product) => (
+              <Link key={product.id} href={`/product/${product.id}`} className="group flex-shrink-0">
+                <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden hover:shadow-xl hover:border-gray-300 transition-all duration-300 h-full flex flex-col w-[160px] aspect-[9/16]">
+                  <div className="relative w-full flex-1 bg-gray-50 overflow-hidden">
+                    <Image
+                      src={product.images[0]}
+                      alt={product.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-xs">
+                      {product.badge || 'Nuevo'}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col flex-1 p-3">
+                    <h3 className="text-xs font-semibold text-slate-900 mb-2 line-clamp-2 flex-1 group-hover:text-orange-600 transition-colors">
+                      {product.title}
+                    </h3>
+                    <p className="text-sm font-extrabold text-orange-500 mb-2">
+                      {siteConfig.currencySymbol}{product.price}
+                    </p>
+                    <button className="w-full py-1.5 rounded-lg font-bold text-xs bg-slate-900 text-white group-hover:bg-orange-500 transition-colors shadow-xs cursor-pointer">
+                      Ver
+                    </button>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {/* Desktop View */}
+      <div className="hidden md:block bg-slate-50 min-h-screen py-8">
+        <div className="w-full">
+          {/* Hero Carousel */}
+          <section className="w-full mb-12">
+            <HeroCarousel />
+          </section>
+
+          {/* Categorías Grid (Con efectos flotantes de luz e iluminación al pasar el mouse) */}
+          <section className="w-full px-8 mb-16">
+            <h2 className="text-2xl font-bold text-slate-900 mb-8 text-center">Categorías</h2>
+            <div className="flex justify-center gap-16">
+              {categories.map((category) => {
+                const IconComponent = category.icon;
+                const isAll = category.id === 0;
+                return (
+                  <Link
+                    key={category.id}
+                    href={isAll ? '/catalogo' : `/catalogo?category=${category.name}`}
+                    onClick={() => setSelectedCategory(isAll ? 0 : category.id)}
+                    className="flex flex-col items-center gap-4 group cursor-pointer"
+                  >
+                    <div className="p-4 text-slate-900 group-hover:text-orange-500 drop-shadow-md group-hover:drop-shadow-[0_0_20px_rgba(249,115,22,0.8)] group-hover:-translate-y-2 transition-all duration-300">
+                      <IconComponent className="w-12 h-12 transition-colors" strokeWidth={1.5} />
+                    </div>
+                    <span className="text-sm font-bold text-center text-slate-900 group-hover:text-orange-500 transition-colors uppercase tracking-wider">{category.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Últimas Tendencias (Formato 9:16 gigante con flechas de navegación lateral) */}
+          <main className="w-full px-8 mb-16">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">Últimas Tendencias</h2>
+              <Link href="/catalogo" className="text-sm font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1">
+                Ver todo <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-lg">
+                <p className="text-base text-gray-500 font-medium">No hay productos</p>
+              </div>
+            ) : (
+              <div className="relative group">
+                <button onClick={() => scrollLeft(trendsRef)} className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-xl p-4 rounded-full text-slate-900 hover:bg-orange-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+
+                <div ref={trendsRef} className="flex overflow-x-auto gap-6 snap-x pb-4 scrollbar-hide px-2">
+                  {categories.slice(1).map((cat) => {
+                    const catProducts = getProductsByCategory(cat.name);
+                    return catProducts.map((product) => (
+                      <Link key={product.id} href={`/product/${product.id}`} className="group flex-shrink-0 snap-start">
+                        <div className="bg-white border border-gray-200/80 rounded-3xl overflow-hidden hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300 h-full flex flex-col w-[260px] aspect-[9/16]">
+                          <div className="relative w-full flex-1 bg-gray-50 overflow-hidden">
+                            <Image
+                              src={product.images[0]}
+                              alt={product.title}
+                              fill
+                              className="object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-xs">
+                              {product.badge || 'Nuevo'}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col flex-1 p-5 justify-between">
+                            <h3 className="text-sm font-semibold text-slate-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
+                              {product.title}
+                            </h3>
+                            <div>
+                              <p className="text-xl font-extrabold text-orange-500 mb-3">
+                                {siteConfig.currencySymbol}{product.price}
+                              </p>
+                              <button className="w-full py-2.5 rounded-xl font-bold text-sm bg-slate-900 text-white group-hover:bg-orange-500 transition-colors shadow-xs cursor-pointer">
+                                Ver Producto
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ));
+                  })}
+                </div>
+
+                <button onClick={() => scrollRight(trendsRef)} className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-xl p-4 rounded-full text-slate-900 hover:bg-orange-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </div>
+            )}
+          </main>
+
+          {/* Offers Carousel */}
+          <section className="w-full mb-16">
+            <OffersCarousel />
+          </section>
+
+          {/* Catálogo (Formato 9:16 gigante con flechas de navegación lateral) */}
+          <section className="w-full px-8 mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">Catálogo</h2>
+              <Link href="/catalogo" className="text-sm font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1">
+                Ver catálogo completo <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            <div className="relative group">
+              <button onClick={() => scrollLeft(catalogRef)} className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-xl p-4 rounded-full text-slate-900 hover:bg-orange-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+
+              <div ref={catalogRef} className="flex overflow-x-auto gap-6 snap-x pb-4 scrollbar-hide px-2">
+                {getCatalogProducts().map((product) => (
+                  <Link key={product.id} href={`/product/${product.id}`} className="group flex-shrink-0 snap-start">
+                    <div className="bg-white border border-gray-200/80 rounded-3xl overflow-hidden hover:shadow-2xl hover:shadow-orange-500/20 transition-all duration-300 h-full flex flex-col w-[260px] aspect-[9/16]">
+                      <div className="relative w-full flex-1 bg-gray-50 overflow-hidden">
+                        <Image
+                          src={product.images[0]}
+                          alt={product.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-3 left-3 bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-xs">
+                          {product.badge || 'Nuevo'}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col flex-1 p-5 justify-between">
+                        <h3 className="text-sm font-semibold text-slate-900 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
+                          {product.title}
+                        </h3>
+                        <div>
+                          <p className="text-xl font-extrabold text-orange-500 mb-3">
+                            {siteConfig.currencySymbol}{product.price}
+                          </p>
+                          <button className="w-full py-2.5 rounded-xl font-bold text-sm bg-slate-900 text-white group-hover:bg-orange-500 transition-colors shadow-xs cursor-pointer">
+                            Ver Producto
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <button onClick={() => scrollRight(catalogRef)} className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-xl p-4 rounded-full text-slate-900 hover:bg-orange-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Cargando...</div>}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+</file>
+
+</files>
