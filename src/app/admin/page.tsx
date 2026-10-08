@@ -137,10 +137,10 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-slate-100 pb-20">
       {/* Header del Admin */}
-      <header className="bg-white border-b border-slate-200 py-4 px-6 flex justify-between items-center shadow-sm sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-extrabold text-slate-900">Admin - {storeName}</h1>
-          <span className="bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-full">Modo Autonomía Total</span>
+      <header className="bg-white border-b border-slate-200 py-4 px-4 md:px-6 flex flex-wrap justify-between items-center gap-4 shadow-sm sticky top-0 z-50">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+          <h1 className="text-lg md:text-xl font-extrabold text-slate-950 whitespace-nowrap">Admin - {storeName}</h1>
+          <span className="bg-orange-100 text-orange-700 text-[10px] md:text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap">Modo Autonomía Total</span>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-orange-500">Ver Tienda en Vivo</Link>
