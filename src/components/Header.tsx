@@ -67,6 +67,11 @@ function HeaderContent() {
     setTimeout(() => setShowNotification(false), 3000);
   };
 
+  // Ocultar por completo el header público si estamos dentro del admin
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   return (
     <>
       <header className={`fixed top-3 left-0 right-0 z-[100] w-full pointer-events-none transition-transform duration-300 ${!isHeaderVisible ? '-translate-y-[250%]' : 'translate-y-0'}`}>

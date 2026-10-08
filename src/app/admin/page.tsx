@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Lock, ArrowLeft, CheckCircle, Image as ImageIcon, Settings, ShoppingBag, Layers, Sliders } from 'lucide-react';
 import Link from 'next/link';
+import { products as initialStoreProducts } from '@/data/products';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -51,20 +52,20 @@ export default function AdminPage() {
     if (localStorage.getItem('admin_auth') === 'true') {
       setIsAuthenticated(true);
     }
-    // Cargar datos iniciales o desde localStorage si existen
-    const savedProducts = localStorage.getItem('admin_products');
-    if (savedProducts) setProducts(JSON.parse(savedProducts));
-    else {
-      setProducts([
-        { id: 1, title: 'Taladro Inalámbrico Profesional', price: 45.00, category: 'Herramientas', images: ['/products/taladro1.jpg', '', '', ''] },
-        { id: 2, title: 'Set de Llaves Allen', price: 15.00, category: 'Herramientas', images: ['/products/llaves1.jpg', '', '', ''] }
-      ]);
+    // Cargar los productos guardados o mostrar el catálogo real de la tienda
+    const savedProducts = localStorage.getItem('store_products');
+    if (savedProducts) {
+      setProducts(JSON.parse(savedProducts));
+    } else {
+      // Usa directamente los productos reales importados desde data/products
+      setProducts(initialStoreProducts);
+      localStorage.setItem('store_products', JSON.stringify(initialStoreProducts));
     }
   }, []);
 
   const saveProductsToStorage = (updatedProducts: any[]) => {
     setProducts(updatedProducts);
-    localStorage.setItem('admin_products', JSON.stringify(updatedProducts));
+    localStorage.setItem('store_products', JSON.stringify(updatedProducts));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
