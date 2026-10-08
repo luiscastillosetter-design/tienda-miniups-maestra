@@ -20,7 +20,8 @@ export default function AdminPage() {
   const [productForm, setProductForm] = useState({
     title: '',
     price: '',
-    category: 'General',
+    category: 'Smart Home',
+    description: '',
     images: ['', '', '', '']
   });
 
@@ -168,19 +169,27 @@ export default function AdminPage() {
     if (editingProductId) {
       const updated = products.map(p =>
         p.id === editingProductId
-          ? { ...p, title: productForm.title, price: productForm.price, category: productForm.category, images: productForm.images.filter(img => img !== '') }
+          ? {
+              ...p,
+              title: productForm.title,
+              price: productForm.price,
+              category: productForm.category,
+              description: productForm.description,
+              images: productForm.images.filter(img => img !== '')
+            }
           : p
       );
       setProducts(updated);
       localStorage.setItem('store_products', JSON.stringify(updated));
       setEditingProductId(null);
-      showNotification('¡Producto actualizado con éxito!');
+      showNotification('¡Producto y descripción actualizados con éxito!');
     } else {
       const newItem = {
         id: Date.now(),
         title: productForm.title,
         price: productForm.price,
         category: productForm.category,
+        description: productForm.description,
         images: productForm.images.filter(img => img !== ''),
       };
       const updated = [newItem, ...products];
@@ -188,7 +197,7 @@ export default function AdminPage() {
       localStorage.setItem('store_products', JSON.stringify(updated));
       showNotification('¡Producto agregado con éxito!');
     }
-    setProductForm({ title: '', price: '', category: 'General', images: ['', '', '', ''] });
+    setProductForm({ title: '', price: '', category: 'Smart Home', description: '', images: ['', '', '', ''] });
   };
 
   const startEditProduct = (product: any) => {
@@ -198,7 +207,8 @@ export default function AdminPage() {
     setProductForm({
       title: product.title || '',
       price: product.price?.toString() || '',
-      category: product.category || 'General',
+      category: product.category || 'Smart Home',
+      description: product.description || '',
       images: existingImgs,
     });
   };
@@ -207,7 +217,10 @@ export default function AdminPage() {
     const updated = products.filter(p => p.id !== id);
     setProducts(updated);
     localStorage.setItem('store_products', JSON.stringify(updated));
-    if (editingProductId === id) setEditingProductId(null);
+    if (editingProductId === id) {
+      setEditingProductId(null);
+      setProductForm({ title: '', price: '', category: 'Smart Home', description: '', images: ['', '', '', ''] });
+    }
   };
 
   // --- CRUD: HERO ---
@@ -362,6 +375,9 @@ export default function AdminPage() {
     if (editingCategoryId === id) setEditingCategoryId(null);
   };
 
+  // Categorías seleccionables para los productos (excluyendo "Todos")
+  const productCategoryOptions = categories.filter(c => c.id !== 'Todos');
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
@@ -469,7 +485,10 @@ export default function AdminPage() {
                 </h2>
                 {editingProductId && (
                   <button
-                    onClick={() => { setEditingProductId(null); setProductForm({ title: '', price: '', category: 'General', images: ['', '', '', ''] }); }}
+                    onClick={() => {
+                      setEditingProductId(null);
+                      setProductForm({ title: '', price: '', category: 'Smart Home', description: '', images: ['', '', '', ''] });
+                    }}
                     className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold"
                   >
                     <X size={14} /> Cancelar
@@ -483,10 +502,12 @@ export default function AdminPage() {
                     type="text"
                     value={productForm.title}
                     onChange={(e) => setProductForm({ ...productForm, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500 font-semibold"
+                    placeholder="Ej. Mini UPS Smart 12V..."
                     required
                   />
                 </div>
+                
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Precio ($)</label>
@@ -494,19 +515,46 @@ export default function AdminPage() {
                       type="text"
                       value={productForm.price}
                       onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500 font-semibold"
+                      placeholder="35"
                       required
                     />
                   </div>
+
+                  {/* SELECTOR DE CATEGORÍAS REALES */}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Categoría</label>
-                    <input
-                      type="text"
+                    <select
                       value={productForm.category}
                       onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500"
-                    />
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:border-orange-500 font-semibold cursor-pointer"
+                    >
+                      {productCategoryOptions.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name} ({cat.id})
+                        </option>
+                      ))}
+                      {/* Preserva categoría previa si no coincide exactamente */}
+                      {productForm.category && !productCategoryOptions.some(c => c.id === productForm.category) && (
+                        <option value={productForm.category}>{productForm.category}</option>
+                      )}
+                    </select>
                   </div>
+                </div>
+
+                {/* DESCRIPCIÓN PERSUASIVA PARA LA LANDING */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">
+                    Descripción Persuasiva (Copy / Beneficios)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={productForm.description}
+                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                    placeholder="Escribe el texto persuasivo que saldrá en la página del producto para cerrar más ventas..."
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500 font-normal leading-relaxed"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Se verá reflejado en la página de detalles del producto.</span>
                 </div>
 
                 <div>
@@ -540,7 +588,7 @@ export default function AdminPage() {
                               onChange={(e) => handleImageUpload(e, (url) => {
                                 const updated = [...productForm.images];
                                 updated[index] = url;
-                                setProductForm({ ...productForm, images: updated });
+                                setNewProductFormImages(updated);
                               })}
                             />
                           </label>
@@ -676,7 +724,7 @@ export default function AdminPage() {
                         <span className="absolute bottom-0 right-0 bg-slate-900 text-white text-[9px] px-1 rounded">PC</span>
                       </div>
                       <div className="relative">
-                        <img src={slide.mobileImg || slide.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border" />
+                        <img src={slide.mobileImg || slide.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border shadow-xs" />
                         <span className="absolute bottom-0 right-0 bg-orange-600 text-white text-[9px] px-1 rounded">Móvil</span>
                       </div>
                       <div>
@@ -789,11 +837,11 @@ export default function AdminPage() {
                   <div key={offer.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img src={offer.desktopImg} alt="Desktop" className="w-20 h-12 object-cover rounded-lg border" />
+                        <img src={offer.desktopImg} alt="Desktop" className="w-20 h-12 object-cover rounded-lg border shadow-xs" />
                         <span className="absolute bottom-0 right-0 bg-slate-900 text-white text-[9px] px-1 rounded">PC</span>
                       </div>
                       <div className="relative">
-                        <img src={offer.mobileImg || offer.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border" />
+                        <img src={offer.mobileImg || offer.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border shadow-xs" />
                         <span className="absolute bottom-0 right-0 bg-orange-600 text-white text-[9px] px-1 rounded">Móvil</span>
                       </div>
                       <div>
@@ -955,4 +1003,8 @@ export default function AdminPage() {
       </div>
     </main>
   );
+
+  function setNewProductFormImages(updated: string[]) {
+    setProductForm({ ...productForm, images: updated });
+  }
 }
