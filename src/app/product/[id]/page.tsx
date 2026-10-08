@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
-import { ShoppingCart, ChevronLeft, ShieldCheck, Truck } from 'lucide-react';
+import { ShoppingCart, ChevronLeft, ShieldCheck, Truck, Play } from 'lucide-react';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
@@ -11,7 +11,6 @@ import { notFound } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 
 export default function ProductPage() {
-  // 1. TODOS LOS HOOKS ARRIBA (Regla estricta de React)
   const params = useParams();
   const productId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   
@@ -23,18 +22,37 @@ export default function ProductPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
-  // 2. EFECTOS
+  // Cargar datos: primero busca los datos actualizados del Admin (localStorage)
   useEffect(() => {
     const loadProduct = async () => {
       setIsLoading(true);
+
+      if (typeof window !== 'undefined') {
+        const savedProductsStr = localStorage.getItem('store_products');
+        if (savedProductsStr) {
+          try {
+            const savedProducts = JSON.parse(savedProductsStr);
+            const foundProduct = savedProducts.find((p: any) => String(p.id) === String(productId));
+            if (foundProduct) {
+              setProduct(foundProduct);
+              setIsLoading(false);
+              return;
+            }
+          } catch (error) {
+            console.error('Error al leer productos de localStorage:', error);
+          }
+        }
+      }
+
+      // Si no está en memoria, cargar desde el servicio base
       const data = await productService.getProductById(productId || '');
       setProduct(data || null);
       setIsLoading(false);
     };
+
     loadProduct();
   }, [productId]);
 
-  // 3. CONDICIONALES (Siempre deben ir debajo de todos los Hooks)
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
   }
@@ -43,7 +61,14 @@ export default function ProductPage() {
     notFound();
   }
 
-  // 4. FUNCIONES DE ACCIÓN
+  // Verifica si el archivo es un video MP4
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
+  const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0] || '';
+
   const handleAddToCart = () => {
     addItem(
       {
@@ -70,7 +95,6 @@ export default function ProductPage() {
     router.push('/checkout');
   };
 
-  // 5. RENDERIZADO VISUAL
   return (
     <div className="min-h-screen bg-white">
       <main className="w-full px-4 py-6 md:py-10 lg:py-12">
@@ -85,39 +109,67 @@ export default function ProductPage() {
           </button>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-            {/* Imagen Principal */}
+            
+            {/* Visualizador Multimedia Principal */}
             <div className="flex flex-col gap-4">
-              <div className="relative w-full aspect-square overflow-hidden rounded-2xl bg-[#F8FAFC] border border-gray-100">
-                <Image
-                  src={product.images[selectedImageIndex]}
-                  alt={product.title}
-                  fill
-                  className="object-cover mix-blend-multiply"
-                  priority
-                />
+              <div className="relative w-full aspect-square overflow-hidden rounded-2xl bg-[#F8FAFC] border border-gray-100 flex items-center justify-center">
+                {isVideo(currentMedia) ? (
+                  <video
+                    src={currentMedia}
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover rounded-2xl"
+                  />
+                ) : (
+                  <Image
+                    src={currentMedia}
+                    alt={product.title}
+                    fill
+                    className="object-cover mix-blend-multiply"
+                    priority
+                  />
+                )}
               </div>
 
-              {/* Miniaturas */}
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                {product.images.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-[#F8FAFC] ${
-                      selectedImageIndex === index
-                        ? 'border-orange-500 shadow-sm'
-                        : 'border-transparent opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <Image
-                      src={image}
-                      alt={`Miniatura ${index + 1}`}
-                      fill
-                      className="object-cover pointer-events-none mix-blend-multiply"
-                    />
-                  </button>
-                ))}
-              </div>
+              {/* Galería de Miniaturas */}
+              {product.images && product.images.length > 1 && (
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  {product.images.map((media, index) => {
+                    const isMediaVideo = isVideo(media);
+
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImageIndex(index)}
+                        className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-[#F8FAFC] ${
+                          selectedImageIndex === index
+                            ? 'border-orange-500 shadow-sm'
+                            : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        {isMediaVideo ? (
+                          <div className="w-full h-full bg-slate-900 flex items-center justify-center relative">
+                            <video src={media} className="w-full h-full object-cover pointer-events-none" muted />
+                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                              <Play size={16} className="text-white fill-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <Image
+                            src={media}
+                            alt={`Miniatura ${index + 1}`}
+                            fill
+                            className="object-cover pointer-events-none mix-blend-multiply"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Información del Producto */}
@@ -135,23 +187,29 @@ export default function ProductPage() {
                 {siteConfig.currencySymbol}{product.price}
               </p>
 
-              <div className="py-4 border-y border-gray-100">
-                <p className="text-base text-gray-600 leading-relaxed font-medium">
-                  {product.description}
-                </p>
-              </div>
+              {/* Descripción persuasiva */}
+              {product.description && (
+                <div className="py-4 border-y border-gray-100">
+                  <p className="text-base text-gray-600 leading-relaxed font-medium whitespace-pre-line">
+                    {product.description}
+                  </p>
+                </div>
+              )}
 
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Características principales:</h3>
-                <ul className="space-y-2.5">
-                  {product.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
-                      <span className="text-slate-600 text-sm md:text-base font-medium">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {/* Lista dinámica de características principales */}
+              {product.features && product.features.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Características principales:</h3>
+                  <ul className="space-y-2.5">
+                    {product.features.map((feature, index) => (
+                      <li key={index} className="flex items-start gap-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
+                        <span className="text-slate-600 text-sm md:text-base font-medium">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Selector de cantidad */}
               <div className="space-y-2 pt-2">
@@ -175,7 +233,7 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* Botones de acción principales */}
+              {/* Botones de acción */}
               <div className="space-y-3 pt-4">
                 <button
                   onClick={handleAddToCart}

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Pencil, X, Lock, ArrowLeft, CheckCircle, Image as ImageIcon, Settings, ShoppingBag, Layers, Sliders, Zap } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Lock, ArrowLeft, CheckCircle, Image as ImageIcon, Video, Settings, ShoppingBag, Layers, Sliders, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { products as initialStoreProducts } from '@/data/products';
 
@@ -22,6 +22,7 @@ export default function AdminPage() {
     price: '',
     category: 'Smart Home',
     description: '',
+    features: '',
     images: ['', '', '', '']
   });
 
@@ -152,7 +153,7 @@ export default function AdminPage() {
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
+  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -161,13 +162,24 @@ export default function AdminPage() {
     }
   };
 
-  // --- CRUD: PRODUCTOS ---
+  const isVideoSource = (url: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
+  // --- CRUD PRODUCTOS ---
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!productForm.title || !productForm.price) return;
 
+    // Convertir características escritas por línea en un array
+    const parsedFeatures = productForm.features
+      .split('\n')
+      .map((f) => f.trim())
+      .filter(Boolean);
+
     if (editingProductId) {
-      const updated = products.map(p =>
+      const updated = products.map((p) =>
         p.id === editingProductId
           ? {
               ...p,
@@ -175,14 +187,15 @@ export default function AdminPage() {
               price: productForm.price,
               category: productForm.category,
               description: productForm.description,
-              images: productForm.images.filter(img => img !== '')
+              features: parsedFeatures,
+              images: productForm.images.filter((img) => img.trim() !== ''),
             }
           : p
       );
       setProducts(updated);
       localStorage.setItem('store_products', JSON.stringify(updated));
       setEditingProductId(null);
-      showNotification('¡Producto y descripción actualizados con éxito!');
+      showNotification('¡Producto y características actualizados con éxito!');
     } else {
       const newItem = {
         id: Date.now(),
@@ -190,49 +203,74 @@ export default function AdminPage() {
         price: productForm.price,
         category: productForm.category,
         description: productForm.description,
-        images: productForm.images.filter(img => img !== ''),
+        features: parsedFeatures,
+        images: productForm.images.filter((img) => img.trim() !== ''),
       };
       const updated = [newItem, ...products];
       setProducts(updated);
       localStorage.setItem('store_products', JSON.stringify(updated));
-      showNotification('¡Producto agregado con éxito!');
+      showNotification('¡Producto agregado al catálogo!');
     }
-    setProductForm({ title: '', price: '', category: 'Smart Home', description: '', images: ['', '', '', ''] });
+
+    setProductForm({
+      title: '',
+      price: '',
+      category: 'Smart Home',
+      description: '',
+      features: '',
+      images: ['', '', '', ''],
+    });
   };
 
   const startEditProduct = (product: any) => {
     setEditingProductId(product.id);
     const existingImgs = [...(product.images || [])];
     while (existingImgs.length < 4) existingImgs.push('');
+
+    // Pre-cargar características en el textarea
+    let feats = '';
+    if (Array.isArray(product.features)) {
+      feats = product.features.join('\n');
+    } else if (typeof product.features === 'string') {
+      feats = product.features;
+    }
+
     setProductForm({
       title: product.title || '',
       price: product.price?.toString() || '',
       category: product.category || 'Smart Home',
       description: product.description || '',
+      features: feats,
       images: existingImgs,
     });
   };
 
   const handleDeleteProduct = (id: any) => {
-    const updated = products.filter(p => p.id !== id);
+    const updated = products.filter((p) => p.id !== id);
     setProducts(updated);
     localStorage.setItem('store_products', JSON.stringify(updated));
     if (editingProductId === id) {
       setEditingProductId(null);
-      setProductForm({ title: '', price: '', category: 'Smart Home', description: '', images: ['', '', '', ''] });
+      setProductForm({
+        title: '',
+        price: '',
+        category: 'Smart Home',
+        description: '',
+        features: '',
+        images: ['', '', '', ''],
+      });
     }
   };
 
-  // --- CRUD: HERO ---
+  // --- CRUD HERO ---
   const handleSaveHero = (e: React.FormEvent) => {
     e.preventDefault();
     if (!heroForm.desktopImg) {
       showNotification('Debes asignar la imagen para ordenador');
       return;
     }
-
     if (editingHeroId) {
-      const updated = heroSlides.map(s =>
+      const updated = heroSlides.map((s) =>
         s.id === editingHeroId
           ? { ...s, title: heroForm.title, btnLink: heroForm.btnLink, desktopImg: heroForm.desktopImg, mobileImg: heroForm.mobileImg || heroForm.desktopImg }
           : s
@@ -268,22 +306,21 @@ export default function AdminPage() {
   };
 
   const handleDeleteHero = (id: any) => {
-    const updated = heroSlides.filter(s => s.id !== id);
+    const updated = heroSlides.filter((s) => s.id !== id);
     setHeroSlides(updated);
     localStorage.setItem('store_hero_slides', JSON.stringify(updated));
     if (editingHeroId === id) setEditingHeroId(null);
   };
 
-  // --- CRUD: OFERTAS ---
+  // --- CRUD OFERTAS ---
   const handleSaveOffer = (e: React.FormEvent) => {
     e.preventDefault();
     if (!offerForm.desktopImg) {
       showNotification('Debes asignar la imagen para ordenador');
       return;
     }
-
     if (editingOfferId) {
-      const updated = offers.map(o =>
+      const updated = offers.map((o) =>
         o.id === editingOfferId
           ? { ...o, title: offerForm.title, description: offerForm.description, btnLink: offerForm.btnLink, desktopImg: offerForm.desktopImg, mobileImg: offerForm.mobileImg || offerForm.desktopImg }
           : o
@@ -321,22 +358,21 @@ export default function AdminPage() {
   };
 
   const handleDeleteOffer = (id: any) => {
-    const updated = offers.filter(o => o.id !== id);
+    const updated = offers.filter((o) => o.id !== id);
     setOffers(updated);
     localStorage.setItem('store_offers', JSON.stringify(updated));
     if (editingOfferId === id) setEditingOfferId(null);
   };
 
-  // --- CRUD: CATEGORÍAS ---
+  // --- CRUD CATEGORÍAS ---
   const handleSaveCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryForm.name || !categoryForm.image) {
       showNotification('Ingresa nombre y sube la imagen');
       return;
     }
-
     if (editingCategoryId) {
-      const updated = categories.map(c =>
+      const updated = categories.map((c) =>
         c.id === editingCategoryId
           ? { ...c, name: categoryForm.name, image: categoryForm.image }
           : c
@@ -369,14 +405,13 @@ export default function AdminPage() {
   };
 
   const handleDeleteCategory = (id: any) => {
-    const updated = categories.filter(c => c.id !== id);
+    const updated = categories.filter((c) => c.id !== id);
     setCategories(updated);
     localStorage.setItem('store_categories', JSON.stringify(updated));
     if (editingCategoryId === id) setEditingCategoryId(null);
   };
 
-  // Categorías seleccionables para los productos (excluyendo "Todos")
-  const productCategoryOptions = categories.filter(c => c.id !== 'Todos');
+  const productCategoryOptions = categories.filter((c) => c.id !== 'Todos');
 
   if (!isAuthenticated) {
     return (
@@ -474,7 +509,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* 1. PRODUCTOS */}
+        {/* 1. SECCIÓN PRODUCTOS */}
         {activeTab === 'products' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
@@ -487,7 +522,7 @@ export default function AdminPage() {
                   <button
                     onClick={() => {
                       setEditingProductId(null);
-                      setProductForm({ title: '', price: '', category: 'Smart Home', description: '', images: ['', '', '', ''] });
+                      setProductForm({ title: '', price: '', category: 'Smart Home', description: '', features: '', images: ['', '', '', ''] });
                     }}
                     className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold"
                   >
@@ -521,7 +556,6 @@ export default function AdminPage() {
                     />
                   </div>
 
-                  {/* SELECTOR DE CATEGORÍAS REALES */}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Categoría</label>
                     <select
@@ -534,67 +568,111 @@ export default function AdminPage() {
                           {cat.name} ({cat.id})
                         </option>
                       ))}
-                      {/* Preserva categoría previa si no coincide exactamente */}
-                      {productForm.category && !productCategoryOptions.some(c => c.id === productForm.category) && (
-                        <option value={productForm.category}>{productForm.category}</option>
-                      )}
                     </select>
                   </div>
                 </div>
 
-                {/* DESCRIPCIÓN PERSUASIVA PARA LA LANDING */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">
-                    Descripción Persuasiva (Copy / Beneficios)
-                  </label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Descripción Persuasiva (Landing)</label>
                   <textarea
-                    rows={4}
+                    rows={3}
                     value={productForm.description}
                     onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    placeholder="Escribe el texto persuasivo que saldrá en la página del producto para cerrar más ventas..."
+                    placeholder="Escribe el copy persuasivo del producto..."
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500 font-normal leading-relaxed"
                   />
-                  <span className="text-[10px] text-slate-400 block mt-0.5">Se verá reflejado en la página de detalles del producto.</span>
                 </div>
 
+                {/* CARACTERÍSTICAS PRINCIPALES */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-2 uppercase">Imágenes del Producto (Hasta 4)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">
+                    Características Principales (1 por línea)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={productForm.features}
+                    onChange={(e) => setProductForm({ ...productForm, features: e.target.value })}
+                    placeholder="Batería de larga duración&#10;Compatible con routers de 12V&#10;Garantía directa de 1 año"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-orange-500 font-normal leading-relaxed"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Cada salto de línea creará una viñeta con punto naranja en la landing.</span>
+                </div>
+
+                {/* 4 SLOTS MULTIMEDIA: FOTO O VIDEO MP4 */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">
+                    Multimedia (Hasta 4 Fotos o Videos MP4)
+                  </label>
+                  
                   <div className="grid grid-cols-2 gap-3">
-                    {[0, 1, 2, 3].map((index) => (
-                      <div key={index} className="border border-dashed border-slate-300 p-2 rounded-xl text-center relative bg-slate-50 hover:bg-slate-100 transition-colors">
-                        {productForm.images[index] ? (
-                          <div className="relative h-20 w-full">
-                            <img src={productForm.images[index]} alt={`Preview ${index}`} className="h-20 w-full object-cover rounded-lg" />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = [...productForm.images];
-                                updated[index] = '';
-                                setProductForm({ ...productForm, images: updated });
-                              }}
-                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="cursor-pointer flex flex-col items-center justify-center h-20">
-                            <ImageIcon size={20} className="text-slate-400 mb-1" />
-                            <span className="text-[10px] text-slate-500 font-semibold">Imagen {index + 1}</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleImageUpload(e, (url) => {
-                                const updated = [...productForm.images];
-                                updated[index] = url;
-                                setNewProductFormImages(updated);
-                              })}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    ))}
+                    {[0, 1, 2, 3].map((index) => {
+                      const media = productForm.images[index];
+                      const isVideo = isVideoSource(media);
+
+                      return (
+                        <div key={index} className="border border-dashed border-slate-300 p-2 rounded-xl text-center relative bg-slate-50 hover:bg-slate-100 transition-colors">
+                          {media ? (
+                            <div className="relative h-24 w-full rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
+                              {isVideo ? (
+                                <video src={media} className="h-full w-full object-cover" muted autoPlay loop playsInline />
+                              ) : (
+                                <img src={media} alt={`Preview ${index}`} className="h-full w-full object-cover" />
+                              )}
+                              
+                              <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">
+                                {isVideo ? 'Video' : 'Foto'}
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...productForm.images];
+                                  updated[index] = '';
+                                  setProductForm({ ...productForm, images: updated });
+                                }}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs z-10"
+                                title="Eliminar"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-24 space-y-1">
+                              <label className="cursor-pointer flex flex-col items-center">
+                                <div className="flex items-center gap-1 text-slate-400">
+                                  <ImageIcon size={16} />
+                                  <Video size={16} />
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Subir Foto/MP4</span>
+                                <input
+                                  type="file"
+                                  accept="image/*,video/mp4"
+                                  className="hidden"
+                                  onChange={(e) => handleMediaUpload(e, (url) => {
+                                    const updated = [...productForm.images];
+                                    updated[index] = url;
+                                    setProductForm({ ...productForm, images: updated });
+                                  })}
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="o ruta /products/.."
+                                onBlur={(e) => {
+                                  if (e.target.value.trim() !== '') {
+                                    const updated = [...productForm.images];
+                                    updated[index] = e.target.value.trim();
+                                    setProductForm({ ...productForm, images: updated });
+                                    e.target.value = '';
+                                  }
+                                }}
+                                className="w-full text-[10px] px-1 py-0.5 border rounded bg-white text-center"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -610,44 +688,55 @@ export default function AdminPage() {
             <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-4">Inventario Actual ({products.length})</h2>
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                {products.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.title} className="w-12 h-12 object-cover rounded-lg border bg-white" />
-                      ) : (
-                        <div className="w-12 h-12 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-xs">Sin Foto</div>
-                      )}
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-sm">{product.title}</h3>
-                        <p className="text-xs text-slate-500">${product.price} • <span className="text-orange-600 font-semibold">{product.category}</span></p>
-                        <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{product.images?.filter(Boolean).length || 0} imágenes</span>
+                {products.map((product) => {
+                  const firstMedia = product.images?.[0];
+                  const isFirstVideo = isVideoSource(firstMedia);
+
+                  return (
+                    <div key={product.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex items-center gap-3">
+                        {firstMedia ? (
+                          isFirstVideo ? (
+                            <div className="w-12 h-12 rounded-lg bg-black overflow-hidden flex items-center justify-center border">
+                              <video src={firstMedia} className="w-full h-full object-cover" muted />
+                            </div>
+                          ) : (
+                            <img src={firstMedia} alt={product.title} className="w-12 h-12 object-cover rounded-lg border bg-white" />
+                          )
+                        ) : (
+                          <div className="w-12 h-12 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-xs">Sin Foto</div>
+                        )}
+                        <div>
+                          <h3 className="font-bold text-slate-800 text-sm">{product.title}</h3>
+                          <p className="text-xs text-slate-500">${product.price} • <span className="text-orange-600 font-semibold">{product.category}</span></p>
+                          <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{product.images?.filter(Boolean).length || 0} archivos multimedia</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => startEditProduct(product)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Editar producto"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Eliminar producto"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => startEditProduct(product)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Editar producto"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(product.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Eliminar producto"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {/* 2. HERO */}
+        {/* 2. CARRUSEL HERO */}
         {activeTab === 'hero' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
@@ -690,7 +779,7 @@ export default function AdminPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, (url) => setHeroForm({ ...heroForm, desktopImg: url }))}
+                    onChange={(e) => handleMediaUpload(e, (url) => setHeroForm({ ...heroForm, desktopImg: url }))}
                     className="text-xs w-full"
                   />
                 </div>
@@ -700,7 +789,7 @@ export default function AdminPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, (url) => setHeroForm({ ...heroForm, mobileImg: url }))}
+                    onChange={(e) => handleMediaUpload(e, (url) => setHeroForm({ ...heroForm, mobileImg: url }))}
                     className="text-xs w-full"
                   />
                 </div>
@@ -755,7 +844,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* 3. OFERTAS */}
+        {/* 3. CARRUSEL OFERTAS */}
         {activeTab === 'ofertas' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
@@ -807,7 +896,7 @@ export default function AdminPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, (url) => setOfferForm({ ...offerForm, desktopImg: url }))}
+                    onChange={(e) => handleMediaUpload(e, (url) => setOfferForm({ ...offerForm, desktopImg: url }))}
                     className="text-xs w-full"
                   />
                 </div>
@@ -817,7 +906,7 @@ export default function AdminPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, (url) => setOfferForm({ ...offerForm, mobileImg: url }))}
+                    onChange={(e) => handleMediaUpload(e, (url) => setOfferForm({ ...offerForm, mobileImg: url }))}
                     className="text-xs w-full"
                   />
                 </div>
@@ -917,7 +1006,7 @@ export default function AdminPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, (url) => setCategoryForm({ ...categoryForm, image: url }))}
+                    onChange={(e) => handleMediaUpload(e, (url) => setCategoryForm({ ...categoryForm, image: url }))}
                     className="text-xs w-full"
                   />
                 </div>
@@ -986,7 +1075,7 @@ export default function AdminPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, (url) => setLogoUrl(url))}
+                    onChange={(e) => handleMediaUpload(e, (url) => setLogoUrl(url))}
                     className="text-xs"
                   />
                 </div>
@@ -1003,8 +1092,4 @@ export default function AdminPage() {
       </div>
     </main>
   );
-
-  function setNewProductFormImages(updated: string[]) {
-    setProductForm({ ...productForm, images: updated });
-  }
 }
