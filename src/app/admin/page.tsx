@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Lock, ArrowLeft, CheckCircle, Image as ImageIcon, Settings, ShoppingBag, Layers, Sliders, Tag, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Lock, ArrowLeft, CheckCircle, Image as ImageIcon, Settings, ShoppingBag, Layers, Sliders, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { products as initialStoreProducts } from '@/data/products';
 
@@ -100,7 +100,7 @@ export default function AdminPage() {
       setIsAuthenticated(true);
       localStorage.setItem('admin_auth', 'true');
     } else {
-      alert('Contraseña incorrecta. Utilice Admin1234.');
+      showNotification('Contraseña incorrecta. Utilice Admin1234.');
     }
   };
 
@@ -167,7 +167,7 @@ export default function AdminPage() {
     const item = {
       id: Date.now(),
       title: newProduct.title,
-      price: parseFloat(newProduct.price),
+      price: newProduct.price,
       category: newProduct.category,
       images: newProduct.images.filter(img => img !== ''),
     };
@@ -187,7 +187,10 @@ export default function AdminPage() {
   // Manejadores de Hero
   const handleAddHero = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newHero.desktopImg) return alert('Debes cargar al menos la imagen de ordenador');
+    if (!newHero.desktopImg) {
+      showNotification('Debes cargar al menos la imagen de ordenador');
+      return;
+    }
     const item = {
       id: Date.now(),
       title: newHero.title || `Banner ${heroSlides.length + 1}`,
@@ -211,7 +214,10 @@ export default function AdminPage() {
   // Manejadores de Ofertas
   const handleAddOffer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOffer.desktopImg) return alert('Debes cargar al menos la imagen de ordenador');
+    if (!newOffer.desktopImg) {
+      showNotification('Debes cargar al menos la imagen de ordenador');
+      return;
+    }
     const item = {
       id: Date.now(),
       title: newOffer.title || `Oferta ${offers.length + 1}`,
@@ -236,7 +242,10 @@ export default function AdminPage() {
   // Manejadores de Categorías
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategory.name || !newCategory.image) return alert('Ingresa el nombre y sube una imagen');
+    if (!newCategory.name || !newCategory.image) {
+      showNotification('Ingresa el nombre y sube una imagen');
+      return;
+    }
     const item = {
       id: newCategory.id || newCategory.name,
       name: newCategory.name,
@@ -327,7 +336,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab('ofertas')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'ofertas' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
           >
-            <Tag size={18} /> Carrusel Ofertas ({offers.length})
+            <Zap size={18} /> Carrusel Ofertas ({offers.length})
           </button>
           <button
             onClick={() => setActiveTab('categories')}
@@ -459,7 +468,7 @@ export default function AdminPage() {
                       )}
                       <div>
                         <h3 className="font-bold text-slate-800 text-sm">{product.title}</h3>
-                        <p className="text-xs text-slate-500">${product.price?.toFixed(2)} • <span className="text-orange-600 font-semibold">{product.category}</span></p>
+                        <p className="text-xs text-slate-500">${product.price} • <span className="text-orange-600 font-semibold">{product.category}</span></p>
                         <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{product.images?.filter(Boolean).length || 0} imágenes</span>
                       </div>
                     </div>
@@ -539,18 +548,16 @@ export default function AdminPage() {
                   <div key={slide.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img src={slide.desktopImg} alt="Desktop" className="w-20 h-12 object-cover rounded-lg border shadow-xs" />
+                        <img src={slide.desktopImg} alt="Desktop" className="w-20 h-12 object-cover rounded-lg border" />
                         <span className="absolute bottom-0 right-0 bg-slate-900 text-white text-[9px] px-1 rounded">PC</span>
                       </div>
                       <div className="relative">
-                        <img src={slide.mobileImg || slide.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border shadow-xs" />
+                        <img src={slide.mobileImg || slide.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border" />
                         <span className="absolute bottom-0 right-0 bg-orange-600 text-white text-[9px] px-1 rounded">Móvil</span>
                       </div>
                       <div>
                         <h4 className="font-bold text-sm text-slate-900">{slide.title}</h4>
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <ExternalLink size={12} /> {slide.btnLink}
-                        </p>
+                        <p className="text-xs text-slate-500">{slide.btnLink}</p>
                       </div>
                     </div>
                     <button
@@ -639,11 +646,11 @@ export default function AdminPage() {
                   <div key={offer.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img src={offer.desktopImg} alt="Desktop" className="w-20 h-12 object-cover rounded-lg border shadow-xs" />
+                        <img src={offer.desktopImg} alt="Desktop" className="w-20 h-12 object-cover rounded-lg border" />
                         <span className="absolute bottom-0 right-0 bg-slate-900 text-white text-[9px] px-1 rounded">PC</span>
                       </div>
                       <div className="relative">
-                        <img src={offer.mobileImg || offer.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border shadow-xs" />
+                        <img src={offer.mobileImg || offer.desktopImg} alt="Mobile" className="w-10 h-12 object-cover rounded-lg border" />
                         <span className="absolute bottom-0 right-0 bg-orange-600 text-white text-[9px] px-1 rounded">Móvil</span>
                       </div>
                       <div>
