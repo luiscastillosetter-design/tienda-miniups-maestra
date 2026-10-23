@@ -1,27 +1,51 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Continuar con la carga normal de la página
-  const response = NextResponse.next()
-  
-  // 1. Atrapar el parámetro "?ref=" de la URL
-  const refCode = request.nextUrl.searchParams.get('ref')
-  
+  const response = NextResponse.next();
+  const searchParams = request.nextUrl.searchParams;
+
+  // 1. Cookie de Afiliado (30 días de persistencia)
+  const refCode = searchParams.get('ref');
   if (refCode) {
-    // 2. Si existe un referido, lo guardamos en una Cookie "estilo Hotmart"
     response.cookies.set({
-      name: 'store_ref',
-      value: refCode,
+      name: 'todomax_ref',
+      value: refCode.toUpperCase().trim(),
       path: '/',
-      maxAge: 60 * 60 * 24 * 30, // Dura 30 días (en segundos)
-    })
+      maxAge: 60 * 60 * 24 * 30, // 30 días
+      sameSite: 'lax',
+    });
   }
-  
-  return response
+
+  // 2. Cookie de Atribución Publicitaria (Meta Ads / TikTok / Google)
+  const fbclid = searchParams.get('fbclid');
+  const ttclid = searchParams.get('ttclid');
+  const gclid = searchParams.get('gclid');
+  const utmSource = searchParams.get('utm_source');
+
+  let canalPublicitario = '';
+  if (fbclid || utmSource?.toLowerCase().includes('meta') || utmSource?.toLowerCase().includes('facebook')) {
+    canalPublicitario = 'Meta Ads';
+  } else if (ttclid || utmSource?.toLowerCase().includes('tiktok')) {
+    canalPublicitario = 'TikTok Ads';
+  } else if (gclid || utmSource?.toLowerCase().includes('google')) {
+    canalPublicitario = 'Google Ads';
+  }
+
+  if (canalPublicitario) {
+    response.cookies.set({
+      name: 'todomax_ad_channel',
+      value: canalPublicitario,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 días
+      sameSite: 'lax',
+    });
+  }
+
+  return response;
 }
 
-// 3. Esto evita que el código se ejecute en imágenes o archivos internos para que la tienda vuele de rápido
+// Optimización: No ejecutar middleware sobre imágenes, iconos o recursos estáticos
 export const config = {
-  matcher: '/((?!api|_next/static|_next/image|favicon.ico).*)',
-}
+  matcher: '/((?!api|_next/static|_next/image|favicon.ico|categories|hero|ofertas|products).*)',
+};

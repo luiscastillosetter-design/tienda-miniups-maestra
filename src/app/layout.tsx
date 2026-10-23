@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CartDrawer from "@/components/CartDrawer";
 import BottomNav from "@/components/BottomNav";
+import { siteConfig } from '@/config/site';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Importadora Todomax",
-  description: "Tienda premium de Mini UPS y tecnología de respaldo de energía",
+  title: siteConfig.storeName,
+  description: siteConfig.description,
 };
 
 export const viewport: Viewport = {

@@ -15,6 +15,7 @@ type CartState = {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   toggleCart: () => void;
+  clearCart: () => void;
 };
 
 export const useCartStore = create<CartState>((set) => ({
@@ -47,4 +48,6 @@ export const useCartStore = create<CartState>((set) => ({
     })),
 
   toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
+  
+  clearCart: () => set({ items: [] }),
 }));

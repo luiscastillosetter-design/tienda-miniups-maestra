@@ -1,97 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { products } from '@/data/products'; // Simulamos la lectura de DB
+
+// Este archivo sirve como Webhook oficial para Meta / WhatsApp Business API
+// Documentación Meta: https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks
+
+export async function GET(request: NextRequest) {
+  // Verificación del Webhook solicitada por Meta (Facebook)
+  const searchParams = request.nextUrl.searchParams;
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'TODOMAX_SECURE_TOKEN_2024';
+
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('WEBHOOK_VERIFIED');
+    return new NextResponse(challenge, { status: 200 });
+  }
+
+  return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { nombre, telefono, codigo } = await request.json();
+    const body = await request.json();
 
-    if (!nombre || !telefono || !codigo) {
-      return NextResponse.json({ error: 'Faltan campos' }, { status: 400 });
-    }
+    // 1. Verificamos si es un mensaje de WhatsApp válido
+    if (body.object === 'whatsapp_business_account') {
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const message = value?.messages?.[0];
 
-    const telefonoLimpio = telefono.replace(/\D/g, '');
-    const apiUbuntu = process.env.NEXT_PUBLIC_API_UBUNTU;
-    const googleDriveUrl = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_URL;
+      if (message && message.type === 'text') {
+        const telefonoRemitente = message.from;
+        const textoCliente = message.text.body.toLowerCase();
+        
+        console.log(`Mensaje recibido de ${telefonoRemitente}: ${textoCliente}`);
 
-    if (!googleDriveUrl) {
-      return NextResponse.json({ error: 'Configuración incompleta' }, { status: 500 });
-    }
+        // 2. Lógica del Bot IA "Sofía"
+        let respuestaBot = "¡Hola! Soy Sofía, la asistente IA de TodoMax 🤖.\n¿En qué producto estás interesado para enviarte tu Kit de Afiliado? (Ej: 'Quiero vender freidora')";
 
-    // Validar código en la API de Ubuntu - REQUIRED
-    if (!apiUbuntu) {
-      return NextResponse.json({ error: 'API no configurada' }, { status: 500 });
-    }
+        // Buscamos coincidencia de productos
+        const foundProduct = products.find(p => 
+          textoCliente.includes(p.title.split(' ')[0].toLowerCase()) || 
+          textoCliente.includes(p.category.toLowerCase())
+        );
 
-    try {
-      const validationResponse = await fetch(`${apiUbuntu}/api/validar_afiliado`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo }),
-      });
+        if (foundProduct) {
+          respuestaBot = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
+          `📸 *Material Visual:* ${foundProduct.images[0]}\n\n` +
+          `📝 *Texto sugerido:* ${foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis!'}\n\n` +
+          `🔗 Recuerda agregar tu enlace personalizado (?ref=TU_CODIGO) al final de tus publicaciones.`;
+        } else if (textoCliente.includes('comision') || textoCliente.includes('ganancia')) {
+          respuestaBot = "Tus comisiones están seguras. Puedes revisar tu balance actualizado directamente en tu Panel Privado web en todomax.com/afiliados 💰";
+        } else if (textoCliente.includes('humano') || textoCliente.includes('ayuda')) {
+          respuestaBot = "En un momento te transferiré con uno de nuestros asesores humanos. Por favor, aguarda en la línea. 👨‍💻";
+        }
 
-      // Validación estricta: debe ser exitosa
-      if (!validationResponse.ok) {
-        console.error('Código rechazado por API:', validationResponse.status);
-        return NextResponse.json({ error: 'Código de afiliado no disponible' }, { status: 400 });
+        // 3. Envío de Respuesta vía Meta Graph API
+        const metaPhoneId = process.env.META_PHONE_ID;
+        const metaAccessToken = process.env.META_ACCESS_TOKEN;
+
+        // Si tenemos los tokens configurados en .env, disparamos el mensaje real
+        if (metaPhoneId && metaAccessToken) {
+          await fetch(`https://graph.facebook.com/v17.0/${metaPhoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${metaAccessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: telefonoRemitente,
+              type: 'text',
+              text: { body: respuestaBot },
+            }),
+          });
+        }
+
+        return NextResponse.json({ status: 'Mensaje procesado y respondido' }, { status: 200 });
       }
-
-      const validationData = await validationResponse.json();
-
-      // Verificar que el código esté disponible en la respuesta
-      if (!validationData.disponible) {
-        return NextResponse.json({ error: 'Código no está disponible' }, { status: 400 });
-      }
-    } catch (validateError) {
-      console.error('Error conectando con API Ubuntu:', validateError);
-      return NextResponse.json({ error: 'No se pudo validar el código' }, { status: 400 });
     }
 
-    // Mensaje de bienvenida - solo llega aquí si validación fue exitosa
-    const mensajeBienvenida = `¡Hola ${nombre}! 🚀 Soy Sofía, asistente de Importadora Todomax. Tu solicitud de embajador fue recibida. Tu código oficial es: ${codigo}. Aquí tienes tu acceso al material: ${googleDriveUrl} ¡Cualquier duda, escríbeme!`;
+    // Respuesta genérica si no es un mensaje de texto de WA
+    return NextResponse.json({ status: 'ok' }, { status: 200 });
 
-    const metaPhoneId = process.env.META_PHONE_ID;
-    const metaAccessToken = process.env.META_ACCESS_TOKEN;
-
-    if (!metaPhoneId || !metaAccessToken) {
-      return NextResponse.json({ error: 'Config incompleta' }, { status: 500 });
-    }
-
-    const metaResponse = await fetch(
-      `https://graph.facebook.com/v17.0/${metaPhoneId}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${metaAccessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: telefonoLimpio,
-          type: 'text',
-          text: { body: mensajeBienvenida },
-        }),
-      }
-    );
-
-    if (!metaResponse.ok) {
-      const errorText = await metaResponse.text();
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { raw: errorText };
-      }
-      console.error('Error Meta API:', errorData);
-      return NextResponse.json({ error: 'Error WhatsApp' }, { status: metaResponse.status });
-    }
-
-    const metaData = await metaResponse.json();
-
-    return NextResponse.json(
-      { success: true, messageId: metaData.messages?.[0]?.id },
-      { status: 200 }
-    );
   } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    console.error('Error en Webhook WhatsApp:', error);
+    return NextResponse.json({ error: 'Error procesando webhook' }, { status: 500 });
   }
 }

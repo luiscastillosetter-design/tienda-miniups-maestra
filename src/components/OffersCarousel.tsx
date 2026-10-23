@@ -1,147 +1,83 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import useEmblaCarousel from 'embla-carousel-react';
-import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
-
-const defaultOffers = [
-  {
-    id: 1,
-    title: 'SÚPER OFERTA: 40% en Accesorios',
-    description: 'Todos nuestros accesorios con descuento increíble',
-    desktopImg: '/ofertas/oferta1.png',
-    mobileImg: '/ofertas/oferta1-mobile.png',
-    btnLink: '/catalogo',
-  },
-  {
-    id: 2,
-    title: 'PAQUETES ESPECIALES: 2x1',
-    description: 'Compra dos productos y lleva uno gratis',
-    desktopImg: '/ofertas/oferta2.png',
-    mobileImg: '/ofertas/oferta2-mobile.png',
-    btnLink: '/catalogo',
-  },
-  {
-    id: 3,
-    title: 'ENVÍO GRATIS A TODO EL PAÍS',
-    description: 'En compras mayores a $50',
-    desktopImg: '/ofertas/oferta3.png',
-    mobileImg: '/ofertas/oferta3-mobile.png',
-    btnLink: '/catalogo',
-  },
-];
+import { Sparkles, ArrowRight } from 'lucide-react';
 
 export function OffersCarousel() {
-  const autoplayOptions = { delay: 7000, stopOnInteraction: false, rootNode: (emblaRoot: any) => emblaRoot.parentElement };
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
-  const [offers, setOffers] = useState<any[]>(defaultOffers);
-
-  // Leer ofertas guardadas desde el panel Admin
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('store_offers');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setOffers(parsed);
-          }
-        } catch (error) {
-          console.error('Error al cargar ofertas:', error);
-        }
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
-    const onInit = () => {
-      setScrollSnaps(emblaApi.scrollSnapList());
-      onSelect();
-    };
-
-    emblaApi.on('init', onInit);
-    emblaApi.on('reInit', onInit);
-    emblaApi.on('select', onSelect);
-
-    return () => {
-      emblaApi.off('init', onInit);
-      emblaApi.off('reInit', onInit);
-      emblaApi.off('select', onSelect);
-    };
-  }, [emblaApi, offers]);
-
-  const scrollTo = (index: number) => emblaApi?.scrollTo(index);
+  const promoOffers = [
+    {
+      id: 1,
+      tag: 'COMBO AHORRO',
+      title: 'Aspiradora Auto + Mini UPS',
+      desc: 'Respaldo eléctrico ininterrumpido para tu hogar y limpieza total para tu vehículo con precio especial de combo.',
+      discount: '30% OFF',
+      link: '/product/combo-hogar-inteligente',
+      gradient: 'from-slate-900 via-slate-800 to-orange-950',
+    },
+    {
+      id: 2,
+      tag: 'ENVÍO GRATIS',
+      title: 'Freidora de Aire 6L Familiar',
+      desc: 'Cocina saludable sin aceite para toda la familia. Llévala hoy con flete cubierto por TodoMax a cualquier ciudad.',
+      discount: 'ENVÍO $0',
+      link: '/product/freidora-aire-digital',
+      gradient: 'from-orange-600 via-orange-500 to-amber-600',
+    },
+    {
+      id: 3,
+      tag: 'PRODUCTO VIRAL',
+      title: 'Proyector Galaxia LED',
+      desc: 'El proyector más vendido de TikTok. Parlante bluetooth y efectos espaciales inmersivos para cualquier espacio.',
+      discount: 'TOP VENTAS',
+      link: '/product/proyector-galaxia-led',
+      gradient: 'from-indigo-950 via-slate-900 to-slate-900',
+    },
+  ];
 
   return (
-    <div className="w-full scroll-mt-36 md:scroll-mt-44" id="ofertas">
-      <div ref={emblaRef} className="overflow-hidden">
-        <div className="flex">
-          {offers.map((offer) => {
-            const desktopImage = offer.desktopImg || offer.bgImageDesktop || '';
-            const mobileImage = offer.mobileImg || offer.bgImageMobile || desktopImage;
-
-            return (
-              <div
-                key={offer.id}
-                className="flex-[0_0_100%] min-w-0 relative h-[45vh] md:h-[60vh] w-full px-2 md:px-0 flex items-center justify-center"
-              >
-                <div className="w-full h-full flex flex-col justify-center px-8 md:px-24 relative overflow-hidden rounded-3xl md:rounded-none shadow-xl md:shadow-none">
-                  
-                  {/* Imagen Desktop */}
-                  <div
-                    className="hidden md:block absolute inset-0 bg-cover bg-center z-0"
-                    style={{ backgroundImage: `url('${desktopImage}')` }}
-                  ></div>
-
-                  {/* Imagen Mobile */}
-                  <div
-                    className="block md:hidden absolute inset-0 bg-cover bg-center z-0"
-                    style={{ backgroundImage: `url('${mobileImage}')` }}
-                  ></div>
-
-                  {/* Enlace general de la tarjeta */}
-                  <Link href={offer.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer"></Link>
-
-                  {/* Contenido textual */}
-                  <div className="relative z-20 w-full max-w-2xl flex flex-col items-start text-left pointer-events-none">
-                    {offer.title && (
-                      <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-2 md:mb-4 leading-tight">
-                        {offer.title}
-                      </h2>
-                    )}
-                    {offer.description && (
-                      <p className="text-xs md:text-xl text-slate-800 font-bold">
-                        {offer.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Paginación */}
-                  <div className="absolute bottom-4 md:bottom-10 left-1/2 -translate-x-1/2 flex justify-center gap-3 z-30 pointer-events-auto">
-                    {scrollSnaps.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => scrollTo(index)}
-                        className={`rounded-full transition-all duration-500 shadow-sm ${
-                          index === selectedIndex
-                            ? 'bg-slate-900 w-8 md:w-10 h-2'
-                            : 'bg-slate-300 hover:bg-slate-500 w-2 h-2'
-                        }`}
-                        aria-label={`Ir a tarjeta ${index + 1}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+    <div className="w-full py-6" id="ofertas">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <span className="text-orange-500 font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4" /> Oportunidades de la semana
+          </span>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900">Promociones y Combos</h2>
         </div>
+        <Link href="/catalogo" className="text-xs font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 hover:translate-x-0.5 transition-transform">
+          Ver todo <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {promoOffers.map((offer) => (
+          <div
+            key={offer.id}
+            className={`bg-gradient-to-br ${offer.gradient} text-white rounded-3xl p-7 relative overflow-hidden flex flex-col justify-between shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border border-white/10 group`}
+          >
+            <div className="space-y-3 relative z-10">
+              <div className="flex items-center justify-between">
+                <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">
+                  {offer.tag}
+                </span>
+                <span className="text-xs font-black text-emerald-300 bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
+                  {offer.discount}
+                </span>
+              </div>
+              <h3 className="text-xl font-black group-hover:text-orange-300 transition-colors">{offer.title}</h3>
+              <p className="text-xs text-white/80 font-medium leading-relaxed">{offer.desc}</p>
+            </div>
+
+            <div className="pt-6 relative z-10">
+              <Link
+                href={offer.link}
+                className="w-full bg-white text-slate-900 hover:bg-orange-50 font-black text-xs py-3.5 px-5 rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95 cursor-pointer"
+              >
+                <span>Aprovechar Oferta</span>
+                <ArrowRight className="w-3.5 h-3.5 text-orange-500 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -4,131 +4,97 @@ import { useState, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
+import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 
 const defaultSlides = [
   {
     id: 1,
-    title: 'Catálogo',
-    desktopImg: '/hero/hero1catalogo.png',
-    mobileImg: '/hero/hero1catalogo-mobile.png',
+    badge: 'PRODUCTO ESTRELLA & COMBOS',
+    title: 'Importadora Directa TodoMax',
+    subtitle: 'Tecnología, hogar, cocina, automóvil y belleza con garantía y envío gratis en compras mayores a $50.',
+    btnText: 'Comprar Ahora',
     btnLink: '/catalogo',
+    bgGradient: 'from-orange-600 via-orange-500 to-amber-500',
   },
   {
     id: 2,
-    title: 'Afiliados',
-    desktopImg: '/hero/hero2afiliados.png',
-    mobileImg: '/hero/hero2afiliados-mobile.png',
+    badge: 'PROGRAMA DE AFILIADOS',
+    title: 'Gana Dinero con TodoMax',
+    subtitle: 'Promociona productos de alta rotación con videos profesionales preaprobados y cobra comisiones directas.',
+    btnText: 'Quiero ser Afiliado',
     btnLink: '/afiliados',
+    bgGradient: 'from-slate-950 via-slate-900 to-orange-950',
   },
   {
     id: 3,
-    title: 'Registro',
-    desktopImg: '/hero/hero3registro.png',
-    mobileImg: '/hero/hero3registro-mobile.png',
-    btnLink: '?auth=register',
+    badge: 'ENVÍO GRATIS A TODO EL PAÍS',
+    title: 'Despachos por MRW, Zoom y Tealca',
+    subtitle: 'Recibe directo en tu puerta con entrega rápida y respaldo asegurado en cada orden.',
+    btnText: 'Explorar Catálogo',
+    btnLink: '/catalogo',
+    bgGradient: 'from-emerald-800 via-teal-700 to-slate-900',
   },
 ];
 
 export function HeroCarousel() {
-  const autoplayOptions = { delay: 7000, stopOnInteraction: false, rootNode: (emblaRoot: any) => emblaRoot.parentElement };
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
+  const autoplayOptions = { delay: 6500, stopOnInteraction: false };
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
-  const [slides, setSlides] = useState<any[]>(defaultSlides);
-
-  // Leer los cambios guardados desde el panel Admin
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('store_hero_slides');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSlides(parsed);
-          }
-        } catch (error) {
-          console.error('Error al cargar slides de hero:', error);
-        }
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (!emblaApi) return;
-
-    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
-    const onInit = () => {
-      setScrollSnaps(emblaApi.scrollSnapList());
-      onSelect();
-    };
-
-    emblaApi.on('init', onInit);
-    emblaApi.on('reInit', onInit);
-    emblaApi.on('select', onSelect);
-
-    return () => {
-      emblaApi.off('init', onInit);
-      emblaApi.off('reInit', onInit);
-      emblaApi.off('select', onSelect);
-    };
-  }, [emblaApi, slides]);
-
-  const scrollTo = (index: number) => emblaApi?.scrollTo(index);
+    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
+  }, [emblaApi]);
 
   return (
-    <div className="w-full">
+    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
       <div ref={emblaRef} className="overflow-hidden w-full">
         <div className="flex w-full">
-          {slides.map((slide) => {
-            const desktopImage = slide.desktopImg || slide.bgImageDesktop || '';
-            const mobileImage = slide.mobileImg || slide.bgImageMobile || desktopImage;
+          {defaultSlides.map((slide) => (
+            <div
+              key={slide.id}
+              className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient} flex flex-col justify-center items-start`}
+            >
+              <div className="max-w-3xl space-y-4 md:space-y-6 relative z-10">
+                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
+                  <ShieldCheck className="w-4 h-4 text-white" />
+                  {slide.badge}
+                </span>
 
-            return (
-              <div
-                key={slide.id}
-                className="flex-[0_0_100%] min-w-0 relative h-[50vh] md:h-[70vh] w-full px-2 md:px-0 flex items-center justify-center"
-              >
-                <div className="w-full h-full flex flex-col justify-center px-6 md:px-20 relative overflow-hidden rounded-3xl md:rounded-none shadow-xl md:shadow-none">
-                  
-                  {/* Banner versión Ordenador */}
-                  <div
-                    className="hidden md:block absolute inset-0 bg-cover bg-center z-0"
-                    style={{ backgroundImage: `url('${desktopImage}')` }}
-                  ></div>
+                <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
+                  {slide.title}
+                </h1>
 
-                  {/* Banner versión Móvil */}
-                  <div
-                    className="block md:hidden absolute inset-0 bg-cover bg-center z-0"
-                    style={{ backgroundImage: `url('${mobileImage}')` }}
-                  ></div>
+                <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed">
+                  {slide.subtitle}
+                </p>
 
-                  {/* Enlace transparente que cubre toda la tarjeta */}
+                <div className="pt-2">
                   <Link
-                    href={slide.btnLink || '/catalogo'}
-                    className="absolute inset-0 z-10 cursor-pointer"
-                    aria-label={slide.title || 'Ver promoción'}
-                  ></Link>
-
-                  {/* Paginación de navegación (puntos inferiores) */}
-                  <div className="absolute bottom-4 md:bottom-10 left-1/2 -translate-x-1/2 flex justify-center gap-2 md:gap-3 z-30 pointer-events-auto">
-                    {scrollSnaps.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => scrollTo(index)}
-                        className={`rounded-full transition-all duration-500 shadow-md ${
-                          index === selectedIndex
-                            ? 'bg-orange-500 w-6 md:w-10 h-2'
-                            : 'bg-white/40 hover:bg-white/60 w-2 h-2'
-                        }`}
-                        aria-label={`Ir a tarjeta ${index + 1}`}
-                      />
-                    ))}
-                  </div>
+                    href={slide.btnLink}
+                    className="inline-flex items-center gap-2.5 bg-white text-slate-900 hover:bg-orange-50 font-black px-7 py-4 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all text-xs md:text-sm active:scale-95 cursor-pointer group"
+                  >
+                    <ShoppingBag className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
+                    <span>{slide.btnText}</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
+      </div>
+
+      {/* Puntos de navegación */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-20">
+        {defaultSlides.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => emblaApi?.scrollTo(i)}
+            className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'}`}
+            aria-label={`Slide ${i + 1}`}
+          />
+        ))}
       </div>
     </div>
   );

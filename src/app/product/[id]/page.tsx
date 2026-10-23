@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
-import { ShoppingCart, ChevronLeft, ShieldCheck, Truck, Play } from 'lucide-react';
+import Link from 'next/link';
+import { ShoppingCart, ChevronLeft, ShieldCheck, Truck, CheckCircle2, Star, CreditCard, Play, Flame } from 'lucide-react';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
-import { notFound } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 
 export default function ProductPage() {
@@ -18,56 +17,48 @@ export default function ProductPage() {
   const { addItem, toggleCart } = useCartStore();
   
   const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
-  // Cargar datos: primero busca los datos actualizados del Admin (localStorage)
   useEffect(() => {
-    const loadProduct = async () => {
+    const load = async () => {
       setIsLoading(true);
-
-      if (typeof window !== 'undefined') {
-        const savedProductsStr = localStorage.getItem('store_products');
-        if (savedProductsStr) {
-          try {
-            const savedProducts = JSON.parse(savedProductsStr);
-            const foundProduct = savedProducts.find((p: any) => String(p.id) === String(productId));
-            if (foundProduct) {
-              setProduct(foundProduct);
-              setIsLoading(false);
-              return;
-            }
-          } catch (error) {
-            console.error('Error al leer productos de localStorage:', error);
-          }
-        }
+      const allProducts = await productService.getProducts();
+      const current = allProducts.find(p => String(p.id) === String(productId));
+      
+      if (current) {
+        setProduct(current);
+        const related = allProducts.filter(p => p.id !== current.id);
+        setRelatedProducts(related);
       }
-
-      // Si no está en memoria, cargar desde el servicio base
-      const data = await productService.getProductById(productId || '');
-      setProduct(data || null);
       setIsLoading(false);
     };
-
-    loadProduct();
+    load();
   }, [productId]);
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
+    return <div className="min-h-screen flex items-center justify-center font-bold text-slate-700">Cargando producto...</div>;
   }
 
   if (!product) {
-    notFound();
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
+        <h2 className="text-xl font-bold mb-4">Producto no encontrado</h2>
+        <Link href="/catalogo" className="bg-orange-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs">
+          Volver al Catálogo
+        </Link>
+      </div>
+    );
   }
 
-  // Verifica si el archivo es un video MP4
   const isVideo = (url?: string) => {
     if (!url) return false;
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0] || '';
+  const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0];
 
   const handleAddToCart = () => {
     addItem(
@@ -96,175 +87,207 @@ export default function ProductPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <main className="w-full px-4 py-6 md:py-10 lg:py-12">
-        <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-24">
+      {/* Contenedor Panorámico estilo MercadoLibre */}
+      <main className="w-full px-4 md:px-10 lg:px-16 space-y-12">
+        
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs cursor-pointer hover:-translate-x-1 transition-transform"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Volver al Catálogo</span>
+        </button>
+
+        {/* Ficha Principal Panorámica */}
+        <div className="bg-white rounded-3xl border border-gray-200/80 shadow-sm p-6 md:p-12 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
           
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors py-3 px-4 rounded-lg hover:bg-slate-100 mb-6 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Volver</span>
-          </button>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+          {/* LADO IZQUIERDO: Gran Visor Multimedia (7 de 12 columnas) */}
+          <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
             
-            {/* Visualizador Multimedia Principal */}
-            <div className="flex flex-col gap-4">
-              <div className="relative w-full aspect-square overflow-hidden rounded-2xl bg-[#F8FAFC] border border-gray-100 flex items-center justify-center">
-                {isVideo(currentMedia) ? (
-                  <video
-                    src={currentMedia}
-                    controls
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="w-full h-full object-cover rounded-2xl"
-                  />
-                ) : (
-                  <Image
-                    src={currentMedia}
-                    alt={product.title}
-                    fill
-                    className="object-cover mix-blend-multiply"
-                    priority
-                  />
-                )}
+            {/* Tira de Miniaturas vertical en PC */}
+            {product.images && product.images.length > 1 && (
+              <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto max-h-[550px] pb-2 md:pb-0 scrollbar-hide">
+                {product.images.map((media, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`w-16 h-16 md:w-20 md:h-20 rounded-2xl border-2 overflow-hidden bg-slate-50 flex-shrink-0 cursor-pointer transition-all ${
+                      selectedImageIndex === idx ? 'border-orange-500 shadow-md scale-105' : 'border-gray-200 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={media} alt="Miniatura" className="w-full h-full object-contain p-1" />
+                  </button>
+                ))}
               </div>
+            )}
 
-              {/* Galería de Miniaturas */}
-              {product.images && product.images.length > 1 && (
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                  {product.images.map((media, index) => {
-                    const isMediaVideo = isVideo(media);
-
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => setSelectedImageIndex(index)}
-                        className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-[#F8FAFC] ${
-                          selectedImageIndex === index
-                            ? 'border-orange-500 shadow-sm'
-                            : 'border-transparent opacity-70 hover:opacity-100'
-                        }`}
-                      >
-                        {isMediaVideo ? (
-                          <div className="w-full h-full bg-slate-900 flex items-center justify-center relative">
-                            <video src={media} className="w-full h-full object-cover pointer-events-none" muted />
-                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                              <Play size={16} className="text-white fill-white" />
-                            </div>
-                          </div>
-                        ) : (
-                          <Image
-                            src={media}
-                            alt={`Miniatura ${index + 1}`}
-                            fill
-                            className="object-cover pointer-events-none mix-blend-multiply"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Imagen/Video Principal Grande */}
+            <div className="relative flex-1 aspect-square md:aspect-auto md:min-h-[550px] bg-slate-50 rounded-3xl overflow-hidden border border-gray-100 flex items-center justify-center p-6">
+              {isVideo(currentMedia) ? (
+                <video src={currentMedia} controls autoPlay muted loop className="w-full h-full object-cover rounded-2xl" />
+              ) : (
+                <img src={currentMedia} alt={product.title} className="w-full h-full object-contain" />
+              )}
+              {product.badge && (
+                <span className="absolute top-4 left-4 bg-slate-900 text-white text-xs font-black px-3 py-1 rounded-xl uppercase shadow-md">
+                  {product.badge}
+                </span>
               )}
             </div>
+          </div>
 
-            {/* Información del Producto */}
-            <div className="flex flex-col gap-6">
-              <div>
-                <span className="inline-block bg-orange-50 text-orange-600 text-xs font-bold px-3 py-1.5 rounded-md mb-3 uppercase tracking-wider">
+          {/* LADO DERECHO: Caja de Compra y Detalles Estructurados (5 de 12 columnas) */}
+          <div className="lg:col-span-5 flex flex-col justify-between space-y-6">
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="bg-orange-50 text-orange-600 font-black text-xs px-3 py-1 rounded-lg uppercase">
                   {product.category}
                 </span>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight">
-                  {product.title}
-                </h1>
+                <span className="bg-emerald-50 text-emerald-700 font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1">
+                  ✓ Stock: {product.stock} disponibles
+                </span>
               </div>
 
-              <p className="text-4xl font-black text-slate-900">
-                {siteConfig.currencySymbol}{product.price}
-              </p>
+              <h1 className="text-2xl md:text-4xl font-black text-slate-900 leading-tight">
+                {product.title}
+              </h1>
 
-              {/* Descripción persuasiva */}
-              {product.description && (
-                <div className="py-4 border-y border-gray-100">
-                  <p className="text-base text-gray-600 leading-relaxed font-medium whitespace-pre-line">
-                    {product.description}
-                  </p>
+              {/* Bloque de Precios y Beneficios */}
+              <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-3xl md:text-5xl font-black text-slate-900">
+                    {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                  </span>
+                  {product.originalPrice && (
+                    <span className="text-lg text-gray-400 line-through">
+                      {siteConfig.currencySymbol}{product.originalPrice.toFixed(2)}
+                    </span>
+                  )}
                 </div>
-              )}
 
-              {/* Lista dinámica de características principales */}
-              {product.features && product.features.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Características principales:</h3>
-                  <ul className="space-y-2.5">
-                    {product.features.map((feature, index) => (
-                      <li key={index} className="flex items-start gap-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
-                        <span className="text-slate-600 text-sm md:text-base font-medium">{feature}</span>
-                      </li>
+                <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
+                  <Truck className="w-4 h-4 text-emerald-600" />
+                  {product.price >= siteConfig.shipping.freeShippingThreshold
+                    ? '¡Califica para ENVÍO GRATIS a todo el país!'
+                    : `Agrega $${(siteConfig.shipping.freeShippingThreshold - product.price).toFixed(2)} más para envío gratis.`}
+                </p>
+              </div>
+
+              {/* Lo que incluye / Beneficios */}
+              {product.benefits && product.benefits.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-black uppercase text-slate-900 tracking-wider">Beneficios destacados:</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {product.benefits.map((b, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-slate-700 font-medium bg-white p-2.5 rounded-xl border border-gray-100">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        <span>{b}</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
-              {/* Selector de cantidad */}
-              <div className="space-y-2 pt-2">
-                <label className="block text-sm font-bold text-slate-900 uppercase tracking-wide">Cantidad</label>
-                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white w-fit shadow-sm">
+              {/* Descripción */}
+              <div className="pt-2">
+                <p className="text-xs md:text-sm text-gray-600 leading-relaxed font-normal">
+                  {product.description}
+                </p>
+              </div>
+            </div>
+
+            {/* Controles de Compra */}
+            <div className="space-y-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Cantidad:</span>
+                <div className="flex items-center border border-gray-200 rounded-2xl bg-slate-50 p-1">
                   <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="w-12 h-12 flex items-center justify-center font-bold text-slate-500 hover:bg-gray-50 hover:text-orange-500 cursor-pointer text-lg transition-colors"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 cursor-pointer rounded-xl hover:bg-white"
                   >
                     -
                   </button>
-                  <span className="w-12 text-center font-bold text-slate-900 text-base">
-                    {quantity}
-                  </span>
+                  <span className="w-10 text-center text-sm font-black text-slate-900">{quantity}</span>
                   <button
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="w-12 h-12 flex items-center justify-center font-bold text-slate-500 hover:bg-gray-50 hover:text-orange-500 cursor-pointer text-lg transition-colors"
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 cursor-pointer rounded-xl hover:bg-white"
                   >
                     +
                   </button>
                 </div>
               </div>
 
-              {/* Botones de acción */}
-              <div className="space-y-3 pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="w-full py-4 rounded-xl font-bold bg-white border-2 border-slate-900 text-slate-900 flex items-center justify-center gap-2 hover:bg-slate-50 shadow-sm cursor-pointer active:scale-95 transition-all text-base"
+                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer hover:shadow-md"
                 >
-                  <ShoppingCart className="w-5 h-5" />
-                  Agregar al Carrito
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Agregar al Carrito</span>
                 </button>
 
                 <button
                   onClick={handleBuyNow}
-                  className="w-full py-4 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 shadow-md hover:shadow-lg hover:shadow-orange-500/30 cursor-pointer active:scale-95 transition-all text-base"
+                  className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 transition-all cursor-pointer active:scale-95"
                 >
-                  Comprar Ahora
+                  <span>Comprar Ahora</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-6 border-t border-gray-100 text-xs text-slate-500 font-medium">
-                <div className="flex items-center gap-2.5">
-                  <Truck className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                  <span>Envíos rápidos a nivel nacional</span>
+              {/* Métodos de Pago y Confianza */}
+              <div className="grid grid-cols-2 gap-3 pt-2 text-[11px] text-gray-500 font-medium">
+                <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <Truck className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                  <span>MRW, Zoom, Tealca</span>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                  <span>Compra 100% protegida y garantizada</span>
+                <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <CreditCard className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Pago Móvil, Zelle, USDT</span>
                 </div>
               </div>
-
             </div>
+
           </div>
         </div>
+
+        {/* CARRUSEL INFERIOR DE REMARKETING: Productos Relacionados y Más Vendidos */}
+        {relatedProducts.length > 0 && (
+          <section className="w-full pt-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <span className="text-orange-500 font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 fill-orange-500" /> Quienes vieron esto también compraron
+                </span>
+                <h3 className="text-2xl md:text-3xl font-black text-slate-900">Productos Recomendados</h3>
+              </div>
+              <Link href="/catalogo" className="text-xs font-bold text-orange-500 hover:underline">
+                Ver Todo el Catálogo
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
+              {relatedProducts.slice(0, 6).map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/product/${p.id}`}
+                  className="bg-white rounded-3xl border border-gray-200/80 p-4 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
+                >
+                  <div className="aspect-square bg-slate-50 rounded-2xl mb-3 p-3 overflow-hidden">
+                    <img src={p.images[0]} alt={p.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-orange-500 uppercase">{p.category}</span>
+                    <h4 className="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">{p.title}</h4>
+                    <p className="text-base font-black text-slate-900 pt-1">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
       </main>
     </div>
   );

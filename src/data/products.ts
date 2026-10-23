@@ -2,194 +2,142 @@ export interface Product {
   id: string;
   title: string;
   price: number;
+  originalPrice?: number; // Para mostrar tachado
+  cost: number; // Para calcular la utilidad en el Admin
+  stock: number;
   badge?: string;
+  isBestSeller?: boolean;
+  isCombo?: boolean;
+  affiliateCommission: number; // Porcentaje o monto fijo
   images: string[];
+  demoVideo?: string;
   description: string;
   features: string[];
+  benefits: string[]; // Beneficios rápidos para la ficha
+  adCopy?: string; // Texto preaprobado para que el afiliado copie y pegue
   paymentMethods: string[];
   category: string;
 }
 
+// Generador de Placeholder seguro (SVG en base64 con colores de la marca)
+const getPlaceholder = (text: string) => {
+  const cleanText = text.replace(/\s+/g, '%20');
+  return `data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800' style='background:%23f8fafc'%3E%3Crect width='100%25' height='100%25' fill='%23f8fafc'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='40' font-weight='bold' fill='%23f97316'%3E${cleanText}%3C/text%3E%3C/svg%3E`;
+};
+
 export const products: Product[] = [
   {
+    id: 'combo-hogar-inteligente',
+    title: 'Combo Hogar Inteligente (Aspiradora + Humidificador)',
+    price: 85.00,
+    originalPrice: 120.00,
+    cost: 45.00,
+    stock: 50,
+    badge: 'Envío Gratis',
+    isBestSeller: true,
+    isCombo: true,
+    affiliateCommission: 10,
+    category: 'Hogar',
+    images: [getPlaceholder('FOTO HOGAR 1'), getPlaceholder('FOTO HOGAR 2')],
+    demoVideo: '',
+    description: 'Moderniza tu hogar con este combo indispensable. Mantén tus espacios limpios y purificados sin esfuerzo.',
+    features: ['Aspiradora recargable', 'Humidificador 500ml', 'Control por app'],
+    benefits: ['Ahorra tiempo en limpieza', 'Mejora la calidad del aire', 'Fácil de usar'],
+    adCopy: '¡Transforma tu hogar hoy! Llevate este combo con envío gratis. Compra aquí: [ENLACE]',
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay', 'Transferencia Bancaria'],
+  },
+  {
     id: 'mini-ups-smart-12v',
-    title: 'Mini UPS Smart 12V para Router y Modem',
+    title: 'Mini UPS Smart 12V para Router',
     price: 35.00,
+    cost: 18.00,
+    stock: 120,
     badge: 'Oferta',
-    category: 'Smart Home',
-    images: [
-      '/products/minupssmart12vpararouterymodem-smarthome.jpg',
-    ],
-    description:
-      'Mini UPS Smart 12V de última generación diseñado específicamente para mantener operativo tu router y módem en caso de cortes de energía. Con capacidad de batería optimizada, tecnología inteligente de carga y compatibilidad universal con dispositivos 12V.',
-    features: [
-      'Voltaje: 12V DC',
-      'Capacidad: 2000mAh',
-      'Tiempo de respaldo: 4-6 horas para router',
-      'Carga rápida en 2 horas',
-      'LED indicador de estado',
-      'Protección contra sobrecarga',
-      'Tamaño compacto y portátil',
-      'Compatible con múltiples dispositivos',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+    isBestSeller: true,
+    isCombo: false,
+    affiliateCommission: 5,
+    category: 'Tecnología',
+    images: [getPlaceholder('FOTO UPS 1')],
+    description: 'Mantén tu internet encendido durante cortes eléctricos. Batería de larga duración.',
+    features: ['Voltaje: 12V DC', 'Capacidad: 2000mAh', 'Tiempo de respaldo: 4-6 horas'],
+    benefits: ['Internet sin interrupciones', 'Protege tu router', 'Tamaño portátil'],
+    adCopy: '¿Se fue la luz? ¡No te quedes sin internet! Consigue tu Mini UPS aquí: [ENLACE]',
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
   },
   {
-    id: 'respaldo-energia-camaras',
-    title: 'Respaldo de Energía DC 5V/9V/12V para Cámaras de Seguridad',
-    price: 45.00,
+    id: 'freidora-aire-digital',
+    title: 'Freidora de Aire Digital 6L',
+    price: 65.00,
+    originalPrice: 90.00,
+    cost: 35.00,
+    stock: 30,
     badge: 'Envío Gratis',
-    category: 'Smart Home',
-    images: [
-      '/products/respaldodeenergiadcparacamaras-gadgets.jpg',
-    ],
-    description:
-      'Sistema de respaldo de energía profesional multi-voltaje para cámaras de seguridad y sistemas de vigilancia. Proporciona energía continua en caso de cortes, asegurando que tus cámaras sigan operativas las 24 horas.',
-    features: [
-      'Voltajes múltiples: 5V, 9V, 12V',
-      'Capacidad: 5000mAh',
-      'Tiempo de respaldo: 8-12 horas',
-      'Salida USB y conectores DC',
-      'Ideal para sistemas de vigilancia',
-      'Batería LiFePO4 de larga duración',
-      'Indicadores LED de estado',
-      'Gestión térmica inteligente',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay', 'Transferencia Bancaria'],
+    isBestSeller: false,
+    isCombo: false,
+    affiliateCommission: 8,
+    category: 'Cocina',
+    images: [getPlaceholder('FOTO COCINA 1')],
+    description: 'Cocina saludable sin aceite. Gran capacidad para toda la familia.',
+    features: ['Capacidad: 6 Litros', 'Panel Táctil Digital', '10 programas preestablecidos'],
+    benefits: ['Comida más saludable', 'Cocción rápida', 'Fácil de lavar'],
+    adCopy: 'Cocina rico y sano en minutos con nuestra freidora de 6L. Pídela hoy: [ENLACE]',
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay', 'Transferencia Bancaria'],
   },
   {
-    id: 'mini-ups-litio-usb',
-    title: 'Mini UPS de Litio de Alta Capacidad con Salida USB',
-    price: 60.00,
-    category: 'Smart Home',
-    images: [
-      '/products/miniupsdelitiodealtacapacidadconsalidausb-smarthome.jpg',
-    ],
-    description:
-      'UPS de litio de alta capacidad con tecnología de punta para mantener tus dispositivos conectados durante cortes de energía. Cuenta con múltiples puertos USB para cargar varios dispositivos simultáneamente.',
-    features: [
-      'Batería de Litio de 10000mAh',
-      'Salida USB Tipo-A y USB-C',
-      'Voltaje: 5V/2A',
-      'Tiempo de carga: 1.5 horas',
-      'Tiempo de respaldo: 15-20 horas',
-      'Pantalla LED digital',
-      'Protección contra cortocircuitos',
-      'Peso: 250g',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
+    id: 'aspiradora-auto-portatil',
+    title: 'Aspiradora Portátil para Automóvil',
+    price: 25.00,
+    cost: 12.00,
+    stock: 200,
+    badge: 'Popular',
+    isBestSeller: true,
+    isCombo: false,
+    affiliateCommission: 4,
+    category: 'Automóvil',
+    images: [getPlaceholder('FOTO AUTO 1')],
+    description: 'Limpia cada rincón de tu vehículo fácilmente. Alta potencia de succión.',
+    features: ['Conexión 12V (Cigarrera)', 'Filtro lavable', 'Accesorios para esquinas'],
+    benefits: ['Auto siempre impecable', 'Llega a lugares difíciles', 'No ocupa espacio'],
+    adCopy: 'Mantén tu carro como nuevo con nuestra aspiradora portátil. Compra la tuya: [ENLACE]',
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
   },
   {
-    id: 'protector-voltaje-inteligente',
-    title: 'Protector de Voltaje Inteligente con Batería Interna',
+    id: 'secador-cepillo-2en1',
+    title: 'Cepillo Secador Voluminizador 2 en 1',
+    price: 22.00,
+    originalPrice: 35.00,
+    cost: 10.00,
+    stock: 80,
+    badge: 'Descuento',
+    isBestSeller: false,
+    isCombo: false,
+    affiliateCommission: 3,
+    category: 'Belleza',
+    images: [getPlaceholder('FOTO BELLEZA 1')],
+    description: 'Seca y peina tu cabello al mismo tiempo, logrando volumen de salón en casa.',
+    features: ['3 niveles de temperatura', 'Recubrimiento cerámico', 'Cerdas mixtas antienredos'],
+    benefits: ['Ahorra tiempo arreglándote', 'Cuida tu cabello', 'Volumen espectacular'],
+    adCopy: '¡Logra un secado de peluquería en casa! Pide tu cepillo 2 en 1 aquí: [ENLACE]',
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
+  },
+  {
+    id: 'proyector-galaxia-led',
+    title: 'Proyector de Galaxia LED (Viral TikTok)',
     price: 28.00,
-    badge: 'Envío Gratis',
-    category: 'Smart Home',
-    images: [
-      '/products/protectordevoltajeinteligenteconbateria-smarthome.jpg',
-    ],
-    description:
-      'Protector de voltaje inteligente con batería interna integrada para proteger tus dispositivos electrónicos de fluctuaciones de energía y mantener el suministro durante apagones.',
-    features: [
-      'Protección contra sobrevoltaje',
-      'Batería interna de 3000mAh',
-      'Estabilización automática de voltaje',
-      'Entrada: 110-240V AC',
-      'Salida regulada: 12V DC',
-      'Protección contra cortocircuitos',
-      'Indicador de batería baja',
-      'Diseño compacto y discreto',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
-  },
-  {
-    id: 'iphone-15-pro',
-    title: 'iPhone 15 Pro Max Titanio 256GB',
-    price: 1200.00,
-    badge: 'Premium',
-    category: 'Phones',
-    images: [
-      '/products/iphone15promaxtitanio256gb-phones.jpg',
-    ],
-    description: 'El smartphone premium con pantalla Super Retina XDR, procesador A17 Pro y cámara de 48MP.',
-    features: [
-      'Pantalla OLED 6.7"',
-      'Procesador A17 Pro',
-      'Cámara 48MP',
-      'Batería 4323mAh',
-      'Titanio grado aeronáutico',
-      'Resistencia IP68',
-      'Almacenamiento 256GB',
-      'Sensor de acción',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
-  },
-  {
-    id: 'airpods-pro-2',
-    title: 'AirPods Pro (2ª generación) con cancelación activa',
-    price: 249.00,
-    badge: 'Envío Gratis',
-    category: 'Audio',
-    images: [
-      '/products/airpodspro2dageneracion-audio.jpg',
-    ],
-    description: 'Auriculares inalámbricos con cancelación de ruido adaptativa y audio espacial inmersivo.',
-    features: [
-      'Cancelación activa de ruido',
-      'Modo transparencia',
-      'Audio espacial',
-      'Batería 30 horas',
-      'Carga rápida',
-      'Resistencia IPX4',
-      'Micrófono de calidad',
-      'Controles adaptados',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
-  },
-  {
-    id: 'ps5-console-edition',
-    title: 'PlayStation 5 Edición de Disco 1TB',
-    price: 499.00,
-    badge: 'Stock Limitado',
-    category: 'Gaming',
-    images: [
-      '/products/playstation5ediciondedisco1tb-gaming.jpg',
-    ],
-    description: 'Consola de videojuegos de última generación con disco de 1TB y capacidad de juegos físicos.',
-    features: [
-      'Procesador AMD Ryzen',
-      'GPU RDNA 2 10.28 teraflops',
-      'RAM 16GB GDDR6',
-      'Almacenamiento 1TB SSD',
-      'Unidad de disco',
-      '4K hasta 120fps',
-      'DualSense incluido',
-      'Retrocompatibilidad PS4',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay', 'Transferencia Bancaria'],
-  },
-  {
-    id: 'smartwatch-ultra-2',
-    title: 'Apple Watch Ultra 2 Titanio',
-    price: 799.00,
-    badge: 'Oferta',
-    category: 'Gadgets',
-    images: [
-      '/products/applewatchultra2titanio-gadgets.jpg',
-    ],
-    description: 'Reloj inteligente robusto con pantalla grande, autonomía extendida y resistencia extrema.',
-    features: [
-      'Pantalla LTPO OLED 2.0"',
-      'Titanio grado 5',
-      'Batería 36 horas',
-      'Resistencia 100m de profundidad',
-      'GPS dual',
-      'ECG integrado',
-      'Botón de acción personalizable',
-      'Cristal de zafiro',
-    ],
-    paymentMethods: ['Pago Móvil', 'Zelle', 'Efectivo', 'Binance Pay'],
-  },
+    cost: 14.00,
+    stock: 150,
+    badge: 'Viral',
+    isBestSeller: true,
+    isCombo: false,
+    affiliateCommission: 5,
+    category: 'Productos Virales',
+    images: [getPlaceholder('FOTO VIRAL 1')],
+    description: 'Transforma cualquier habitación en un espectáculo espacial. Ideal para regalos o decoración.',
+    features: ['Control remoto incluido', 'Altavoz Bluetooth', 'Múltiples colores y efectos'],
+    benefits: ['Ambiente relajante', 'Ideal para dormir', 'Sincroniza con tu música'],
+    adCopy: 'El proyector que está rompiendo TikTok ya está en TodoMax. Consíguelo aquí: [ENLACE]',
+    paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
+  }
 ];
 
 export function getProductById(id: string): Product | undefined {

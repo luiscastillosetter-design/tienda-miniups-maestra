@@ -2,15 +2,53 @@
 
 import { useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Script from 'next/script';
+import { siteConfig } from '@/config/site';
 
 function TrackerLogic() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const ref = searchParams?.get('ref');
+    if (!searchParams) return;
+
+    // 1. Detección de Afiliado
+    const ref = searchParams.get('ref');
     if (ref) {
-      // Usamos 'todomax_ref' para que coincida perfectamente con tu página de pago
-      localStorage.setItem('todomax_ref', ref.toUpperCase());
+      localStorage.setItem('todomax_ref', ref.toUpperCase().trim());
+    }
+
+    // 2. Detección de Campañas Publicitarias Pagadas
+    const fbclid = searchParams.get('fbclid');
+    const ttclid = searchParams.get('ttclid');
+    const gclid = searchParams.get('gclid');
+    const utmSource = searchParams.get('utm_source');
+    const utmCampaign = searchParams.get('utm_campaign');
+
+    let detectedChannel = 'Directo';
+
+    if (fbclid || utmSource?.toLowerCase().includes('facebook') || utmSource?.toLowerCase().includes('meta') || utmSource?.toLowerCase().includes('instagram')) {
+      detectedChannel = 'Meta Ads';
+    } else if (ttclid || utmSource?.toLowerCase().includes('tiktok')) {
+      detectedChannel = 'TikTok Ads';
+    } else if (gclid || utmSource?.toLowerCase().includes('google')) {
+      detectedChannel = 'Google Ads';
+    } else if (utmSource) {
+      detectedChannel = `Campaña: ${utmSource}`;
+    }
+
+    // 3. Matriz de Atribución Limpia Anti-Duplicados
+    const attributionData = {
+      channel: detectedChannel,
+      utmCampaign: utmCampaign || 'none',
+      affiliateRef: ref ? ref.toUpperCase().trim() : (localStorage.getItem('todomax_ref') || 'DIRECTO'),
+      timestamp: new Date().toISOString(),
+    };
+
+    localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
+
+    // 4. Disparo de Evento PageView en Meta Pixel (si está activo en window)
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'PageView');
     }
   }, [searchParams]);
 
@@ -18,9 +56,35 @@ function TrackerLogic() {
 }
 
 export default function AffiliateTracker() {
+  const pixelId = siteConfig.metaPixelId;
+
   return (
-    <Suspense fallback={null}>
-      <TrackerLogic />
-    </Suspense>
+    <>
+      {/* Script Base Oficial de Meta Pixel (si el ID está configurado) */}
+      {pixelId && pixelId !== 'TU_PIXEL_ID_AQUI' && (
+        <Script
+          id="meta-pixel-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              !function(f,b,e,v,n,t,s)
+              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+              n.queue=[];t=b.createElement(e);t.async=!0;
+              t.src=v;s=b.getElementsByTagName(e)[0];
+              s.parentNode.insertBefore(t,s)}(window, document,'script',
+              'https://connect.facebook.net/en_US/fbevents.js');
+              fbq('init', '${pixelId}');
+              fbq('track', 'PageView');
+            `,
+          }}
+        />
+      )}
+
+      <Suspense fallback={null}>
+        <TrackerLogic />
+      </Suspense>
+    </>
   );
 }
