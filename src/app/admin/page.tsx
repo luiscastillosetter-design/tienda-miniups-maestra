@@ -6,7 +6,8 @@ import {
   ShoppingBag, Package, Users, Megaphone, UserCheck, DollarSign, 
   Lock, ArrowLeft, CheckCircle, Clock, Truck, CheckCircle2, 
   XCircle, AlertTriangle, TrendingUp, Plus, Trash2, Pencil, 
-  X, Search, MessageCircle, ExternalLink, ShieldCheck, Eye, RefreshCw
+  X, Search, MessageCircle, ExternalLink, ShieldCheck, Eye, RefreshCw,
+  Image as ImageIcon, Video, Sliders, Zap
 } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { products as initialProducts, Product } from '@/data/products';
@@ -82,20 +83,43 @@ export default function AdminPage() {
     category: 'Hogar',
     affiliateCommission: '10',
     description: '',
+    features: '',
     benefits: '',
     badge: '',
     adCopy: '',
     isBestSeller: false,
-    image: '',
+    images: ['', '', '', ''], // Recuperados los 4 slots de imágenes/videos
   });
 
-  // 3. Estado de Publicidad y Contenido
+  // 3. Estado de Publicidad y Contenido (Recuperados editores Hero y Ofertas)
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
+  const [editingHeroId, setEditingHeroId] = useState<any>(null);
+  const [heroForm, setHeroForm] = useState({ title: '', subtitle: '', badge: '', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
+
+  const [offers, setOffers] = useState<any[]>([]);
+  const [editingOfferId, setEditingOfferId] = useState<any>(null);
+  const [offerForm, setOfferForm] = useState({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
+
   const [adSpendInput, setAdSpendInput] = useState<number>(0);
   const [metaPixelId, setMetaPixelId] = useState(siteConfig.metaPixelId || '');
 
   // 4. Búsquedas
   const [searchTerm, setSearchTerm] = useState('');
+
+  // 5. Utilidades Multimedia
+  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => callback(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const isVideoSource = (url: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
 
   useEffect(() => {
     // Cargar sesión
@@ -128,6 +152,13 @@ export default function AdminPage() {
       setProducts(initialProducts);
       localStorage.setItem('store_products', JSON.stringify(initialProducts));
     }
+
+    // Cargar Hero y Ofertas
+    const savedHero = localStorage.getItem('store_hero_slides');
+    if (savedHero) setHeroSlides(JSON.parse(savedHero));
+
+    const savedOffers = localStorage.getItem('store_offers');
+    if (savedOffers) setOffers(JSON.parse(savedOffers));
 
     // Cargar Gasto Publicitario para Finanzas
     const savedAdSpend = localStorage.getItem('store_ad_spend');
@@ -177,7 +208,6 @@ export default function AdminPage() {
   const actualizarEstadoPedido = (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
-    // Si se pasa a Pago Aprobado y antes estaba pendiente, descontamos stock real
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = [...products];
       ordenPrevia.items.forEach(item => {
@@ -212,7 +242,6 @@ export default function AdminPage() {
     notify(`Pedido ${orderId} actualizado a "${nuevoEstado}"`);
   };
 
-  // Notificación automática por WhatsApp al cliente
   const enviarNotificacionCliente = (order: Order, tipo: 'aprobado' | 'despacho') => {
     const cleanPhone = order.customer.telefono.replace(/\D/g, '');
     let mensaje = '';
@@ -234,6 +263,8 @@ export default function AdminPage() {
     if (!productForm.title || !productForm.price) return;
 
     const benefitsArray = productForm.benefits.split('\n').map(b => b.trim()).filter(Boolean);
+    const featuresArray = productForm.features.split('\n').map(f => f.trim()).filter(Boolean);
+    const imagesArray = productForm.images.filter(img => img.trim() !== '');
 
     if (editingProductId) {
       const updated = products.map(p => {
@@ -248,11 +279,12 @@ export default function AdminPage() {
             category: productForm.category,
             affiliateCommission: Number(productForm.affiliateCommission) || 10,
             description: productForm.description,
+            features: featuresArray.length > 0 ? featuresArray : p.features,
             benefits: benefitsArray,
             badge: productForm.badge || undefined,
             adCopy: productForm.adCopy,
             isBestSeller: productForm.isBestSeller,
-            images: productForm.image ? [productForm.image] : p.images,
+            images: imagesArray.length > 0 ? imagesArray : p.images,
           };
         }
         return p;
@@ -271,12 +303,12 @@ export default function AdminPage() {
         category: productForm.category,
         affiliateCommission: Number(productForm.affiliateCommission) || 10,
         description: productForm.description,
-        features: ['Garantía TodoMax', 'Calidad de importación'],
+        features: featuresArray,
         benefits: benefitsArray,
         badge: productForm.badge || undefined,
         adCopy: productForm.adCopy,
         isBestSeller: productForm.isBestSeller,
-        images: [productForm.image || `data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' style='background:%23f8fafc'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23f97316'%3ENUEVO PRODUCTO%3C/text%3E%3C/svg%3E`],
+        images: imagesArray.length > 0 ? imagesArray : [`data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' style='background:%23f8fafc'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23f97316'%3ENUEVO PRODUCTO%3C/text%3E%3C/svg%3E`],
         paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
       };
       const updated = [newProd, ...products];
@@ -289,12 +321,15 @@ export default function AdminPage() {
     setProductForm({
       title: '', price: '', originalPrice: '', cost: '', stock: '',
       category: 'Hogar', affiliateCommission: '10', description: '',
-      benefits: '', badge: '', adCopy: '', isBestSeller: false, image: '',
+      features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''],
     });
   };
 
   const handleEditProduct = (p: Product) => {
     setEditingProductId(p.id);
+    const existingImgs = [...(p.images || [])];
+    while (existingImgs.length < 4) existingImgs.push('');
+
     setProductForm({
       title: p.title,
       price: String(p.price),
@@ -304,11 +339,12 @@ export default function AdminPage() {
       category: p.category,
       affiliateCommission: String(p.affiliateCommission || 10),
       description: p.description,
+      features: p.features ? p.features.join('\n') : '',
       benefits: p.benefits ? p.benefits.join('\n') : '',
       badge: p.badge || '',
       adCopy: p.adCopy || '',
       isBestSeller: !!p.isBestSeller,
-      image: p.images[0] || '',
+      images: existingImgs,
     });
   };
 
@@ -322,7 +358,36 @@ export default function AdminPage() {
   };
 
   // ==========================================
-  // OPERACIONES DE FINANZAS Y MÉTRICAS
+  // OPERACIONES DE MARKETING Y DISEÑO
+  // ==========================================
+  const handleSaveHero = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingHeroId) {
+      const updated = heroSlides.map(s => s.id === editingHeroId ? { ...s, ...heroForm } : s);
+      setHeroSlides(updated); localStorage.setItem('store_hero_slides', JSON.stringify(updated)); setEditingHeroId(null); notify('Banner Hero actualizado');
+    } else {
+      const newItem = { id: Date.now(), ...heroForm };
+      const updated = [...heroSlides, newItem];
+      setHeroSlides(updated); localStorage.setItem('store_hero_slides', JSON.stringify(updated)); notify('Banner Hero agregado');
+    }
+    setHeroForm({ title: '', subtitle: '', badge: '', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
+  };
+
+  const handleSaveOffer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingOfferId) {
+      const updated = offers.map(o => o.id === editingOfferId ? { ...o, ...offerForm } : o);
+      setOffers(updated); localStorage.setItem('store_offers', JSON.stringify(updated)); setEditingOfferId(null); notify('Promoción actualizada');
+    } else {
+      const newItem = { id: Date.now(), ...offerForm };
+      const updated = [...offers, newItem];
+      setOffers(updated); localStorage.setItem('store_offers', JSON.stringify(updated)); notify('Promoción agregada');
+    }
+    setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
+  };
+
+  // ==========================================
+  // FINANZAS Y MÉTRICAS
   // ==========================================
   const totalVentasConfirmadas = orders
     .filter(o => o.status !== 'Cancelado' && o.status !== 'Pendiente de verificación')
@@ -338,7 +403,6 @@ export default function AdminPage() {
 
   const utilidadNetaEstimada = totalVentasConfirmadas - totalCostoMercancia - totalComisionesAfiliados - adSpendInput;
 
-  // Filtrado de pedidos
   const filteredOrders = orders.filter(o => {
     const matchesFilter = orderFilter === 'Todos' || o.status === orderFilter;
     const matchesSearch = searchTerm === '' || 
@@ -349,7 +413,6 @@ export default function AdminPage() {
     return matchesFilter && matchesSearch;
   });
 
-  // Lista única de clientes CRM
   const crmCustomers = Array.from(new Set(orders.map(o => o.customer.cedula))).map(cedula => {
     const clienteOrders = orders.filter(o => o.customer.cedula === cedula);
     const firstOrder = clienteOrders[0];
@@ -368,7 +431,6 @@ export default function AdminPage() {
     };
   });
 
-  // Lista de Afiliados y Rendimiento
   const affiliateStats = Array.from(new Set(orders.map(o => o.attribution.affiliateCode)))
     .filter(code => code && code !== 'DIRECTO')
     .map(code => {
@@ -448,12 +510,12 @@ export default function AdminPage() {
   }
 
   // ==========================================
-  // PANEL PRINCIPAL (6 MÓDULOS)
+  // PANEL PRINCIPAL (Navegación y Módulos)
   // ==========================================
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-20">
       
-      {/* BARRA SUPERIOR PANORÁMICA */}
+      {/* BARRA SUPERIOR */}
       <header className="bg-slate-900 text-white px-6 md:px-12 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-4">
           <Link href="/" className="text-lg md:text-xl font-black tracking-tight flex items-center gap-2">
@@ -477,7 +539,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      {/* MENÚ DE PESTAÑAS (6 MÓDULOS EMPRESARIALES) */}
+      {/* MENÚ DE PESTAÑAS */}
       <nav className="bg-white border-b border-slate-200 px-6 md:px-12 py-2 overflow-x-auto scrollbar-hide shadow-xs">
         <div className="flex items-center gap-2 min-w-max">
           {(currentRole === 'Super Admin' || currentRole === 'Logística y Pagos') && (
@@ -523,7 +585,7 @@ export default function AdminPage() {
                 }`}
               >
                 <Megaphone className="w-4 h-4" />
-                <span>4. Publicidad & Píxeles</span>
+                <span>4. Marketing, Banners y Píxeles</span>
               </button>
             </>
           )}
@@ -554,7 +616,6 @@ export default function AdminPage() {
         </div>
       </nav>
 
-      {/* ÁREA DE TRABAJO */}
       <main className="w-full px-4 md:px-12 lg:px-16 py-8">
         
         {notification && (
@@ -564,9 +625,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MÓDULO 1: PEDIDOS (VALIDAR PAGO, DESPACHAR, NOTIFICAR)    */}
-        {/* ======================================================== */}
+        {/* --- 1. PEDIDOS --- */}
         {activeTab === 'pedidos' && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -575,7 +634,6 @@ export default function AdminPage() {
                 <p className="text-xs text-slate-500 font-medium">Valida comprobantes de pago, descuenta stock y registra números de guía.</p>
               </div>
 
-              {/* Filtros */}
               <div className="flex flex-wrap items-center gap-2">
                 {['Todos', 'Pendiente de verificación', 'Pago Aprobado', 'Despachado', 'Entregado', 'Cancelado'].map(f => (
                   <button
@@ -591,7 +649,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Buscador de pedidos */}
             <div className="bg-white p-3 rounded-2xl border border-slate-200 flex items-center gap-3">
               <Search className="w-4 h-4 text-slate-400" />
               <input
@@ -604,7 +661,6 @@ export default function AdminPage() {
               {searchTerm && <button onClick={() => setSearchTerm('')}><X className="w-4 h-4 text-slate-400" /></button>}
             </div>
 
-            {/* Tabla de Pedidos */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -698,7 +754,6 @@ export default function AdminPage() {
                     </button>
                   </div>
 
-                  {/* Datos del Cliente y Envío */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
                     <div>
                       <p className="font-bold text-slate-500 uppercase text-[10px] mb-1">Cliente</p>
@@ -713,7 +768,6 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Productos Comprados */}
                   <div>
                     <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Artículos en la orden</h4>
                     <div className="space-y-2">
@@ -726,12 +780,10 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Estado y Flujo Operativo */}
                   <div className="space-y-3 pt-2">
                     <h4 className="text-xs font-black uppercase text-slate-900">Acciones de Despacho y Pagos</h4>
                     
                     <div className="flex flex-wrap gap-2">
-                      {/* 1. Validar Pago */}
                       {selectedOrder.status === 'Pendiente de verificación' && (
                         <button
                           onClick={() => {
@@ -745,7 +797,6 @@ export default function AdminPage() {
                         </button>
                       )}
 
-                      {/* 2. Registrar Guía y Despachar */}
                       {selectedOrder.status === 'Pago Aprobado' && (
                         <div className="w-full flex gap-2">
                           <input
@@ -772,7 +823,6 @@ export default function AdminPage() {
                         </div>
                       )}
 
-                      {/* 3. Marcar Entregado (Libera comisión al afiliado) */}
                       {selectedOrder.status === 'Despachado' && (
                         <button
                           onClick={() => actualizarEstadoPedido(selectedOrder.id, 'Entregado')}
@@ -782,7 +832,6 @@ export default function AdminPage() {
                         </button>
                       )}
 
-                      {/* Cancelar / Devolución */}
                       {selectedOrder.status !== 'Cancelado' && (
                         <button
                           onClick={() => actualizarEstadoPedido(selectedOrder.id, 'Cancelado')}
@@ -799,13 +848,10 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MÓDULO 2: INVENTARIO (COSTOS, EXISTENCIAS, EDICIÓN)       */}
-        {/* ======================================================== */}
+        {/* --- 2. INVENTARIO Y PRODUCTOS (CON MULTIMEDIA Y TEXTOS LARGOS RECUPERADOS) --- */}
         {activeTab === 'inventario' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
-            {/* Formulario Agregar / Editar */}
             <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs h-fit space-y-4">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                 {editingProductId ? <Pencil className="w-4 h-4 text-orange-500" /> : <Plus className="w-4 h-4 text-orange-500" />}
@@ -891,7 +937,7 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Descripción</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Descripción corta (Home)</label>
                   <textarea
                     rows={2}
                     value={productForm.description}
@@ -899,6 +945,58 @@ export default function AdminPage() {
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
                     placeholder="Detalles para la landing de venta..."
                   />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Características / Ficha Técnica (1 por línea)</label>
+                  <textarea
+                    rows={3}
+                    value={productForm.features}
+                    onChange={e => setProductForm({ ...productForm, features: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
+                    placeholder="Voltaje: 12V&#10;Capacidad: 2kg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Beneficios Comerciales (1 por línea)</label>
+                  <textarea
+                    rows={3}
+                    value={productForm.benefits}
+                    onChange={e => setProductForm({ ...productForm, benefits: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
+                    placeholder="Limpia fácil&#10;Ahorra tiempo"
+                  />
+                </div>
+
+                {/* 4 SLOTS MULTIMEDIA (FOTOS / VIDEOS) */}
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-2">Multimedia (Hasta 4 Fotos o Videos MP4)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[0, 1, 2, 3].map((index) => {
+                      const media = productForm.images[index];
+                      const isVideo = isVideoSource(media);
+                      return (
+                        <div key={index} className="border border-dashed border-slate-300 p-2 rounded-xl text-center relative bg-slate-50 hover:bg-slate-100 transition-colors">
+                          {media ? (
+                            <div className="relative h-24 w-full rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
+                              {isVideo ? <video src={media} className="h-full w-full object-cover" muted autoPlay loop /> : <img src={media} alt="Preview" className="h-full w-full object-cover" />}
+                              <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">{isVideo ? 'Video' : 'Foto'}</span>
+                              <button type="button" onClick={() => { const updated = [...productForm.images]; updated[index] = ''; setProductForm({ ...productForm, images: updated }); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs z-10 cursor-pointer"><X className="w-3 h-3"/></button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-24 space-y-1">
+                              <label className="cursor-pointer flex flex-col items-center">
+                                <div className="flex items-center gap-1 text-slate-400"><ImageIcon size={16} /><Video size={16} /></div>
+                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Subir Foto/MP4</span>
+                                <input type="file" accept="image/*,video/mp4" className="hidden" onChange={(e) => handleMediaUpload(e, (url) => { const updated = [...productForm.images]; updated[index] = url; setProductForm({ ...productForm, images: updated }); })} />
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">
@@ -928,7 +1026,7 @@ export default function AdminPage() {
                         setProductForm({
                           title: '', price: '', originalPrice: '', cost: '', stock: '',
                           category: 'Hogar', affiliateCommission: '10', description: '',
-                          benefits: '', badge: '', adCopy: '', isBestSeller: false, image: '',
+                          features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''],
                         });
                       }}
                       className="px-3 bg-slate-200 text-slate-700 font-bold rounded-xl"
@@ -940,7 +1038,6 @@ export default function AdminPage() {
               </form>
             </div>
 
-            {/* Lista y Alertas de Stock */}
             <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-black text-slate-900">Control de Existencias ({products.length})</h3>
@@ -966,7 +1063,16 @@ export default function AdminPage() {
                       const isLowStock = p.stock <= 5;
                       return (
                         <tr key={p.id} className="hover:bg-slate-50">
-                          <td className="p-3 font-bold text-slate-800 max-w-[180px] truncate">{p.title}</td>
+                          <td className="p-3 font-bold text-slate-800 max-w-[180px] truncate">
+                            <div className="flex items-center gap-2">
+                               {p.images && p.images[0] && (
+                                  <div className="w-8 h-8 bg-slate-100 rounded overflow-hidden flex-shrink-0">
+                                     {isVideoSource(p.images[0]) ? <video src={p.images[0]} className="w-full h-full object-cover" /> : <img src={p.images[0]} className="w-full h-full object-cover" />}
+                                  </div>
+                               )}
+                               {p.title}
+                            </div>
+                          </td>
                           <td className="p-3 text-slate-500">{p.category}</td>
                           <td className="p-3 text-slate-500">${(p.cost || 0).toFixed(2)}</td>
                           <td className="p-3 font-black text-slate-900">${p.price.toFixed(2)}</td>
@@ -1003,9 +1109,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MÓDULO 3: AFILIADOS (LIQUIDACIÓN Y COMISIONES)           */}
-        {/* ======================================================== */}
+        {/* --- MÓDULO 3: AFILIADOS --- */}
         {activeTab === 'afiliados' && (
           <div className="space-y-6">
             <div>
@@ -1076,58 +1180,86 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MÓDULO 4: PUBLICIDAD (BANNERS Y PÍXELES)                  */}
-        {/* ======================================================== */}
+        {/* --- MÓDULO 4: MARKETING, BANNERS Y PÍXELES (NUEVO GESTOR VISUAL) --- */}
         {activeTab === 'publicidad' && (
-          <div className="max-w-2xl bg-white p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-            <div>
-              <h2 className="text-xl font-black text-slate-900">Configuración de Anuncios y Atribución</h2>
-              <p className="text-xs text-slate-500">Integra Meta Pixel, Conversion API y Sellibrí.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Editor de Hero Banners */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-orange-500"/>
+                <h3 className="text-lg font-black text-slate-900">Banners Principales (Hero)</h3>
+              </div>
+              <form onSubmit={handleSaveHero} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div><label className="block font-bold uppercase mb-1">Título Grande</label><input type="text" required value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="block font-bold uppercase mb-1">Etiqueta (Badge)</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="Ej. PRODUCTO ESTRELLA" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace del Botón</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, mobileImg: url}))} /></div>
+                </div>
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                  {editingHeroId ? 'Actualizar Banner Hero' : 'Agregar Banner Hero'}
+                </button>
+              </form>
+              <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto">
+                {heroSlides.map(s => (
+                  <div key={s.id} className="flex justify-between items-center p-3 border rounded-xl bg-slate-50 text-xs">
+                    <span className="font-bold">{s.title || 'Banner'}</span>
+                    <button onClick={() => { const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); localStorage.setItem('store_hero_slides', JSON.stringify(u)); }} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-600 uppercase mb-1.5">Meta Pixel ID</label>
-                <input
-                  type="text"
-                  value={metaPixelId}
-                  onChange={e => setMetaPixelId(e.target.value)}
-                  placeholder="Ej. 123456789012345"
-                  className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-semibold"
-                />
+            {/* Editor de Promociones / Combos */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-orange-500"/>
+                <h3 className="text-lg font-black text-slate-900">Promociones y Combos</h3>
               </div>
-
-              <div>
-                <label className="block font-bold text-slate-600 uppercase mb-1.5">Gasto Publicitario del Mes ($)</label>
-                <input
-                  type="number"
-                  value={adSpendInput}
-                  onChange={e => {
-                    setAdSpendInput(Number(e.target.value));
-                    localStorage.setItem('store_ad_spend', e.target.value);
-                  }}
-                  placeholder="Inversión en Meta Ads o TikTok Ads..."
-                  className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-semibold"
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">Este monto se descuenta automáticamente en el módulo de Finanzas.</span>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  onClick={() => notify('Configuración publicitaria guardada.')}
-                  className="w-full py-3.5 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl transition-colors cursor-pointer"
-                >
-                  Guardar Configuración
+              <form onSubmit={handleSaveOffer} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div><label className="block font-bold uppercase mb-1">Título de la Oferta</label><input type="text" required value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div><label className="block font-bold uppercase mb-1">Descripción corta</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="block font-bold uppercase mb-1">Tag Superior</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="Ej. COMBO AHORRO" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Descuento/Aviso</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="Ej. 30% OFF" /></div>
+                </div>
+                <div><label className="block font-bold uppercase mb-1">Enlace del Producto</label><input type="text" value={offerForm.link} onChange={e => setOfferForm({...offerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, mobileImg: url}))} /></div>
+                </div>
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                  {editingOfferId ? 'Actualizar Oferta' : 'Agregar Oferta'}
                 </button>
+              </form>
+              <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto">
+                {offers.map(o => (
+                  <div key={o.id} className="flex justify-between items-center p-3 border rounded-xl bg-slate-50 text-xs">
+                    <span className="font-bold">{o.title || 'Oferta'}</span>
+                    <button onClick={() => { const u = offers.filter(x => x.id !== o.id); setOffers(u); localStorage.setItem('store_offers', JSON.stringify(u)); }} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Ads & Pixeles */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <h3 className="text-lg font-black text-slate-900">Píxeles y Gasto Publicitario</h3>
+              <div className="flex flex-col md:flex-row gap-4 text-xs">
+                <input type="text" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} placeholder="Meta Pixel ID..." className="flex-1 px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
+                <input type="number" value={adSpendInput} onChange={e => { setAdSpendInput(Number(e.target.value)); localStorage.setItem('store_ad_spend', e.target.value); }} placeholder="Inversión Mensual Ads ($)..." className="w-full md:w-64 px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
+                <button onClick={() => notify('Configuración de Ads y Pixel guardada con éxito')} className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl cursor-pointer">Guardar</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MÓDULO 5: CRM DE CLIENTES                                */}
-        {/* ======================================================== */}
+        {/* --- MÓDULO 5: CRM DE CLIENTES --- */}
         {activeTab === 'crm' && (
           <div className="space-y-6">
             <div>
@@ -1181,9 +1313,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MÓDULO 6: FINANZAS Y RENTABILIDAD                         */}
-        {/* ======================================================== */}
+        {/* --- MÓDULO 6: FINANZAS Y RENTABILIDAD --- */}
         {activeTab === 'finanzas' && (
           <div className="space-y-6">
             <div>
