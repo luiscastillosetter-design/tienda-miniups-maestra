@@ -1205,11 +1205,26 @@ export default function AdminPage() {
                   {editingHeroId ? 'Actualizar Banner Hero' : 'Agregar Banner Hero'}
                 </button>
               </form>
-              <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto">
+              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
                 {heroSlides.map(s => (
-                  <div key={s.id} className="flex justify-between items-center p-3 border rounded-xl bg-slate-50 text-xs">
-                    <span className="font-bold">{s.title || 'Banner'}</span>
-                    <button onClick={() => { const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); localStorage.setItem('store_hero_slides', JSON.stringify(u)); }} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                  <div key={s.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 hover:border-orange-300 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                         {s.desktopImg ? <img src={s.desktopImg} alt="Hero" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-800 text-[11px]">{s.title || s.badge || 'Banner (Sin título)'}</span>
+                        <span className="text-[9px] text-slate-500 max-w-[150px] truncate">{s.subtitle || s.btnLink}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { setEditingHeroId(s.id); setHeroForm({ title: s.title || '', subtitle: s.subtitle || '', badge: s.badge || '', btnLink: s.btnLink || '/catalogo', desktopImg: s.desktopImg || '', mobileImg: s.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar Banner">
+                        <Pencil className="w-4 h-4"/>
+                      </button>
+                      <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); localStorage.setItem('store_hero_slides', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar Banner">
+                        <Trash2 className="w-4 h-4"/>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1237,11 +1252,26 @@ export default function AdminPage() {
                   {editingOfferId ? 'Actualizar Oferta' : 'Agregar Oferta'}
                 </button>
               </form>
-              <div className="space-y-2 mt-4 max-h-[300px] overflow-y-auto">
+              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
                 {offers.map(o => (
-                  <div key={o.id} className="flex justify-between items-center p-3 border rounded-xl bg-slate-50 text-xs">
-                    <span className="font-bold">{o.title || 'Oferta'}</span>
-                    <button onClick={() => { const u = offers.filter(x => x.id !== o.id); setOffers(u); localStorage.setItem('store_offers', JSON.stringify(u)); }} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                  <div key={o.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 hover:border-orange-300 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                         {o.desktopImg ? <img src={o.desktopImg} alt="Oferta" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-800 text-[11px]">{o.title || 'Oferta (Sin título)'}</span>
+                        <span className="text-[9px] text-orange-600 font-bold">{o.discount || 'Sin descuento'}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { setEditingOfferId(o.id); setOfferForm({ tag: o.tag || '', title: o.title || '', desc: o.desc || '', discount: o.discount || '', link: o.link || '/catalogo', gradient: o.gradient || 'from-slate-900 via-slate-800 to-orange-950', desktopImg: o.desktopImg || '', mobileImg: o.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar Oferta">
+                        <Pencil className="w-4 h-4"/>
+                      </button>
+                      <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar esta oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); localStorage.setItem('store_offers', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar Oferta">
+                        <Trash2 className="w-4 h-4"/>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
