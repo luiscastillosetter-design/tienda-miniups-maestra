@@ -7,7 +7,7 @@ import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { ShoppingBag, ArrowRight } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 
 const availableCategories = [
   'Todos',
@@ -75,29 +75,30 @@ function CatalogoContent() {
   };
 
   return (
-    <div className="w-full bg-slate-50 min-h-screen pb-24 pt-28 md:pt-36">
+    // Ajuste clave de padding-top para que no choque con el Header
+    <div className="w-full bg-slate-50 min-h-screen pt-[140px] md:pt-[160px] pb-24">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
         
         {/* Cabecera Panorámica */}
-        <div className="bg-white rounded-3xl p-8 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-3xl">
             <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
               {siteConfig.storeName}
             </span>
-            <h1 className="text-3xl md:text-5xl font-black text-slate-900 mt-1 mb-3">
-              Catálogo Completo de Importación
+            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-3">
+              Catálogo Completo
             </h1>
-            <p className="text-xs md:text-base text-gray-500 font-medium leading-relaxed">
-              Descubre miles de oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
+            <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed">
+              Descubre oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex overflow-x-auto md:flex-wrap gap-2 pb-2 md:pb-0 scrollbar-hide">
             {availableCategories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => handleCategorySelect(cat)}
-                className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
+                className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
                   activeCategory.toLowerCase() === cat.toLowerCase()
                     ? 'bg-slate-900 text-white shadow-lg'
                     : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-600'
@@ -112,7 +113,7 @@ function CatalogoContent() {
         {/* Grilla de Productos */}
         {filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
-            <p className="text-base text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
+            <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
             <button
               onClick={() => handleCategorySelect('Todos')}
               className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs"
@@ -144,7 +145,7 @@ function CatalogoContent() {
                   <div>
                     <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
                     <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
+                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
                         {product.title}
                       </h3>
                     </Link>
