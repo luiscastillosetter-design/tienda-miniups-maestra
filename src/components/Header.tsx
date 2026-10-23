@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams, usePathname } from 'next/navigation';
-import { Menu, Search, ShoppingCart, X, Home, Cpu, Utensils, Car, Sparkles, Flame, DollarSign, Truck } from 'lucide-react';
+import { Menu, Search, ShoppingCart, X, Home, Cpu, Utensils, Car, Sparkles, Flame, CircleDollarSign, Truck } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { siteConfig } from '@/config/site';
 import { products } from '@/data/products';
@@ -80,7 +80,7 @@ function HeaderContent() {
               href="/afiliados"
               className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
             >
-              <DollarSign className="w-4 h-4" />
+              <CircleDollarSign className="w-4 h-4" />
               <span>Gana dinero con TodoMax</span>
             </Link>
           </div>
@@ -162,7 +162,7 @@ function HeaderContent() {
                 href="/afiliados"
                 className="md:hidden flex items-center gap-1 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl text-xs font-black"
               >
-                <DollarSign className="w-3.5 h-3.5" />
+                <CircleDollarSign className="w-3.5 h-3.5" />
                 <span>Afiliados</span>
               </Link>
 

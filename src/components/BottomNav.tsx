@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Home, Grid3x3, ShoppingBag, DollarSign, User } from 'lucide-react';
+import { Home, Grid3x3, ShoppingBag, CircleDollarSign, User } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import AuthModal from './AuthModal';
 
@@ -64,7 +64,7 @@ export default function BottomNav() {
             href="/afiliados"
             className="flex flex-col items-center gap-1 w-14 text-orange-600 hover:text-orange-700 transition-colors"
           >
-            <DollarSign className="w-5 h-5" />
+            <CircleDollarSign className="w-5 h-5" />
             <span className="text-[9px] font-black">Afiliados</span>
           </Link>
 
