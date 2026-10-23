@@ -140,18 +140,20 @@ export default function AdminPage() {
       }
     }
 
-    // Cargar Productos
-    const savedProducts = localStorage.getItem('store_products');
-    if (savedProducts) {
-      try {
-        setProducts(JSON.parse(savedProducts));
-      } catch (e) {
+    // Cargar Productos desde la Nube (API Redis)
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+          localStorage.setItem('store_products', JSON.stringify(data));
+        } else {
+          setProducts(initialProducts);
+        }
+      })
+      .catch(() => {
         setProducts(initialProducts);
-      }
-    } else {
-      setProducts(initialProducts);
-      localStorage.setItem('store_products', JSON.stringify(initialProducts));
-    }
+      });
 
     // Cargar Hero y Ofertas
     const savedHero = localStorage.getItem('store_hero_slides');
