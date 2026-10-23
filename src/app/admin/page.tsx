@@ -258,7 +258,7 @@ export default function AdminPage() {
   // ==========================================
   // OPERACIONES DE INVENTARIO (MÓDULO 2)
   // ==========================================
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productForm.title || !productForm.price) return;
 
@@ -266,8 +266,10 @@ export default function AdminPage() {
     const featuresArray = productForm.features.split('\n').map(f => f.trim()).filter(Boolean);
     const imagesArray = productForm.images.filter(img => img.trim() !== '');
 
+    let updated = [...products];
+
     if (editingProductId) {
-      const updated = products.map(p => {
+      updated = products.map(p => {
         if (p.id === editingProductId) {
           return {
             ...p,
@@ -289,9 +291,7 @@ export default function AdminPage() {
         }
         return p;
       });
-      setProducts(updated);
-      localStorage.setItem('store_products', JSON.stringify(updated));
-      notify('Producto actualizado con éxito');
+      notify('Producto actualizado en la nube');
     } else {
       const newProd: Product = {
         id: `prod-${Date.now()}`,
@@ -311,10 +311,21 @@ export default function AdminPage() {
         images: imagesArray.length > 0 ? imagesArray : [`data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' style='background:%23f8fafc'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23f97316'%3ENUEVO PRODUCTO%3C/text%3E%3C/svg%3E`],
         paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
       };
-      const updated = [newProd, ...products];
-      setProducts(updated);
-      localStorage.setItem('store_products', JSON.stringify(updated));
-      notify('Producto agregado al catálogo');
+      updated = [newProd, ...products];
+      notify('Producto agregado a la nube');
+    }
+
+    setProducts(updated);
+    localStorage.setItem('store_products', JSON.stringify(updated));
+    
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+    } catch (err) {
+      console.error('Error sincronizando con Redis:', err);
     }
 
     setEditingProductId(null);
@@ -348,12 +359,23 @@ export default function AdminPage() {
     });
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = async (id: string) => {
     if (confirm('¿Seguro que deseas eliminar este producto?')) {
       const updated = products.filter(p => p.id !== id);
       setProducts(updated);
       localStorage.setItem('store_products', JSON.stringify(updated));
-      notify('Producto eliminado');
+      
+      try {
+        await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        });
+      } catch (err) {
+        console.error('Error eliminando en Redis:', err);
+      }
+
+      notify('Producto eliminado de la nube');
     }
   };
 

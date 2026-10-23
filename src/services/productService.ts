@@ -2,19 +2,18 @@ import { Product, products as defaultProducts } from '@/data/products';
 
 export const productService = {
   async getProducts(): Promise<Product[]> {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('store_products');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error('Error leyendo store_products', e);
+    try {
+      const res = await fetch('/api/products', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
         }
       }
-      // Si la memoria está vacía, la inicializamos con los nuevos productos base
-      localStorage.setItem('store_products', JSON.stringify(defaultProducts));
+    } catch (e) {
+      console.error('Error fetching products from API, falling back to default:', e);
     }
-    return Promise.resolve(defaultProducts);
+    return defaultProducts;
   },
 
   async getProductById(id: string): Promise<Product | undefined> {
