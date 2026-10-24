@@ -123,53 +123,38 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // Cargar sesión
-    const savedAuth = localStorage.getItem('todomax_admin_auth');
-    const savedRole = localStorage.getItem('todomax_admin_role') as UserRole;
-    if (savedAuth === 'true') {
-      setIsAuthenticated(true);
-      if (savedRole) setCurrentRole(savedRole);
-    }
-
-    // Cargar Pedidos en tiempo real (Sincronización en vivo automática)
-    const loadOrders = () => {
-      const savedOrders = localStorage.getItem('store_orders');
-      if (savedOrders) {
-        try {
-          setOrders(JSON.parse(savedOrders));
-        } catch (e) {
-          console.error('Error cargando órdenes', e);
-        }
-      }
-    };
-    loadOrders();
-    const orderInterval = setInterval(loadOrders, 3000);
-    return () => clearInterval(orderInterval);
-
-    // Cargar Productos desde la Nube (API)
-    fetch('/api/products')
+    // 1. INVENTARIO EN VIVO (Sin caché, directo de la nube Redis)
+    fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setProducts(data);
-        } else {
-          setProducts(initialProducts);
         }
       })
-      .catch(() => setProducts(initialProducts));
+      .catch(e => console.error('Error cargando inventario:', e));
 
-    // Cargar Hero y Ofertas
+    // 2. PEDIDOS EN TIEMPO REAL (Lectura automática cada 3 segundos)
+    const loadOrders = () => {
+      const savedOrders = localStorage.getItem('store_orders');
+      if (savedOrders) {
+        try { setOrders(JSON.parse(savedOrders)); } catch (e) {}
+      }
+    };
+    loadOrders();
+    const orderInterval = setInterval(loadOrders, 3000);
+
+    // 3. RECUPERAR BANNERS Y PROMOCIONES (Restaurar lo que desapareció)
     const savedHero = localStorage.getItem('store_hero_slides');
-    if (savedHero) setHeroSlides(JSON.parse(savedHero as string));
-
-    const savedOffers = localStorage.getItem('store_offers');
-    if (savedOffers) setOffers(JSON.parse(savedOffers as string));
-
-    // Cargar Gasto Publicitario para Finanzas
-    const savedAdSpend = localStorage.getItem('store_ad_spend');
-    if (savedAdSpend) {
-      setAdSpendInput(Number(savedAdSpend));
+    if (savedHero) {
+      try { setHeroSlides(JSON.parse(savedHero)); } catch(e) {}
     }
+    
+    const savedOffers = localStorage.getItem('store_offers');
+    if (savedOffers) {
+      try { setOffers(JSON.parse(savedOffers)); } catch(e) {}
+    }
+
+    return () => clearInterval(orderInterval);
   }, []);
 
   const notify = (msg: string) => {
