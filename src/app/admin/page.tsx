@@ -131,15 +131,20 @@ export default function AdminPage() {
       if (savedRole) setCurrentRole(savedRole);
     }
 
-    // Cargar Pedidos
-    const savedOrders = localStorage.getItem('store_orders');
-    if (savedOrders) {
-      try {
-        setOrders(JSON.parse(savedOrders));
-      } catch (e) {
-        console.error('Error cargando órdenes', e);
+    // Cargar Pedidos en tiempo real (Sincronización en vivo automática)
+    const loadOrders = () => {
+      const savedOrders = localStorage.getItem('store_orders');
+      if (savedOrders) {
+        try {
+          setOrders(JSON.parse(savedOrders));
+        } catch (e) {
+          console.error('Error cargando órdenes', e);
+        }
       }
-    }
+    };
+    loadOrders();
+    const orderInterval = setInterval(loadOrders, 3000);
+    return () => clearInterval(orderInterval);
 
     // Cargar Productos
     const savedProducts = localStorage.getItem('store_products');
