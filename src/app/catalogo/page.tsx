@@ -110,16 +110,22 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {/* BANNERS DE CATEGORÍAS */}
+        {/* BANNERS DE CATEGORÍAS (Conectado al Admin en Vivo) */}
         <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-100 aspect-[3/1] md:aspect-[6/1] relative flex items-center justify-center border border-gray-200/80">
           <img 
-            src={`/categories/${activeCategory === 'Productos Virales' ? 'virales' : activeCategory === 'Tecnología' ? 'tecnologia' : activeCategory === 'Automóvil' ? 'automovil' : activeCategory.toLowerCase()}.png`}
             alt={`Banner de ${activeCategory}`}
             className="w-full h-full object-cover"
+            ref={(el) => {
+              if (el && typeof window !== 'undefined') {
+                const savedBanners = JSON.parse(localStorage.getItem('store_cat_banners') || '{}');
+                el.src = savedBanners[activeCategory] || '';
+                el.style.display = el.src && el.src !== window.location.href ? 'block' : 'none';
+              }
+            }}
             onError={(e) => {
               e.currentTarget.style.display = 'none';
-              if (e.currentTarget.parentElement) {
-                e.currentTarget.parentElement.innerHTML = `<span class="text-slate-400 font-bold text-sm">Sube tu imagen en: public/categories/${activeCategory === 'Productos Virales' ? 'virales' : activeCategory === 'Tecnología' ? 'tecnologia' : activeCategory === 'Automóvil' ? 'automovil' : activeCategory.toLowerCase()}.png</span>`;
+              if (e.currentTarget.parentElement && !e.currentTarget.src.includes('http')) {
+                e.currentTarget.parentElement.innerHTML = `<span class="text-slate-400 font-bold text-sm">Añade la imagen de ${activeCategory} desde el Panel Administrador</span>`;
               }
             }}
           />

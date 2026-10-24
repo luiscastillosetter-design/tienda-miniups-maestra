@@ -123,15 +123,20 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // 1. INVENTARIO EN VIVO (Sin caché, directo de la nube Redis)
+    // 1. INVENTARIO EN VIVO (Con respaldo de seguridad anti-vacíos)
     fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setProducts(data);
+        } else {
+          import('@/data/products').then(module => setProducts(module.products));
         }
       })
-      .catch(e => console.error('Error cargando inventario:', e));
+      .catch(e => {
+        console.error('Error cargando inventario:', e);
+        import('@/data/products').then(module => setProducts(module.products));
+      });
 
     // 2. PEDIDOS EN TIEMPO REAL (Lectura automática cada 3 segundos)
     const loadOrders = () => {
@@ -1313,6 +1318,35 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Editor de Banners de Catálogo */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-orange-500" />
+                <h3 className="text-lg font-black text-slate-900">Banners del Catálogo (Por Categoría)</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                {['Hogar', 'Tecnología', 'Cocina', 'Automóvil', 'Belleza', 'Productos Virales'].map(cat => (
+                  <div key={cat}>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{cat}</label>
+                    <input 
+                      type="text" 
+                      placeholder={`Enlace de imagen para ${cat}`}
+                      defaultValue={typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('store_cat_banners') || '{}')[cat] || '') : ''}
+                      onBlur={(e) => {
+                        const saved = JSON.parse(localStorage.getItem('store_cat_banners') || '{}');
+                        saved[cat] = e.target.value;
+                        localStorage.setItem('store_cat_banners', JSON.stringify(saved));
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-orange-500" 
+                    />
+                  </div>
+                ))}
+                <div className="col-span-full text-[10px] text-slate-400 mt-1">
+                  * Pega el enlace de la imagen y haz clic afuera de la casilla para guardar automáticamente.
+                </div>
               </div>
             </div>
 
