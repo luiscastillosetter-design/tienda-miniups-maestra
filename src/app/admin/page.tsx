@@ -44,6 +44,7 @@ interface Order {
     method: string;
     reference: string;
     hasReceipt: boolean;
+    receiptImage?: string;
   };
   items: OrderItem[];
   financials: {
@@ -140,20 +141,18 @@ export default function AdminPage() {
       }
     }
 
-    // Cargar Productos desde la Nube (API Redis)
-    fetch('/api/products')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          setProducts(data);
-          localStorage.setItem('store_products', JSON.stringify(data));
-        } else {
-          setProducts(initialProducts);
-        }
-      })
-      .catch(() => {
+    // Cargar Productos
+    const savedProducts = localStorage.getItem('store_products');
+    if (savedProducts) {
+      try {
+        setProducts(JSON.parse(savedProducts));
+      } catch (e) {
         setProducts(initialProducts);
-      });
+      }
+    } else {
+      setProducts(initialProducts);
+      localStorage.setItem('store_products', JSON.stringify(initialProducts));
+    }
 
     // Cargar Hero y Ofertas
     const savedHero = localStorage.getItem('store_hero_slides');
@@ -804,6 +803,15 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {selectedOrder.payment?.receiptImage && (
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Comprobante de Pago Adjunto</h4>
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col items-center">
+                        <img src={selectedOrder.payment.receiptImage} alt="Comprobante" className="max-h-72 object-contain rounded-xl shadow-sm" />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-3 pt-2">
                     <h4 className="text-xs font-black uppercase text-slate-900">Acciones de Despacho y Pagos</h4>
                     
@@ -864,6 +872,24 @@ export default function AdminPage() {
                           Cancelar Pedido
                         </button>
                       )}
+
+                      <button
+                        onClick={() => {
+                          const clave = prompt('Ingresa la contraseña de administración para eliminar este pedido:');
+                          if (clave === 'Admin1234.') {
+                            const updatedOrders = orders.filter(o => o.id !== selectedOrder.id);
+                            setOrders(updatedOrders);
+                            localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
+                            setSelectedOrder(null);
+                            notify('Pedido eliminado permanentemente');
+                          } else if (clave !== null) {
+                            alert('Contraseña incorrecta');
+                          }
+                        }}
+                        className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl transition-colors cursor-pointer ml-auto"
+                      >
+                        🗑️ Eliminar Pedido (Con Clave)
+                      </button>
                     </div>
                   </div>
                 </div>

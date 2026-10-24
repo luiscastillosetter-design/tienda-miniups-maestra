@@ -107,7 +107,7 @@ export default function CheckoutPage() {
       status: 'Pendiente de verificación',
       customer: { nombre, apellido, cedula, telefono },
       shipping: { courier, estado, ciudad, direccion, isFreeShipping },
-      payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview },
+      payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview, receiptImage: comprobantePreview },
       items: items,
       financials: { total, cost: totalCost, utility: expectedUtility },
       attribution: { affiliateCode: refCode, channel: refCode !== 'DIRECTO' ? 'Afiliado' : 'Directo' }

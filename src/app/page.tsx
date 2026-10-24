@@ -91,14 +91,17 @@ function HomeContent() {
             )}
           </div>
 
-          <div className="flex overflow-x-auto md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-5 snap-x pb-4 scrollbar-hide px-1">
+          <div className="flex overflow-x-auto md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-5 snap-x pb-4 pt-3 scrollbar-hide px-1">
             {categoriesList.map((cat) => {
               const Icon = cat.icon;
               const isSelected = selectedCategory.toLowerCase() === cat.name.toLowerCase();
               return (
                 <button
                   key={cat.name}
-                  onClick={() => setSelectedCategory(isSelected ? 'Todos' : cat.name)}
+                  onClick={() => {
+                    setSelectedCategory(isSelected ? 'Todos' : cat.name);
+                    document.getElementById('catalogo-grilla')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
                   className={`flex-shrink-0 w-[140px] md:w-auto snap-start p-4 md:p-5 rounded-3xl border text-center transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer group hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/80 ${
                     isSelected
                       ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-105'
