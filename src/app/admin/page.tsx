@@ -150,7 +150,7 @@ export default function AdminPage() {
     const savedProducts = localStorage.getItem('store_products');
     if (savedProducts) {
       try {
-        setProducts(JSON.parse(savedProducts));
+        setProducts(JSON.parse(savedProducts as string));
       } catch (e) {
         setProducts(initialProducts);
       }
@@ -161,10 +161,10 @@ export default function AdminPage() {
 
     // Cargar Hero y Ofertas
     const savedHero = localStorage.getItem('store_hero_slides');
-    if (savedHero) setHeroSlides(JSON.parse(savedHero));
+    if (savedHero) setHeroSlides(JSON.parse(savedHero as string));
 
     const savedOffers = localStorage.getItem('store_offers');
-    if (savedOffers) setOffers(JSON.parse(savedOffers));
+    if (savedOffers) setOffers(JSON.parse(savedOffers as string));
 
     // Cargar Gasto Publicitario para Finanzas
     const savedAdSpend = localStorage.getItem('store_ad_spend');
