@@ -101,6 +101,10 @@ export default function AdminPage() {
   const [editingOfferId, setEditingOfferId] = useState<any>(null);
   const [offerForm, setOfferForm] = useState({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
 
+  const [catBanners, setCatBanners] = useState<any[]>([]);
+  const [editingCatBannerId, setEditingCatBannerId] = useState<any>(null);
+  const [catBannerForm, setCatBannerForm] = useState({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
+
   const [adSpendInput, setAdSpendInput] = useState<number>(0);
   const [metaPixelId, setMetaPixelId] = useState(siteConfig.metaPixelId || '');
 
@@ -157,6 +161,11 @@ export default function AdminPage() {
     const savedOffers = localStorage.getItem('store_offers');
     if (savedOffers) {
       try { setOffers(JSON.parse(savedOffers)); } catch(e) {}
+    }
+
+    const savedCatBanners = localStorage.getItem('store_cat_slides');
+    if (savedCatBanners) {
+      try { setCatBanners(JSON.parse(savedCatBanners)); } catch(e) {}
     }
 
     return () => clearInterval(orderInterval);
@@ -401,6 +410,19 @@ export default function AdminPage() {
       setOffers(updated); localStorage.setItem('store_offers', JSON.stringify(updated)); notify('Promoción agregada');
     }
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
+  };
+
+  const handleSaveCatBanner = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingCatBannerId) {
+      const updated = catBanners.map(c => c.id === editingCatBannerId ? { ...c, ...catBannerForm } : c);
+      setCatBanners(updated); localStorage.setItem('store_cat_slides', JSON.stringify(updated)); setEditingCatBannerId(null); notify('Banner de Catálogo actualizado');
+    } else {
+      const newItem = { id: Date.now(), ...catBannerForm };
+      const updated = [...catBanners, newItem];
+      setCatBanners(updated); localStorage.setItem('store_cat_slides', JSON.stringify(updated)); notify('Banner de Catálogo agregado');
+    }
+    setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
   };
 
   // ==========================================
@@ -1321,32 +1343,58 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Editor de Banners de Catálogo */}
+            {/* Editor de Banners de Catálogo (Tipo Carrusel Avanzado) */}
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-orange-500" />
-                <h3 className="text-lg font-black text-slate-900">Banners del Catálogo (Por Categoría)</h3>
+                <h3 className="text-lg font-black text-slate-900">Banners del Catálogo (Carrusel por Categorías)</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                {['Hogar', 'Tecnología', 'Cocina', 'Automóvil', 'Belleza', 'Productos Virales'].map(cat => (
-                  <div key={cat}>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{cat}</label>
-                    <input 
-                      type="text" 
-                      placeholder={`Enlace de imagen para ${cat}`}
-                      defaultValue={typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('store_cat_banners') || '{}')[cat] || '') : ''}
-                      onBlur={(e) => {
-                        const saved = JSON.parse(localStorage.getItem('store_cat_banners') || '{}');
-                        saved[cat] = e.target.value;
-                        localStorage.setItem('store_cat_banners', JSON.stringify(saved));
-                      }}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-orange-500" 
-                    />
+              <form onSubmit={handleSaveCatBanner} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Categoría Asociada</label>
+                    <select required value={catBannerForm.category} onChange={e => setCatBannerForm({...catBannerForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white">
+                      <option value="Todos">Todos (General / Por Defecto)</option>
+                      <option value="Hogar">Hogar</option>
+                      <option value="Tecnología">Tecnología</option>
+                      <option value="Cocina">Cocina</option>
+                      <option value="Automóvil">Automóvil</option>
+                      <option value="Belleza">Belleza</option>
+                      <option value="Productos Virales">Productos Virales</option>
+                    </select>
+                  </div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace al hacer clic</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="/catalogo" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
+                </div>
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                  {editingCatBannerId ? 'Actualizar Banner de Catálogo' : 'Agregar Banner de Catálogo'}
+                </button>
+              </form>
+              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
+                {catBanners.map(c => (
+                  <div key={c.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white hover:border-orange-300 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-10 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                         {c.desktopImg || c.mobileImg ? <img src={c.desktopImg || c.mobileImg} alt="CatBanner" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-800 text-[11px]">{c.category}</span>
+                        <span className="text-[9px] text-slate-500">{c.link}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar">
+                        <Pencil className="w-4 h-4"/>
+                      </button>
+                      <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); localStorage.setItem('store_cat_slides', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar">
+                        <Trash2 className="w-4 h-4"/>
+                      </button>
+                    </div>
                   </div>
                 ))}
-                <div className="col-span-full text-[10px] text-slate-400 mt-1">
-                  * Pega el enlace de la imagen y haz clic afuera de la casilla para guardar automáticamente.
-                </div>
               </div>
             </div>
 

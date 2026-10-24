@@ -110,24 +110,49 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {/* BANNERS DE CATEGORÍAS (Conectado al Admin en Vivo) */}
-        <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-100 aspect-[3/1] md:aspect-[6/1] relative flex items-center justify-center border border-gray-200/80">
-          <img 
-            alt={`Banner de ${activeCategory}`}
-            className="w-full h-full object-cover"
+        {/* BANNERS DE CATEGORÍAS TIPO CARRUSEL (Conectado al Admin en Vivo) */}
+        <div key={activeCategory} className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-100 aspect-[3/1] md:aspect-[6/1] relative border border-gray-200/80 group">
+          <div 
             ref={(el) => {
               if (el && typeof window !== 'undefined') {
-                const savedBanners = JSON.parse(localStorage.getItem('store_cat_banners') || '{}');
-                el.src = savedBanners[activeCategory] || '';
-                el.style.display = el.src && el.src !== window.location.href ? 'block' : 'none';
+                const rawSlides = JSON.parse(localStorage.getItem('store_cat_slides') || '[]');
+                // Mostrar solo los de la categoría activa (o los de "Todos" si no hay específicos)
+                let categorySlides = rawSlides.filter((s: any) => s.category === activeCategory);
+                if (categorySlides.length === 0) categorySlides = rawSlides.filter((s: any) => s.category === 'Todos');
+                
+                if (categorySlides.length === 0) {
+                  el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-slate-100"><span class="text-slate-400 font-bold text-sm text-center px-4">Añade banners de catálogo desde el Panel Administrador</span></div>`;
+                  return;
+                }
+
+                const isMobile = window.innerWidth < 768;
+                let html = '';
+                categorySlides.forEach((s: any, i: number) => {
+                  const img = (isMobile && s.mobileImg) ? s.mobileImg : (s.desktopImg || s.mobileImg);
+                  html += `<a href="${s.link || '#'}" class="absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out slide-item" style="opacity: ${i === 0 ? 1 : 0}; z-index: ${i === 0 ? 10 : 0};"><img src="${img}" class="w-full h-full object-cover" alt="Banner" /></a>`;
+                });
+                el.innerHTML = html;
+
+                if (categorySlides.length > 1) {
+                  let currentIdx = 0;
+                  const items = el.querySelectorAll('.slide-item');
+                  if ((el as any)._slideInterval) clearInterval((el as any)._slideInterval);
+                  
+                  (el as any)._slideInterval = setInterval(() => {
+                    if(items[currentIdx]) {
+                      (items[currentIdx] as HTMLElement).style.opacity = '0';
+                      (items[currentIdx] as HTMLElement).style.zIndex = '0';
+                    }
+                    currentIdx = (currentIdx + 1) % categorySlides.length;
+                    if(items[currentIdx]) {
+                      (items[currentIdx] as HTMLElement).style.opacity = '1';
+                      (items[currentIdx] as HTMLElement).style.zIndex = '10';
+                    }
+                  }, 4000);
+                }
               }
             }}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              if (e.currentTarget.parentElement && !e.currentTarget.src.includes('http')) {
-                e.currentTarget.parentElement.innerHTML = `<span class="text-slate-400 font-bold text-sm">Añade la imagen de ${activeCategory} desde el Panel Administrador</span>`;
-              }
-            }}
+            className="w-full h-full relative"
           />
         </div>
 
