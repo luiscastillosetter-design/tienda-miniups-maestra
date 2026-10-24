@@ -146,18 +146,17 @@ export default function AdminPage() {
     const orderInterval = setInterval(loadOrders, 3000);
     return () => clearInterval(orderInterval);
 
-    // Cargar Productos
-    const savedProducts = localStorage.getItem('store_products');
-    if (savedProducts) {
-      try {
-        setProducts(JSON.parse(savedProducts as string));
-      } catch (e) {
-        setProducts(initialProducts);
-      }
-    } else {
-      setProducts(initialProducts);
-      localStorage.setItem('store_products', JSON.stringify(initialProducts));
-    }
+    // Cargar Productos desde la Nube (API)
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+        } else {
+          setProducts(initialProducts);
+        }
+      })
+      .catch(() => setProducts(initialProducts));
 
     // Cargar Hero y Ofertas
     const savedHero = localStorage.getItem('store_hero_slides');

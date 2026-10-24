@@ -110,6 +110,21 @@ function CatalogoContent() {
           </div>
         </div>
 
+        {/* BANNERS DE CATEGORÍAS */}
+        <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-100 aspect-[3/1] md:aspect-[6/1] relative flex items-center justify-center border border-gray-200/80">
+          <img 
+            src={`/categories/${activeCategory === 'Productos Virales' ? 'virales' : activeCategory === 'Tecnología' ? 'tecnologia' : activeCategory === 'Automóvil' ? 'automovil' : activeCategory.toLowerCase()}.png`}
+            alt={`Banner de ${activeCategory}`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              if (e.currentTarget.parentElement) {
+                e.currentTarget.parentElement.innerHTML = `<span class="text-slate-400 font-bold text-sm">Sube tu imagen en: public/categories/${activeCategory === 'Productos Virales' ? 'virales' : activeCategory === 'Tecnología' ? 'tecnologia' : activeCategory === 'Automóvil' ? 'automovil' : activeCategory.toLowerCase()}.png</span>`;
+              }
+            }}
+          />
+        </div>
+
         {/* Grilla de Productos */}
         {filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
