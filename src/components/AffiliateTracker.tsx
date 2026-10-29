@@ -11,42 +11,76 @@ function TrackerLogic() {
   useEffect(() => {
     if (!searchParams) return;
 
-    // 1. Detección de Afiliado
+    // 1. Detección de código de afiliado
     const ref = searchParams.get('ref');
     if (ref) {
       localStorage.setItem('todomax_ref', ref.toUpperCase().trim());
     }
 
-    // 2. Detección de Campañas Publicitarias Pagadas
+    // 2. Detección de parámetros de campañas publicitarias
     const fbclid = searchParams.get('fbclid');
     const ttclid = searchParams.get('ttclid');
     const gclid = searchParams.get('gclid');
     const utmSource = searchParams.get('utm_source');
     const utmCampaign = searchParams.get('utm_campaign');
 
-    let detectedChannel = 'Directo';
+    const hasAdParam = !!(fbclid || ttclid || gclid || utmSource);
 
-    if (fbclid || utmSource?.toLowerCase().includes('facebook') || utmSource?.toLowerCase().includes('meta') || utmSource?.toLowerCase().includes('instagram')) {
-      detectedChannel = 'Meta Ads';
-    } else if (ttclid || utmSource?.toLowerCase().includes('tiktok')) {
-      detectedChannel = 'TikTok Ads';
-    } else if (gclid || utmSource?.toLowerCase().includes('google')) {
-      detectedChannel = 'Google Ads';
-    } else if (utmSource) {
-      detectedChannel = `Campaña: ${utmSource}`;
+    // 3. Atribución inteligente: no sobrescribe canales pagados con 'Directo' en navegación interna
+    if (hasAdParam) {
+      let detectedChannel = 'Campaña';
+      if (fbclid || utmSource?.toLowerCase().includes('facebook') || utmSource?.toLowerCase().includes('meta') || utmSource?.toLowerCase().includes('instagram')) {
+        detectedChannel = 'Meta Ads';
+      } else if (ttclid || utmSource?.toLowerCase().includes('tiktok')) {
+        detectedChannel = 'TikTok Ads';
+      } else if (gclid || utmSource?.toLowerCase().includes('google')) {
+        detectedChannel = 'Google Ads';
+      } else if (utmSource) {
+        detectedChannel = `Campaña: ${utmSource}`;
+      }
+
+      const attributionData = {
+        channel: detectedChannel,
+        utmCampaign: utmCampaign || 'none',
+        affiliateRef: ref ? ref.toUpperCase().trim() : (localStorage.getItem('todomax_ref') || 'DIRECTO'),
+        timestamp: new Date().toISOString(),
+      };
+
+      localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
+    } else if (ref) {
+      const existingAttributionStr = localStorage.getItem('todomax_attribution');
+      let existingChannel = 'Afiliado';
+      try {
+        if (existingAttributionStr) {
+          const parsed = JSON.parse(existingAttributionStr);
+          if (parsed.channel && parsed.channel !== 'Directo') {
+            existingChannel = parsed.channel;
+          }
+        }
+      } catch (e) {}
+
+      const attributionData = {
+        channel: existingChannel,
+        utmCampaign: 'none',
+        affiliateRef: ref.toUpperCase().trim(),
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
+    } else {
+      // Solo registra "Directo" si no existía ninguna atribución publicitaria previa
+      const existing = localStorage.getItem('todomax_attribution');
+      if (!existing) {
+        const attributionData = {
+          channel: 'Directo',
+          utmCampaign: 'none',
+          affiliateRef: localStorage.getItem('todomax_ref') || 'DIRECTO',
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
+      }
     }
 
-    // 3. Matriz de Atribución Limpia Anti-Duplicados
-    const attributionData = {
-      channel: detectedChannel,
-      utmCampaign: utmCampaign || 'none',
-      affiliateRef: ref ? ref.toUpperCase().trim() : (localStorage.getItem('todomax_ref') || 'DIRECTO'),
-      timestamp: new Date().toISOString(),
-    };
-
-    localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
-
-    // 4. Disparo de Evento PageView en Meta Pixel (si está activo en window)
+    // 4. Disparo de evento PageView
     if (typeof window !== 'undefined' && (window as any).fbq) {
       (window as any).fbq('track', 'PageView');
     }
@@ -56,20 +90,29 @@ function TrackerLogic() {
 }
 
 export default function AffiliateTracker() {
-  const [pixelId, setPixelId] = useState<string>(siteConfig.metaPixelId || '');
+  const [pixelId, setPixelId] = useState<string>('');
+
+  // Validación estricta: solo permite identificadores numéricos de Pixel para evitar inyecciones XSS
+  const isValidPixel = (id: string) => /^\d{5,25}$/.test(id.trim());
 
   useEffect(() => {
+    const initialId = siteConfig.metaPixelId || '';
+    if (isValidPixel(initialId)) {
+      setPixelId(initialId.trim());
+    }
+
     const localPixel = localStorage.getItem('todomax_meta_pixel');
-    if (localPixel && localPixel !== 'TU_PIXEL_ID_AQUI') {
-      setPixelId(localPixel);
+    if (localPixel && isValidPixel(localPixel)) {
+      setPixelId(localPixel.trim());
     }
 
     fetch('/api/store?key=store_marketing_config')
       .then(res => res.json())
       .then(json => {
-        if (json?.data?.metaPixelId && json.data.metaPixelId !== 'TU_PIXEL_ID_AQUI') {
-          setPixelId(json.data.metaPixelId);
-          localStorage.setItem('todomax_meta_pixel', json.data.metaPixelId);
+        const fetchedId = json?.data?.metaPixelId;
+        if (fetchedId && isValidPixel(fetchedId)) {
+          setPixelId(fetchedId.trim());
+          localStorage.setItem('todomax_meta_pixel', fetchedId.trim());
         }
       })
       .catch(() => {});
@@ -77,8 +120,7 @@ export default function AffiliateTracker() {
 
   return (
     <>
-      {/* Script Base Oficial de Meta Pixel (si el ID está configurado en siteConfig o Admin) */}
-      {pixelId && pixelId !== 'TU_PIXEL_ID_AQUI' && (
+      {pixelId && (
         <Script
           id="meta-pixel-init"
           strategy="afterInteractive"

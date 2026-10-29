@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
-import { products as defaultProducts } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
 import { ShoppingBag } from 'lucide-react';
 
@@ -46,6 +45,7 @@ function CatalogoContent() {
   const router = useRouter();
   const { addItem } = useCartStore();
 
+  // Inicialización limpia: lee caché de productos reales, NUNCA los cuadros naranjas por defecto
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -56,7 +56,7 @@ function CatalogoContent() {
         }
       } catch (e) {}
     }
-    return defaultProducts;
+    return [];
   });
 
   const [activeCategory, setActiveCategory] = useState<string>(() => {
@@ -130,7 +130,6 @@ function CatalogoContent() {
     loadData();
   }, [searchParams]);
 
-  // FILTRO ESTRICTO DE BANNERS: Si la categoría no tiene banner propio, no muestra banner cruzado de otra categoría (evita contaminación)
   const activeCategorySlides = (() => {
     const normalizedActive = normalizeCatName(activeCategory);
 
@@ -139,7 +138,6 @@ function CatalogoContent() {
     );
     if (exactMatches.length > 0) return exactMatches;
 
-    // Si está en 'Todos', mostrar generales
     if (normalizedActive === 'todos') {
       return catSlides.filter((s: any) => {
         const slideCat = normalizeCatName(s.category);
@@ -182,6 +180,7 @@ function CatalogoContent() {
         title: product.title,
         price: product.price,
         image: firstValidImg,
+        stock: product.stock,
       },
       1
     );
@@ -255,7 +254,13 @@ function CatalogoContent() {
           </div>
         )}
 
-        {filteredProducts.length === 0 ? (
+        {products.length === 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+            {[1, 2, 3, 4, 5, 6].map((idx) => (
+              <div key={idx} className="bg-white rounded-3xl border border-gray-200/80 p-4 aspect-square bg-slate-200/60 animate-pulse" />
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
             <p className="text-sm text-gray-500 font-bold mb-4">
               No hay productos disponibles en esta categoría.

@@ -26,6 +26,11 @@ function HeaderContent() {
 
   const showSearch = pathname === '/' || pathname === '/catalogo';
 
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
   useEffect(() => {
     productService.getProducts().then((data) => {
       if (Array.isArray(data) && data.length > 0) {
@@ -87,7 +92,7 @@ function HeaderContent() {
             <div className="flex items-center gap-2 font-medium">
               <Truck className="w-4 h-4 text-orange-400" />
               <span>
-                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por MRW, Zoom y Tealca
+                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por {siteConfig.shipping.companies.slice(0, 3).join(', ')}
               </span>
             </div>
             <Link
@@ -95,7 +100,7 @@ function HeaderContent() {
               className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
             >
               <CircleDollarSign className="w-4 h-4" />
-              <span>Gana dinero con TodoMax</span>
+              <span>Gana dinero con {siteConfig.storeName}</span>
             </Link>
           </div>
         </div>
@@ -133,7 +138,7 @@ function HeaderContent() {
                   <Search className="w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Buscar en TodoMax: freidoras, mini UPS, aspiradoras, belleza..."
+                    placeholder={`Buscar en ${siteConfig.storeName}: freidoras, mini UPS, aspiradoras, belleza...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-transparent outline-none text-sm text-slate-800 placeholder-gray-400 font-medium"
@@ -150,20 +155,29 @@ function HeaderContent() {
                     {filteredProducts.length === 0 ? (
                       <p className="text-xs text-gray-500 text-center py-4">No se encontraron productos.</p>
                     ) : (
-                      filteredProducts.map((p) => (
-                        <Link
-                          key={p.id}
-                          href={`/product/${p.id}`}
-                          onClick={() => setSearchQuery('')}
-                          className="flex items-center gap-4 p-2.5 hover:bg-slate-50 rounded-xl transition-all group"
-                        >
-                          <img src={p.images[0]} alt={p.title} className="w-12 h-12 object-contain rounded-lg bg-slate-50 p-1" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate group-hover:text-orange-500">{p.title}</p>
-                            <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                          </div>
-                        </Link>
-                      ))
+                      filteredProducts.map((p) => {
+                        const coverMedia = p.images?.[0] || '';
+                        return (
+                          <Link
+                            key={p.id}
+                            href={`/product/${p.id}`}
+                            onClick={() => setSearchQuery('')}
+                            className="flex items-center gap-4 p-2.5 hover:bg-slate-50 rounded-xl transition-all group"
+                          >
+                            <div className="w-12 h-12 bg-slate-50 rounded-lg p-1 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                              {isVideo(coverMedia) ? (
+                                <video src={coverMedia} muted className="w-full h-full object-cover rounded" />
+                              ) : (
+                                <img src={coverMedia} alt={p.title} className="w-full h-full object-contain rounded" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate group-hover:text-orange-500">{p.title}</p>
+                              <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                            </div>
+                          </Link>
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -210,7 +224,7 @@ function HeaderContent() {
               <Search className="w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar en TodoMax..."
+                placeholder={`Buscar en ${siteConfig.storeName}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent outline-none text-xs text-slate-800 placeholder-gray-400 font-medium"
@@ -227,20 +241,29 @@ function HeaderContent() {
                 {filteredProducts.length === 0 ? (
                   <p className="text-xs text-gray-500 text-center py-3">No hay productos.</p>
                 ) : (
-                  filteredProducts.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/product/${p.id}`}
-                      onClick={() => setSearchQuery('')}
-                      className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg text-left"
-                    >
-                      <img src={p.images[0]} alt={p.title} className="w-10 h-10 object-contain rounded bg-slate-50 p-1" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
-                        <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                      </div>
-                    </Link>
-                  ))
+                  filteredProducts.map((p) => {
+                    const coverMedia = p.images?.[0] || '';
+                    return (
+                      <Link
+                        key={p.id}
+                        href={`/product/${p.id}`}
+                        onClick={() => setSearchQuery('')}
+                        className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg text-left"
+                      >
+                        <div className="w-10 h-10 bg-slate-50 rounded p-1 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                          {isVideo(coverMedia) ? (
+                            <video src={coverMedia} muted className="w-full h-full object-cover rounded" />
+                          ) : (
+                            <img src={coverMedia} alt={p.title} className="w-full h-full object-contain rounded" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
+                          <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                        </div>
+                      </Link>
+                    );
+                  })
                 )}
               </div>
             )}

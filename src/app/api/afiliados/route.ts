@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { products as defaultProducts, Product } from '@/data/products';
 import { dbService } from '@/services/dbService';
+import { siteConfig } from '@/config/site';
 
-const BASE_STORE_URL = 'https://www.importadoratodomax.com';
+const BASE_STORE_URL = siteConfig.storeUrl || 'https://www.importadoratodomax.com';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
           ? storedProducts
           : defaultProducts;
 
-        let respuestaBot = "¡Hola! Soy Sofía, la asistente IA de TodoMax 🤖.\n¿En qué producto estás interesado para enviarte tu Kit de Afiliado? (Ej: 'Quiero vender freidora')";
+        let respuestaBot = `¡Hola! Soy Sofía, la asistente IA de ${siteConfig.storeName} 🤖.\n¿En qué producto estás interesado para enviarte tu Kit de Afiliado? (Ej: 'Quiero vender freidora')`;
 
         const foundProduct = activeProducts.find(p => 
           textoCliente.includes(p.title.split(' ')[0].toLowerCase()) || 

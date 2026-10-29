@@ -21,7 +21,7 @@ export default function CheckoutPage() {
   const [cedula, setCedula] = useState('');
   const [telefono, setTelefono] = useState('');
 
-  const [courier, setCourier] = useState('MRW');
+  const [courier, setCourier] = useState(siteConfig.shipping.companies[0] || 'MRW');
   const [estado, setEstado] = useState('');
   const [ciudad, setCiudad] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -61,6 +61,11 @@ export default function CheckoutPage() {
       } catch (e) {}
     }
   }, []);
+
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
 
   // Cálculos Financieros Reales (Cruzados con el inventario vivo del Admin)
   const subtotalPorItem = (price: number, quantity: number) => price * quantity;
@@ -122,6 +127,21 @@ export default function CheckoutPage() {
     };
   };
 
+  const safeSaveLocalOrders = (ordersToSave: any[]) => {
+    try {
+      localStorage.setItem('store_orders', JSON.stringify(ordersToSave));
+    } catch (e) {
+      try {
+        // En caso de alcanzar el límite de cuota en localStorage, se respalda sin la foto pesada del comprobante
+        const lightOrders = ordersToSave.map(o => ({
+          ...o,
+          payment: { ...o.payment, receiptImage: undefined }
+        }));
+        localStorage.setItem('store_orders', JSON.stringify(lightOrders));
+      } catch (_) {}
+    }
+  };
+
   const procesarYEnviarPedido = async () => {
     if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
       alert('Por favor completa todos los datos personales y de envío.');
@@ -160,7 +180,7 @@ export default function CheckoutPage() {
       }
     };
 
-    // 2. Sincronizar con la Nube (Redis) y con localStorage
+    // 2. Sincronizar con la Nube (Redis) y con localStorage protegido
     try {
       let currentCloudOrders: any[] = [];
       const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
@@ -181,7 +201,7 @@ export default function CheckoutPage() {
       }
 
       const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
-      localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
+      safeSaveLocalOrders(updatedOrders);
 
       await fetch('/api/store', {
         method: 'POST',
@@ -192,7 +212,7 @@ export default function CheckoutPage() {
       console.error('Error guardando pedido en la nube, respaldado en local:', error);
       const existingOrdersStr = localStorage.getItem('store_orders');
       const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
-      localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
+      safeSaveLocalOrders([newOrder, ...existingOrders]);
     }
 
     // 3. Disparo de Evento Purchase en Meta Pixel (si existe)
@@ -444,8 +464,12 @@ export default function CheckoutPage() {
                   {items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between gap-4 py-2">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100">
-                          <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100 flex items-center justify-center overflow-hidden">
+                          {isVideo(item.image) ? (
+                            <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
+                          ) : (
+                            <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">{item.title}</span>

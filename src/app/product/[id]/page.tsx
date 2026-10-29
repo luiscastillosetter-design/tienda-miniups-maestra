@@ -60,14 +60,25 @@ export default function ProductPage() {
 
   const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0];
   const firstImageForCart = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
+  const isOutOfStock = product.stock <= 0;
+
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 2) {
+      router.back();
+    } else {
+      router.push('/catalogo');
+    }
+  };
 
   const handleAddToCart = () => {
+    if (isOutOfStock) return;
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
         image: firstImageForCart,
+        stock: product.stock,
       },
       quantity
     );
@@ -75,12 +86,14 @@ export default function ProductPage() {
   };
 
   const handleBuyNow = () => {
+    if (isOutOfStock) return;
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
         image: firstImageForCart,
+        stock: product.stock,
       },
       quantity
     );
@@ -92,7 +105,7 @@ export default function ProductPage() {
       <main className="w-full px-4 md:px-10 lg:px-16 space-y-12">
         
         <button
-          onClick={() => router.back()}
+          onClick={handleBack}
           className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs cursor-pointer hover:-translate-x-1 transition-transform"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -152,8 +165,10 @@ export default function ProductPage() {
                 <span className="bg-orange-50 text-orange-600 font-black text-xs px-3 py-1 rounded-lg uppercase">
                   {product.category}
                 </span>
-                <span className="bg-emerald-50 text-emerald-700 font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1">
-                  ✓ Stock: {product.stock} disponibles
+                <span className={`font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1 ${
+                  isOutOfStock ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                  {isOutOfStock ? '✕ Agotado' : `✓ Stock: ${product.stock} disponibles`}
                 </span>
               </div>
 
@@ -206,7 +221,7 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Características / Ficha Técnica (Sincronizada con el Admin) */}
+              {/* Características / Ficha Técnica */}
               {product.features && product.features.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <p className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
@@ -231,14 +246,17 @@ export default function ProductPage() {
                 <div className="flex items-center border border-gray-200 rounded-2xl bg-slate-50 p-1">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 cursor-pointer rounded-xl hover:bg-white"
+                    disabled={isOutOfStock}
+                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 disabled:opacity-30 cursor-pointer rounded-xl hover:bg-white"
                   >
                     -
                   </button>
-                  <span className="w-10 text-center text-sm font-black text-slate-900">{quantity}</span>
+                  <span className="w-10 text-center text-sm font-black text-slate-900">{isOutOfStock ? 0 : quantity}</span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 cursor-pointer rounded-xl hover:bg-white"
+                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                    disabled={isOutOfStock || quantity >= product.stock}
+                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 disabled:opacity-30 cursor-pointer rounded-xl hover:bg-white"
+                    title={quantity >= product.stock ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
                   >
                     +
                   </button>
@@ -248,17 +266,19 @@ export default function ProductPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer hover:shadow-md"
+                  disabled={isOutOfStock}
+                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer hover:shadow-md"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  <span>Agregar al Carrito</span>
+                  <span>{isOutOfStock ? 'Sin Existencias' : 'Agregar al Carrito'}</span>
                 </button>
 
                 <button
                   onClick={handleBuyNow}
-                  className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 transition-all cursor-pointer active:scale-95"
+                  disabled={isOutOfStock}
+                  className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 transition-all cursor-pointer active:scale-95"
                 >
-                  <span>Comprar Ahora</span>
+                  <span>{isOutOfStock ? 'Agotado' : 'Comprar Ahora'}</span>
                 </button>
               </div>
 
@@ -266,7 +286,7 @@ export default function ProductPage() {
               <div className="grid grid-cols-2 gap-3 pt-2 text-[11px] text-gray-500 font-medium">
                 <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <Truck className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                  <span>MRW, Zoom, Tealca</span>
+                  <span>{siteConfig.shipping.companies.slice(0, 3).join(', ')}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <CreditCard className="w-4 h-4 text-emerald-500 flex-shrink-0" />
@@ -278,7 +298,7 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* CARRUSEL INFERIOR DE REMARKETING */}
+        {/* CARRUSEL INFERIOR DE REMARKETING CON SOPORTE COMPLETO DE VIDEO */}
         {relatedProducts.length > 0 && (
           <section className="w-full pt-8">
             <div className="flex items-center justify-between mb-6">
@@ -294,22 +314,29 @@ export default function ProductPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
-              {relatedProducts.slice(0, 6).map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/product/${p.id}`}
-                  className="bg-white rounded-3xl border border-gray-200/80 p-4 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
-                >
-                  <div className="aspect-square bg-slate-50 rounded-2xl mb-3 p-3 overflow-hidden">
-                    <img src={p.images[0]} alt={p.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-orange-500 uppercase">{p.category}</span>
-                    <h4 className="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">{p.title}</h4>
-                    <p className="text-base font-black text-slate-900 pt-1">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                  </div>
-                </Link>
-              ))}
+              {relatedProducts.slice(0, 6).map((p) => {
+                const coverMedia = p.images?.[0] || '';
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/product/${p.id}`}
+                    className="bg-white rounded-3xl border border-gray-200/80 p-4 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
+                  >
+                    <div className="aspect-square bg-slate-50 rounded-2xl mb-3 p-3 overflow-hidden">
+                      {isVideo(coverMedia) ? (
+                        <video src={coverMedia} muted autoPlay loop playsInline className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <img src={coverMedia} alt={p.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-orange-500 uppercase">{p.category}</span>
+                      <h4 className="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">{p.title}</h4>
+                      <p className="text-base font-black text-slate-900 pt-1">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}

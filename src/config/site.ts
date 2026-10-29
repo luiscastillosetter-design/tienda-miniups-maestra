@@ -6,6 +6,9 @@ export const siteConfig = {
   whatsapp: {
     number: "+17543411559",
   },
+  email: "ventas@todomax.com",
+  location: "Venezuela",
+  storeUrl: "https://www.importadoratodomax.com",
   shipping: {
     freeShippingThreshold: 50,
     companies: ["MRW", "Zoom", "Tealca", "Delivery Local", "Retiro en Tienda"],

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, User, Lock, Mail, LogOut } from 'lucide-react';
+import { X, User, Lock, Mail, LogOut, CheckCircle2 } from 'lucide-react';
+import { siteConfig } from '@/config/site';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -14,11 +15,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [userSession, setUserSession] = useState<{ name: string; email: string } | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
-    const session = localStorage.getItem('todomax_user_session');
-    if (session) {
-      setUserSession(JSON.parse(session));
+    try {
+      const session = localStorage.getItem('todomax_user_session');
+      if (session) {
+        setUserSession(JSON.parse(session));
+      }
+    } catch (e) {
+      localStorage.removeItem('todomax_user_session');
     }
   }, []);
 
@@ -27,16 +33,22 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
     const userData = { name: name || email.split('@')[0], email };
-    localStorage.setItem('todomax_user_session', JSON.stringify(userData));
+    try {
+      localStorage.setItem('todomax_user_session', JSON.stringify(userData));
+    } catch (_) {}
     setUserSession(userData);
-    alert(isLogin ? '¡Sesión iniciada correctamente!' : '¡Cuenta creada y guardada con éxito!');
-    onClose();
+    setNotification(isLogin ? '¡Sesión iniciada correctamente!' : '¡Cuenta creada con éxito!');
+    setTimeout(() => {
+      setNotification(null);
+      onClose();
+    }, 1200);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('todomax_user_session');
     setUserSession(null);
-    alert('Sesión cerrada.');
+    setNotification('Sesión cerrada.');
+    setTimeout(() => setNotification(null), 1200);
   };
 
   return (
@@ -45,6 +57,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-slate-600 cursor-pointer">
           <X className="w-5 h-5" />
         </button>
+
+        {notification && (
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{notification}</span>
+          </div>
+        )}
 
         {userSession ? (
           <div className="text-center py-6 space-y-4">
@@ -76,7 +95,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
               </h3>
               <p className="text-xs text-gray-500 mt-1">
-                {isLogin ? 'Tus datos se recordarán en este dispositivo' : 'Regístrate para una experiencia personalizada'}
+                {isLogin ? `Accede a tu cuenta de ${siteConfig.storeName}` : 'Regístrate para una experiencia personalizada'}
               </p>
             </div>
 

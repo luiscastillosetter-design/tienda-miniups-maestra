@@ -46,12 +46,12 @@ export default function Footer() {
           <ul className="space-y-3">
             <li>
               <Link href="/afiliados" className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1">
-                Gana dinero con TodoMax
+                Gana dinero con {siteConfig.storeName}
               </Link>
             </li>
             <li className="flex items-start gap-2 mt-4 text-sm text-gray-500 font-medium">
               <Truck className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-              <span>Envíos seguros por: <br/><span className="font-bold text-slate-700">{siteConfig.shipping.companies.join(', ')}</span></span>
+              <span>Envíos seguros por: <br/><span className="font-bold text-slate-700">{siteConfig.shipping.companies.slice(0, 3).join(', ')}</span></span>
             </li>
           </ul>
         </div>
@@ -70,13 +70,13 @@ export default function Footer() {
               <div className="p-2 bg-orange-50 rounded-full text-orange-500">
                 <Mail className="w-4 h-4" />
               </div>
-              <span className="text-sm text-gray-600 font-medium">ventas@todomax.com</span>
+              <span className="text-sm text-gray-600 font-medium">{siteConfig.email}</span>
             </li>
             <li className="flex items-center gap-3">
               <div className="p-2 bg-orange-50 rounded-full text-orange-500">
                 <MapPin className="w-4 h-4" />
               </div>
-              <span className="text-sm text-gray-600 font-medium">Venezuela</span>
+              <span className="text-sm text-gray-600 font-medium">{siteConfig.location}</span>
             </li>
           </ul>
         </div>

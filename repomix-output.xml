@@ -44,6 +44,15 @@ The content is organized as follows:
   settings.json
   settings.local.json
 public/
+  products/
+    airpodspro2dageneracion-audio.jpg
+    applewatchultra2titanio-gadgets.jpg
+    iphone15promaxtitanio256gb-phones.jpg
+    miniupsdelitiodealtacapacidadconsalidausb-smarthome.jpg
+    minupssmart12vpararouterymodem-smarthome.jpg
+    playstation5ediciondedisco1tb-gaming.jpg
+    protectordevoltajeinteligenteconbateria-smarthome.jpg
+    respaldodeenergiadcparacamaras-gadgets.jpg
   file.svg
   globe.svg
   logo-todomax.png
@@ -468,6 +477,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.todomax-db.json
 </file>
 
 <file path="design.md">
@@ -677,164 +687,6 @@ export async function POST(request: NextRequest) {
     console.error('Error en POST /api/store:', error);
     return NextResponse.json({ error: 'Error guardando datos' }, { status: 500 });
   }
-}
-</file>
-
-<file path="src/components/CartDrawer.tsx">
-'use client';
-
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
-import { useCartStore } from '@/store/cartStore';
-import { siteConfig } from '@/config/site';
-
-export default function CartDrawer() {
-  const router = useRouter();
-  const { items, isCartOpen, toggleCart, updateQuantity, removeItem } = useCartStore();
-
-  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const freeShippingThreshold = 50; 
-  const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-  const remaining = Math.max(0, freeShippingThreshold - subtotal);
-
-  const handleCheckout = () => {
-    toggleCart();
-    router.push('/checkout');
-  };
-
-  return (
-    <>
-      {/* Overlay */}
-      {isCartOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity"
-          onClick={toggleCart}
-        />
-      )}
-
-      {/* Drawer */}
-      <div
-        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
-          isCartOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-slate-800" />
-            <h2 className="text-lg font-bold text-slate-900">Tu Carrito ({items.reduce((acc, i) => acc + i.quantity, 0)})</h2>
-          </div>
-          <button 
-            onClick={toggleCart} 
-            aria-label="Cerrar carrito" 
-            className="p-1.5 text-gray-400 hover:text-slate-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Barra de incentivo de envío gratis */}
-        <div className="bg-orange-50 px-6 py-3 border-b border-orange-100 text-xs text-orange-800 font-medium">
-          {remaining > 0 ? (
-            <p>¡Agrega <span className="font-bold">{siteConfig.currencySymbol}{remaining.toFixed(2)}</span> más para obtener envío gratis!</p>
-          ) : (
-            <p className="font-bold text-emerald-700">🎉 ¡Felicitaciones! Calificas para envío gratis.</p>
-          )}
-          <div className="w-full bg-orange-200 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div 
-              className="bg-orange-500 h-full transition-all duration-300 rounded-full" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Lista de productos */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-12">
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4">
-                <ShoppingBag className="w-8 h-8" />
-              </div>
-              <p className="text-base font-medium text-slate-800">Tu carrito está vacío</p>
-              <p className="text-sm text-gray-500 mt-1">Explora nuestro catálogo y descubre productos increíbles.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {items.map((item) => (
-                <div key={item.id} className="flex gap-4 items-center border-b border-gray-100 pb-4">
-                  <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0">
-                    <Image src={item.image} alt={item.title} fill className="object-cover" />
-                  </div>
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800 line-clamp-1">{item.title}</p>
-                      <p className="text-sm font-extrabold text-orange-500 mt-0.5">
-                        {siteConfig.currencySymbol}{item.price}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
-                          aria-label="Disminuir cantidad"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="text-xs font-bold text-slate-900 w-6 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
-                          aria-label="Aumentar cantidad"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-gray-400 hover:text-red-500 transition-colors p-1 cursor-pointer"
-                        aria-label="Eliminar producto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer: subtotal y checkout */}
-        <div className="p-4 pb-28 bg-white border-t border-gray-100">
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
-              <span className="font-semibold text-slate-900">{siteConfig.currencySymbol}{subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>Envío</span>
-              <span className="font-medium text-emerald-600">Calculado en el checkout</span>
-            </div>
-            <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-base font-bold text-slate-900">
-              <span>Total Final</span>
-              <span className="text-orange-500 text-xl">{siteConfig.currencySymbol}{subtotal.toFixed(2)}</span>
-            </div>
-          </div>
-          <button
-            onClick={handleCheckout}
-            disabled={items.length === 0}
-            className="w-full py-4 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer text-base"
-          >
-            Proceder al Pago
-          </button>
-        </div>
-      </div>
-    </>
-  );
 }
 </file>
 
@@ -1130,6 +982,182 @@ export default function AffiliateTracker() {
 }
 </file>
 
+<file path="src/components/CartDrawer.tsx">
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore';
+import { siteConfig } from '@/config/site';
+
+export default function CartDrawer() {
+  const router = useRouter();
+  const { items, isCartOpen, toggleCart, updateQuantity, removeItem } = useCartStore();
+
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const freeShippingThreshold = siteConfig.shipping.freeShippingThreshold;
+  const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
+  const remaining = Math.max(0, freeShippingThreshold - subtotal);
+
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
+  const handleCheckout = () => {
+    toggleCart();
+    router.push('/checkout');
+  };
+
+  return (
+    <>
+      {/* Overlay por encima del Header (z-[100]) y BottomNav (z-40) */}
+      {isCartOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[150] transition-opacity"
+          onClick={toggleCart}
+        />
+      )}
+
+      {/* Drawer lateral con z-[160] para que nada tape el botón de cerrar */}
+      <div
+        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[160] transform transition-transform duration-300 ease-in-out flex flex-col ${
+          isCartOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header del Carrito */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-orange-500" />
+            <h2 className="text-lg font-bold text-slate-900">
+              Tu Carrito ({items.reduce((acc, i) => acc + i.quantity, 0)})
+            </h2>
+          </div>
+          <button
+            onClick={toggleCart}
+            aria-label="Cerrar carrito"
+            className="p-2 text-gray-400 hover:text-slate-800 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Barra de incentivo de envío gratis sincronizada con siteConfig */}
+        <div className="bg-orange-50 px-6 py-3 border-b border-orange-100 text-xs text-orange-800 font-medium">
+          {remaining > 0 ? (
+            <p>
+              ¡Agrega <span className="font-bold">{siteConfig.currencySymbol}{remaining.toFixed(2)}</span> más para obtener envío gratis!
+            </p>
+          ) : (
+            <p className="font-bold text-emerald-700">¡Felicitaciones! Calificas para envío gratis.</p>
+          )}
+          <div className="w-full bg-orange-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div
+              className="bg-orange-500 h-full transition-all duration-300 rounded-full"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Lista de productos */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-12">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4">
+                <ShoppingBag className="w-8 h-8" />
+              </div>
+              <p className="text-base font-medium text-slate-800">Tu carrito está vacío</p>
+              <p className="text-sm text-gray-500 mt-1">Explora nuestro catálogo y descubre productos increíbles.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {items.map((item) => (
+                <div key={item.id} className="flex gap-4 items-center border-b border-gray-100 pb-4">
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-50 border border-gray-100 flex-shrink-0 flex items-center justify-center p-1">
+                    {isVideo(item.image) ? (
+                      <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
+                    ) : (
+                      <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                    )}
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between min-w-0">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800 line-clamp-1">{item.title}</p>
+                      <p className="text-sm font-extrabold text-orange-500 mt-0.5">
+                        {siteConfig.currencySymbol}{Number(item.price).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
+                          aria-label="Disminuir cantidad"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs font-bold text-slate-900 w-7 text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
+                          aria-label="Aumentar cantidad"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
+                        aria-label="Eliminar producto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer: subtotal y checkout */}
+        <div className="p-6 bg-white border-t border-gray-100">
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Subtotal</span>
+              <span className="font-semibold text-slate-900">
+                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Envío</span>
+              <span className="font-medium text-emerald-600">
+                {remaining === 0 && items.length > 0 ? '¡GRATIS!' : 'Calculado en el checkout'}
+              </span>
+            </div>
+            <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-base font-bold text-slate-900">
+              <span>Total Final</span>
+              <span className="text-orange-500 text-xl">
+                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={items.length === 0}
+            className="w-full py-4 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer text-base"
+          >
+            Proceder al Pago
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+</file>
+
 <file path="src/components/Footer.tsx">
 import Link from 'next/link';
 import { Phone, Mail, MapPin, ShieldCheck, Truck } from 'lucide-react';
@@ -1378,118 +1406,6 @@ export function getAllProductIds(): string[] {
 }
 </file>
 
-<file path="src/services/dbService.ts">
-import { createClient } from 'redis';
-import fs from 'fs';
-import path from 'path';
-
-const LOCAL_DB_PATH = path.join(process.cwd(), '.todomax-db.json');
-
-function readLocalFileDb(): Record<string, any> {
-  try {
-    if (fs.existsSync(LOCAL_DB_PATH)) {
-      const content = fs.readFileSync(LOCAL_DB_PATH, 'utf-8');
-      return JSON.parse(content);
-    }
-  } catch (e) {
-    console.error('Error leyendo respaldo local .todomax-db.json:', e);
-  }
-  return {};
-}
-
-function writeLocalFileDb(data: Record<string, any>) {
-  try {
-    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (e) {
-    // Entornos serverless de solo lectura
-  }
-}
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __redisClient: any;
-}
-
-async function getClient() {
-  if (!process.env.REDIS_URL) {
-    return null;
-  }
-
-  try {
-    if (global.__redisClient && global.__redisClient.isOpen) {
-      return global.__redisClient;
-    }
-
-    const client = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        connectTimeout: 8000,
-        reconnectStrategy: (retries) => {
-          if (retries > 5) return false;
-          return Math.min(retries * 200, 1000);
-        },
-      },
-    });
-
-    client.on('error', (err: any) => {
-      console.error('Aviso de socket Redis:', err?.message || err);
-    });
-
-    await client.connect();
-    global.__redisClient = client;
-    return client;
-  } catch (error) {
-    console.error('No se pudo conectar a Redis en este intento:', error);
-    global.__redisClient = null;
-    return null;
-  }
-}
-
-export const dbService = {
-  async get(key: string) {
-    try {
-      const client = await getClient();
-      if (client) {
-        const data = await client.get(key);
-        if (data) {
-          return JSON.parse(data);
-        }
-      }
-    } catch (error) {
-      console.error(`Error leyendo ${key} de Redis:`, error);
-    }
-
-    const localDb = readLocalFileDb();
-    return localDb[key] !== undefined ? localDb[key] : null;
-  },
-
-  async set(key: string, value: any): Promise<boolean> {
-    let savedInCloud = false;
-
-    try {
-      const client = await getClient();
-      if (client) {
-        await client.set(key, JSON.stringify(value));
-        savedInCloud = true;
-      }
-    } catch (error) {
-      console.error(`Error guardando ${key} en Redis:`, error);
-    }
-
-    try {
-      const localDb = readLocalFileDb();
-      localDb[key] = value;
-      writeLocalFileDb(localDb);
-      if (!process.env.REDIS_URL) {
-        savedInCloud = true;
-      }
-    } catch (e) {}
-
-    return savedInCloud;
-  }
-};
-</file>
-
 <file path="next.config.ts">
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -1650,6 +1566,133 @@ export default function BottomNav() {
     </>
   );
 }
+</file>
+
+<file path="src/services/dbService.ts">
+import { createClient } from 'redis';
+import fs from 'fs';
+import path from 'path';
+
+const LOCAL_DB_PATH = path.join(process.cwd(), '.todomax-db.json');
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __redisClient: any;
+  // eslint-disable-next-line no-var
+  var __redisUnavailableUntil: number | undefined;
+  // eslint-disable-next-line no-var
+  var __memoryDb: Record<string, any> | undefined;
+}
+
+function readLocalFileDb(): Record<string, any> {
+  if (global.__memoryDb) {
+    return global.__memoryDb;
+  }
+  try {
+    if (fs.existsSync(LOCAL_DB_PATH)) {
+      const content = fs.readFileSync(LOCAL_DB_PATH, 'utf-8');
+      const parsed = JSON.parse(content);
+      global.__memoryDb = parsed;
+      return parsed;
+    }
+  } catch (e) {
+    console.error('Error leyendo respaldo local .todomax-db.json:', e);
+  }
+  global.__memoryDb = {};
+  return global.__memoryDb;
+}
+
+function writeLocalFileDb(data: Record<string, any>) {
+  global.__memoryDb = data;
+  try {
+    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (e) {
+    // Entornos serverless de solo lectura mantienen los datos en memoria global
+  }
+}
+
+async function getClient() {
+  if (!process.env.REDIS_URL) {
+    return null;
+  }
+
+  if (global.__redisUnavailableUntil && Date.now() < global.__redisUnavailableUntil) {
+    return null;
+  }
+
+  try {
+    if (global.__redisClient && global.__redisClient.isOpen) {
+      return global.__redisClient;
+    }
+
+    const client = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        connectTimeout: 1200,
+        reconnectStrategy: false,
+      },
+    });
+
+    client.on('error', () => {
+      global.__redisUnavailableUntil = Date.now() + 60000;
+    });
+
+    await client.connect();
+    global.__redisClient = client;
+    global.__redisUnavailableUntil = 0;
+    return client;
+  } catch (error) {
+    global.__redisUnavailableUntil = Date.now() + 60000;
+    global.__redisClient = null;
+    return null;
+  }
+}
+
+export const dbService = {
+  async get(key: string) {
+    const localDb = readLocalFileDb();
+
+    try {
+      const client = await getClient();
+      if (client) {
+        const data = await client.get(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          localDb[key] = parsed;
+          global.__memoryDb = localDb;
+          return parsed;
+        }
+      }
+    } catch (error) {
+      global.__redisUnavailableUntil = Date.now() + 60000;
+    }
+
+    return localDb[key] !== undefined ? localDb[key] : null;
+  },
+
+  async set(key: string, value: any): Promise<boolean> {
+    let saved = false;
+
+    try {
+      const localDb = readLocalFileDb();
+      localDb[key] = value;
+      writeLocalFileDb(localDb);
+      saved = true;
+    } catch (e) {}
+
+    try {
+      const client = await getClient();
+      if (client) {
+        await client.set(key, JSON.stringify(value));
+        saved = true;
+      }
+    } catch (error) {
+      global.__redisUnavailableUntil = Date.now() + 60000;
+    }
+
+    return saved;
+  },
+};
 </file>
 
 <file path="package.json">
@@ -1860,497 +1903,6 @@ export const siteConfig = {
   roles: ["Super Admin", "Logística y Pagos", "Marketing y Afiliados"],
   metaPixelId: "TU_PIXEL_ID_AQUI",
 };
-</file>
-
-<file path="src/app/afiliados/page.tsx">
-'use client';
-
-import { useState, useEffect, FormEvent } from 'react';
-import { siteConfig } from '@/config/site';
-import { productService } from '@/services/productService';
-import { products as defaultProducts, Product } from '@/data/products';
-import { 
-  CheckCircle2, MessageCircle, BarChart3, 
-  Link as LinkIcon, Download, Copy, User, Wallet
-} from 'lucide-react';
-
-type AffiliateUser = {
-  nombre: string;
-  email: string;
-  codigo: string;
-  joinedAt: string;
-};
-
-const DEFAULT_BASE_URL = 'https://www.importadoratodomax.com';
-
-export default function AfiliadosPage() {
-  const [user, setUser] = useState<AffiliateUser | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'biblioteca' | 'ia'>('dashboard');
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
-  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
-
-  // Estados del Formulario
-  const [formData, setFormData] = useState({ nombre: '', email: '', codigo: '' });
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-
-  // Estados de Métricas (Leídas de Redis + LocalStorage)
-  const [metrics, setMetrics] = useState({ ventasPendientes: 0, ventasConfirmadas: 0, comisionesDisponibles: 0 });
-
-  // Estados UI
-  const [copiedLink, setCopiedLink] = useState('');
-  const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<{role: 'ia' | 'user', text: string}[]>([
-    { role: 'ia', text: '¡Hola! Soy Sofía, tu asistente IA de TodoMax. Dime, ¿qué producto quieres vender hoy y te entregaré tu kit de publicidad?' }
-  ]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) {
-      setBaseUrl(window.location.origin);
-    }
-
-    const init = async () => {
-      const prods = await productService.getProducts();
-      if (Array.isArray(prods) && prods.length > 0) {
-        setLiveProducts(prods);
-      }
-
-      const storedUser = localStorage.getItem('todomax_affiliate_user');
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          await calcularMetricas(parsedUser.codigo, prods);
-        } catch (e) {}
-      }
-      setIsLoaded(true);
-    };
-
-    init();
-  }, []);
-
-  const calcularMetricas = async (codigo: string, catalogProducts: Product[]) => {
-    let orders: any[] = [];
-
-    try {
-      const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data)) {
-          orders = json.data;
-          localStorage.setItem('store_orders', JSON.stringify(orders));
-        }
-      }
-    } catch (e) {}
-
-    if (orders.length === 0) {
-      const ordersStr = localStorage.getItem('store_orders');
-      if (ordersStr) {
-        try {
-          orders = JSON.parse(ordersStr);
-        } catch (e) {}
-      }
-    }
-
-    let pendientes = 0;
-    let confirmadas = 0;
-    let comisiones = 0;
-
-    orders.forEach((order: any) => {
-      if (order.attribution?.affiliateCode === codigo) {
-        if (order.status !== 'Cancelado' && order.status !== 'Entregado' && order.status !== 'Completado') {
-          pendientes++;
-        } else if (order.status === 'Entregado' || order.status === 'Completado') {
-          confirmadas++;
-          if (order.financials?.commission !== undefined) {
-            comisiones += Number(order.financials.commission);
-          } else if (Array.isArray(order.items)) {
-            order.items.forEach((item: any) => {
-              const prod = catalogProducts.find(p => String(p.id) === String(item.id));
-              const pct = prod ? Number(prod.affiliateCommission || 10) : 10;
-              comisiones += (item.price * item.quantity * (pct / 100));
-            });
-          } else {
-            comisiones += (order.financials.total * 0.10);
-          }
-        }
-      }
-    });
-
-    setMetrics({
-      ventasPendientes: pendientes,
-      ventasConfirmadas: confirmadas,
-      comisionesDisponibles: comisiones,
-    });
-  };
-
-  const handleRegister = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!acceptedTerms) {
-      alert('Debes aceptar las condiciones comerciales para continuar.');
-      return;
-    }
-    const cleanCode = formData.codigo.toUpperCase().replace(/\s+/g, '');
-    const newUser: AffiliateUser = {
-      nombre: formData.nombre,
-      email: formData.email,
-      codigo: cleanCode,
-      joinedAt: new Date().toISOString()
-    };
-    localStorage.setItem('todomax_affiliate_user', JSON.stringify(newUser));
-    setUser(newUser);
-
-    // Registrar afiliado en la nube para seguimiento
-    try {
-      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
-      let currentAffiliates: AffiliateUser[] = [];
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data)) currentAffiliates = json.data;
-      }
-      const updated = [newUser, ...currentAffiliates.filter(a => a.codigo !== cleanCode)];
-      await fetch('/api/store', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'store_affiliates', value: updated }),
-      });
-    } catch (e) {}
-
-    await calcularMetricas(cleanCode, liveProducts);
-  };
-
-  const copyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedLink(type);
-    setTimeout(() => setCopiedLink(''), 2000);
-  };
-
-  const buildAdText = (product: Product, affiliateUrl: string) => {
-    const rawCopy = product.adCopy || `¡Compra ${product.title} hoy mismo con garantía y envío rápido!`;
-    if (rawCopy.includes('[ENLACE]')) {
-      return rawCopy.replace('[ENLACE]', affiliateUrl);
-    }
-    return `${rawCopy}\n\nCómpralo aquí: ${affiliateUrl}`;
-  };
-
-  const handleChatSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    const newMsgs = [...chatMessages, { role: 'user' as const, text: chatInput }];
-    setChatMessages(newMsgs);
-    const query = chatInput.toLowerCase();
-    setChatInput('');
-
-    setTimeout(() => {
-      let responseText = "No encontré un producto exacto con ese nombre. ¿Puedes intentar con palabras como 'Aspiradora', 'Freidora', 'UPS', 'Cepillo' o 'Proyector'?";
-      
-      const foundProduct = liveProducts.find(
-        p =>
-          p.title.toLowerCase().includes(query) ||
-          query.includes(p.title.split(' ')[0].toLowerCase()) ||
-          query.includes(p.category.toLowerCase())
-      );
-      
-      if (foundProduct) {
-        const prodLink = `${baseUrl}/product/${foundProduct.id}?ref=${user?.codigo}`;
-        const copyReady = buildAdText(foundProduct, prodLink);
-        responseText = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
-          `💰 *Tu Comisión:* ${foundProduct.affiliateCommission}% (${siteConfig.currencySymbol}${(foundProduct.price * (foundProduct.affiliateCommission / 100)).toFixed(2)} por venta)\n` +
-          `📸 *Material Visual:* Descárgalo en la pestaña 'Biblioteca de Anuncios'.\n\n` +
-          `📝 *Texto listo para publicar:*\n${copyReady}\n\n` +
-          `🔗 *Tu Enlace Directo:* ${prodLink}`;
-      }
-
-      setChatMessages([...newMsgs, { role: 'ia', text: responseText }]);
-    }, 600);
-  };
-
-  if (!isLoaded) return <div className="min-h-screen bg-slate-50 pt-32 flex items-center justify-center font-bold">Cargando...</div>;
-
-  // ==========================================
-  // VISTA 1: REGISTRO (LANDING DE AFILIADOS)
-  // ==========================================
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-20">
-        <div className="w-full px-4 md:px-12 lg:px-16 flex flex-col lg:flex-row items-center gap-12 max-w-7xl mx-auto">
-          
-          <div className="flex-1 space-y-6">
-            <span className="inline-block px-4 py-1.5 bg-orange-100 text-orange-600 text-xs font-black rounded-full uppercase tracking-widest">
-              Programa de Embajadores
-            </span>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
-              Gana Dinero Vendiendo <span className="text-orange-500">Sin Inventario</span>
-            </h1>
-            <p className="text-sm md:text-base text-slate-600 font-medium leading-relaxed max-w-xl">
-              Únete al equipo comercial de {siteConfig.storeName}. Te damos los videos, las imágenes y tu enlace personalizado. Tú solo publicas; nosotros cobramos, despachamos y te pagamos tu comisión.
-            </p>
-            
-            <div className="space-y-4 pt-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">1</div>
-                <p className="text-sm font-bold text-slate-800">Regístrate y crea tu código único.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black">2</div>
-                <p className="text-sm font-bold text-slate-800">Descarga las fotos y videos de nuestros productos.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-black">3</div>
-                <p className="text-sm font-bold text-slate-800">Cobra comisiones por cada compra entregada.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
-            <h2 className="text-2xl font-black text-slate-900 mb-6">Crea tu Cuenta</h2>
-            <form onSubmit={handleRegister} className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Nombre Completo</label>
-                <input type="text" required value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="Tu nombre y apellido" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Correo Electrónico</label>
-                <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="tu@email.com" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Crea tu Código de Afiliado</label>
-                <input type="text" required value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black uppercase focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="EJ: CARLOS2026" />
-                <p className="text-[10px] text-gray-400 mt-1">Este será el código que compartirás (ej. ?ref=CARLOS2026).</p>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
-                <input type="checkbox" id="terms" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-1" />
-                <label htmlFor="terms" className="text-[10px] text-slate-700 font-medium leading-tight cursor-pointer">
-                  Acepto que {siteConfig.storeName} se encarga del cobro y despacho al cliente final. Mis comisiones se liberarán únicamente cuando el pedido marque estado &quot;Entregado&quot;.
-                </label>
-              </div>
-              <button type="submit" className="w-full bg-slate-900 hover:bg-orange-500 text-white font-black py-4 rounded-xl transition-colors cursor-pointer active:scale-95 shadow-md">
-                Unirme al Programa
-              </button>
-            </form>
-          </div>
-
-        </div>
-      </div>
-    );
-  }
-
-  const universalLink = `${baseUrl}/?ref=${user.codigo}`;
-
-  // ==========================================
-  // VISTA 2: PANEL PRIVADO DEL AFILIADO
-  // ==========================================
-  return (
-    <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-20">
-      <div className="w-full px-4 md:px-12 lg:px-16 max-w-7xl mx-auto space-y-8">
-        
-        {/* Header del Panel */}
-        <div className="bg-slate-900 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-orange-500 rounded-full flex items-center justify-center text-white text-xl font-black shadow-lg">
-              {user.nombre.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <p className="text-orange-400 text-xs font-black uppercase tracking-wider">Panel de Afiliado</p>
-              <h1 className="text-2xl md:text-3xl font-black text-white">{user.nombre}</h1>
-              <p className="text-slate-400 text-xs">Código: <span className="text-white font-bold">{user.codigo}</span></p>
-            </div>
-          </div>
-          <button 
-            onClick={() => { localStorage.removeItem('todomax_affiliate_user'); setUser(null); }}
-            className="text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
-          >
-            Cerrar Sesión
-          </button>
-        </div>
-
-        {/* Navegación Interna */}
-        <div className="flex overflow-x-auto gap-2 border-b border-gray-200 pb-px scrollbar-hide">
-          <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'dashboard' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-            <BarChart3 className="w-4 h-4 inline-block mr-2" /> Resumen y Ganancias
-          </button>
-          <button onClick={() => setActiveTab('biblioteca')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'biblioteca' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-            <Download className="w-4 h-4 inline-block mr-2" /> Biblioteca de Anuncios
-          </button>
-          <button onClick={() => setActiveTab('ia')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'ia' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-            <MessageCircle className="w-4 h-4 inline-block mr-2" /> Asistente IA (Sofía)
-          </button>
-        </div>
-
-        {/* CONTENIDO: DASHBOARD */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6 animate-in fade-in">
-            {/* Link Principal Copiable */}
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-black text-slate-900">Tu Enlace Universal de Tienda</h3>
-                <p className="text-xs text-slate-500 mt-1">Cualquier persona que entre con este link y compre, generará comisión para ti durante 30 días.</p>
-              </div>
-              <div className="flex items-center w-full md:w-auto bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
-                <span className="px-4 text-xs font-bold text-slate-600 truncate max-w-[220px] md:max-w-sm">
-                  {universalLink}
-                </span>
-                <button 
-                  onClick={() => copyToClipboard(universalLink, 'general')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-xs font-black transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  {copiedLink === 'general' ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copiedLink === 'general' ? 'Copiado' : 'Copiar'}
-                </button>
-              </div>
-            </div>
-
-            {/* Tarjetas de Métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 text-slate-500 mb-4">
-                  <div className="p-2 bg-blue-50 text-blue-500 rounded-lg"><User className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider">Ventas en Proceso</span>
-                </div>
-                <div className="text-3xl font-black text-slate-900">{metrics.ventasPendientes}</div>
-                <p className="text-[10px] text-slate-400 mt-2">En verificación o tránsito de envío</p>
-              </div>
-
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 text-slate-500 mb-4">
-                  <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg"><CheckCircle2 className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider">Ventas Entregadas</span>
-                </div>
-                <div className="text-3xl font-black text-slate-900">{metrics.ventasConfirmadas}</div>
-                <p className="text-[10px] text-slate-400 mt-2">Confirmadas y completadas</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-500 to-amber-500 p-6 rounded-3xl shadow-md text-white flex flex-col justify-between hover:shadow-lg transition-shadow hover:-translate-y-1">
-                <div className="flex items-center gap-3 mb-4 text-white/90">
-                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Wallet className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider">Comisión Disponible</span>
-                </div>
-                <div className="text-4xl font-black">{siteConfig.currencySymbol}{metrics.comisionesDisponibles.toFixed(2)}</div>
-                <p className="text-[10px] text-white/80 mt-2">Solicita tu retiro al llegar a $20</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* CONTENIDO: BIBLIOTECA DE MATERIAL */}
-        {activeTab === 'biblioteca' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-slate-900">Kits de Venta por Producto ({liveProducts.length})</h2>
-              <p className="text-xs text-slate-500">Descarga, copia y publica en tus redes.</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {liveProducts.map((product) => {
-                const productRefUrl = `${baseUrl}/product/${product.id}?ref=${user.codigo}`;
-                const fullAdCopy = buildAdText(product, productRefUrl);
-                const commAmount = (product.price * ((product.affiliateCommission || 10) / 100)).toFixed(2);
-
-                return (
-                  <div key={product.id} className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden flex flex-col">
-                    <div className="aspect-video bg-slate-50 relative p-4 flex items-center justify-center border-b border-gray-100">
-                      <img src={product.images[0]} alt={product.title} className="h-full object-contain mix-blend-multiply" />
-                      <span className="absolute top-3 left-3 bg-orange-50 text-orange-600 text-[10px] font-black px-2 py-0.5 rounded uppercase">{product.category}</span>
-                    </div>
-                    <div className="p-5 flex-1 flex flex-col justify-between">
-                      <div>
-                        <h3 className="text-sm font-black text-slate-900 line-clamp-2">{product.title}</h3>
-                        <p className="text-xs text-emerald-600 font-bold mt-1">
-                          Ganas {product.affiliateCommission || 10}% por venta: {siteConfig.currencySymbol}{commAmount}
-                        </p>
-                      </div>
-                      
-                      <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                        {/* Enlace Específico */}
-                        <button 
-                          onClick={() => copyToClipboard(productRefUrl, `link-${product.id}`)}
-                          className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
-                        >
-                          {copiedLink === `link-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <LinkIcon className="w-4 h-4" />}
-                          {copiedLink === `link-${product.id}` ? 'Enlace Copiado' : 'Copiar Tu Enlace'}
-                        </button>
-
-                        {/* Texto Publicitario */}
-                        <button 
-                          onClick={() => copyToClipboard(fullAdCopy, `copy-${product.id}`)}
-                          className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
-                        >
-                          {copiedLink === `copy-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                          {copiedLink === `copy-${product.id}` ? 'Texto Copiado' : 'Copiar Texto para Redes'}
-                        </button>
-
-                        {/* Descargar Video/Foto */}
-                        <a 
-                          href={product.images[0]} 
-                          download={`${product.id}-todomax`}
-                          className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
-                        >
-                          <Download className="w-4 h-4" /> Descargar Material (Foto/Video)
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* CONTENIDO: ASISTENTE IA SOFÍA */}
-        {activeTab === 'ia' && (
-          <div className="max-w-3xl mx-auto bg-white rounded-3xl border border-gray-100 shadow-md overflow-hidden flex flex-col h-[600px] animate-in fade-in">
-            {/* Header del Chat */}
-            <div className="bg-slate-900 px-6 py-4 flex items-center gap-4">
-              <div className="relative">
-                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white">
-                  <MessageCircle className="w-6 h-6" />
-                </div>
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
-              </div>
-              <div>
-                <h3 className="text-white font-black text-sm">Sofía (IA {siteConfig.storeName})</h3>
-                <p className="text-emerald-400 text-[10px] font-bold">En línea • Sincronizada con el catálogo actual</p>
-              </div>
-            </div>
-
-            {/* Área de Mensajes */}
-            <div className="flex-1 p-6 overflow-y-auto bg-slate-50 space-y-4">
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'ia' ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`max-w-[80%] rounded-2xl p-4 text-sm ${
-                    msg.role === 'ia' 
-                      ? 'bg-white border border-gray-200 text-slate-800 rounded-tl-none shadow-sm whitespace-pre-line' 
-                      : 'bg-orange-500 text-white rounded-tr-none shadow-md'
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Input del Chat */}
-            <div className="p-4 bg-white border-t border-gray-100">
-              <form onSubmit={handleChatSubmit} className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  placeholder="Ej: Quiero vender la Freidora de Aire..."
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors"
-                />
-                <button type="submit" className="bg-slate-900 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-sm cursor-pointer">
-                  Enviar
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
-}
 </file>
 
 <file path="src/app/checkout/page.tsx">
@@ -2867,323 +2419,6 @@ export default function CheckoutPage() {
 }
 </file>
 
-<file path="src/components/Header.tsx">
-'use client';
-
-import { useState, useEffect, Suspense } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useSearchParams, usePathname } from 'next/navigation';
-import { Menu, Search, ShoppingCart, X, Home, Cpu, Utensils, Car, Sparkles, Flame, CircleDollarSign, Truck } from 'lucide-react';
-import { useCartStore } from '@/store/cartStore';
-import { siteConfig } from '@/config/site';
-import { productService } from '@/services/productService';
-import { products as defaultProducts, Product } from '@/data/products';
-import AuthModal from './AuthModal';
-
-function HeaderContent() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
-  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
-
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const { items, toggleCart } = useCartStore();
-  const cartItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
-
-  const showSearch = pathname === '/' || pathname === '/catalogo';
-
-  useEffect(() => {
-    productService.getProducts().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setLiveProducts(data);
-      }
-    });
-  }, [pathname]);
-
-  useEffect(() => {
-    if (searchParams?.get('auth') === 'register') {
-      setIsAuthOpen(true);
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY && currentScrollY > 120) {
-        setIsHeaderVisible(false);
-      } else {
-        setIsHeaderVisible(true);
-      }
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
-
-  const categories = [
-    { name: 'Hogar', icon: Home },
-    { name: 'Tecnología', icon: Cpu },
-    { name: 'Cocina', icon: Utensils },
-    { name: 'Automóvil', icon: Car },
-    { name: 'Belleza', icon: Sparkles },
-    { name: 'Productos Virales', icon: Flame },
-  ];
-
-  const filteredProducts = searchQuery.trim() === ''
-    ? []
-    : liveProducts.filter(
-        (p) =>
-          p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.category?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-  if (pathname?.startsWith('/admin')) {
-    return null;
-  }
-
-  return (
-    <>
-      <div className={`fixed top-0 left-0 right-0 z-[100] w-full transition-transform duration-300 ${!isHeaderVisible ? '-translate-y-full' : 'translate-y-0'}`}>
-        
-        {/* Barra superior panorámica */}
-        <div className="bg-slate-900 text-white text-[11px] md:text-xs py-2 px-4 md:px-12 border-b border-slate-800">
-          <div className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-2 font-medium">
-              <Truck className="w-4 h-4 text-orange-400" />
-              <span>
-                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por MRW, Zoom y Tealca
-              </span>
-            </div>
-            <Link
-              href="/afiliados"
-              className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
-            >
-              <CircleDollarSign className="w-4 h-4" />
-              <span>Gana dinero con TodoMax</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Cabecera Principal Panorámica Flotante */}
-        <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xs px-4 md:px-12 lg:px-16 py-3">
-          <div className="w-full flex items-center justify-between gap-6">
-            
-            {/* Logo y Menú */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2.5 text-slate-700 hover:text-orange-500 rounded-xl hover:bg-slate-50 transition-all cursor-pointer hover:scale-105"
-                aria-label="Abrir menú"
-              >
-                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-
-              <Link href="/" className="flex items-center transition-transform hover:scale-105">
-                <Image
-                  src="/logo-todomax.png"
-                  alt={siteConfig.storeName}
-                  width={160}
-                  height={45}
-                  priority
-                  className="w-32 md:w-44 h-auto object-contain"
-                />
-              </Link>
-            </div>
-
-            {/* Buscador Panorámico en PC */}
-            {showSearch && (
-              <div className="hidden md:flex flex-1 max-w-2xl mx-8 relative">
-                <div className="w-full flex items-center gap-3 bg-slate-50 border border-gray-200 rounded-full px-5 py-2.5 focus-within:border-orange-500 focus-within:bg-white focus-within:shadow-md transition-all">
-                  <Search className="w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar en TodoMax: freidoras, mini UPS, aspiradoras, belleza..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-transparent outline-none text-sm text-slate-800 placeholder-gray-400 font-medium"
-                  />
-                  {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-slate-600 cursor-pointer">
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                {searchQuery.trim() !== '' && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 max-h-96 overflow-y-auto z-50 animate-in fade-in">
-                    {filteredProducts.length === 0 ? (
-                      <p className="text-xs text-gray-500 text-center py-4">No se encontraron productos.</p>
-                    ) : (
-                      filteredProducts.map((p) => (
-                        <Link
-                          key={p.id}
-                          href={`/product/${p.id}`}
-                          onClick={() => setSearchQuery('')}
-                          className="flex items-center gap-4 p-2.5 hover:bg-slate-50 rounded-xl transition-all group"
-                        >
-                          <img src={p.images[0]} alt={p.title} className="w-12 h-12 object-contain rounded-lg bg-slate-50 p-1" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate group-hover:text-orange-500">{p.title}</p>
-                            <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                          </div>
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Acciones Derecha */}
-            <div className="flex items-center gap-3">
-              <Link
-                href="/afiliados"
-                className="md:hidden flex items-center gap-1 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl text-xs font-black"
-              >
-                <CircleDollarSign className="w-3.5 h-3.5" />
-                <span>Afiliados</span>
-              </Link>
-
-              <button
-                onClick={() => setIsAuthOpen(true)}
-                className="hidden md:inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-orange-500 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
-              >
-                Mi Cuenta
-              </button>
-
-              <button
-                onClick={toggleCart}
-                className="relative p-3 bg-slate-900 hover:bg-orange-500 text-white rounded-2xl transition-all cursor-pointer flex items-center justify-center shadow-md hover:shadow-xl hover:scale-105 active:scale-95"
-                aria-label="Abrir carrito"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {cartItemsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[11px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white shadow-xs">
-                    {cartItemsCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* Buscador Móvil */}
-        {showSearch && (
-          <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2.5">
-            <div className="flex items-center gap-2 bg-slate-50 border border-gray-200 rounded-full px-3.5 py-2">
-              <Search className="w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar en TodoMax..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-transparent outline-none text-xs text-slate-800 placeholder-gray-400 font-medium"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-gray-400 cursor-pointer">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {searchQuery.trim() !== '' && (
-              <div className="mt-2 bg-white rounded-xl shadow-lg border border-gray-100 p-2 max-h-60 overflow-y-auto">
-                {filteredProducts.length === 0 ? (
-                  <p className="text-xs text-gray-500 text-center py-3">No hay productos.</p>
-                ) : (
-                  filteredProducts.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/product/${p.id}`}
-                      onClick={() => setSearchQuery('')}
-                      className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg text-left"
-                    >
-                      <img src={p.images[0]} alt={p.title} className="w-10 h-10 object-contain rounded bg-slate-50 p-1" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
-                        <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                      </div>
-                    </Link>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Menú Desplegable */}
-        {isMobileMenuOpen && (
-          <div className="bg-white/98 backdrop-blur-xl border-b border-gray-200 shadow-2xl p-6 md:px-12 space-y-4 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center justify-between border-b pb-3">
-              <span className="text-xs font-black uppercase text-orange-500 tracking-wider">Categorías Multiproductos</span>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-slate-700 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-              {categories.map((cat) => {
-                const Icon = cat.icon;
-                return (
-                  <Link
-                    key={cat.name}
-                    href={`/catalogo?category=${encodeURIComponent(cat.name)}`}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-orange-50 hover:text-orange-600 text-xs font-bold text-slate-700 transition-all hover:scale-105 hover:shadow-md"
-                  >
-                    <Icon className="w-5 h-5 text-orange-500" />
-                    <span>{cat.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            <div className="border-t pt-3 flex flex-wrap items-center justify-between gap-4">
-              <Link
-                href="/catalogo"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-sm font-bold text-slate-800 hover:text-orange-500"
-              >
-                📦 Ver Catálogo Completo
-              </Link>
-              <Link
-                href="/afiliados"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-sm font-black text-orange-500 hover:text-orange-600"
-              >
-                🤝 Programa de Afiliados (Gana Dinero)
-              </Link>
-              <button
-                onClick={() => { setIsMobileMenuOpen(false); setIsAuthOpen(true); }}
-                className="text-sm font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
-              >
-                👤 Mi Cuenta / Registrarse
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-    </>
-  );
-}
-
-export default function Header() {
-  return (
-    <Suspense fallback={<div className="h-24 w-full bg-white" />}>
-      <HeaderContent />
-    </Suspense>
-  );
-}
-</file>
-
 <file path="src/services/productService.ts">
 import { Product, products as defaultProducts } from '@/data/products';
 
@@ -3248,6 +2483,546 @@ export const productService = {
     return allProducts.find((product) => String(product.id) === String(id));
   },
 };
+</file>
+
+<file path="src/app/afiliados/page.tsx">
+'use client';
+
+import { useState, useEffect, FormEvent } from 'react';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import { products as defaultProducts, Product } from '@/data/products';
+import { 
+  CheckCircle2, MessageCircle, BarChart3, 
+  Link as LinkIcon, Download, Copy, User, Wallet, LogIn
+} from 'lucide-react';
+
+type AffiliateUser = {
+  nombre: string;
+  email: string;
+  codigo: string;
+  joinedAt: string;
+};
+
+const DEFAULT_BASE_URL = 'https://www.importadoratodomax.com';
+
+export default function AfiliadosPage() {
+  const [user, setUser] = useState<AffiliateUser | null>(null);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'biblioteca' | 'ia'>('dashboard');
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
+  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
+
+  // Estados del Formulario (Registro e Inicio de Sesión)
+  const [isLoginMode, setIsLoginMode] = useState(false);
+  const [formData, setFormData] = useState({ nombre: '', email: '', codigo: '' });
+  const [loginCode, setLoginCode] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // Estados de Métricas
+  const [metrics, setMetrics] = useState({ ventasPendientes: 0, ventasConfirmadas: 0, comisionesDisponibles: 0 });
+
+  // Estados UI
+  const [copiedLink, setCopiedLink] = useState('');
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<{role: 'ia' | 'user', text: string}[]>([
+    { role: 'ia', text: '¡Hola! Soy Sofía, tu asistente IA de TodoMax. Dime, ¿qué producto quieres vender hoy y te entregaré tu kit de publicidad?' }
+  ]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) {
+      setBaseUrl(window.location.origin);
+    }
+
+    const init = async () => {
+      const prods = await productService.getProducts();
+      if (Array.isArray(prods) && prods.length > 0) {
+        setLiveProducts(prods);
+      }
+
+      const storedUser = localStorage.getItem('todomax_affiliate_user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          await calcularMetricas(parsedUser.codigo, prods);
+        } catch (e) {}
+      }
+      setIsLoaded(true);
+    };
+
+    init();
+  }, []);
+
+  const calcularMetricas = async (codigo: string, catalogProducts: Product[]) => {
+    let orders: any[] = [];
+
+    try {
+      const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          orders = json.data;
+          localStorage.setItem('store_orders', JSON.stringify(orders));
+        }
+      }
+    } catch (e) {}
+
+    if (orders.length === 0) {
+      const ordersStr = localStorage.getItem('store_orders');
+      if (ordersStr) {
+        try {
+          orders = JSON.parse(ordersStr);
+        } catch (e) {}
+      }
+    }
+
+    let pendientes = 0;
+    let confirmadas = 0;
+    let comisiones = 0;
+
+    orders.forEach((order: any) => {
+      if (order.attribution?.affiliateCode === codigo) {
+        if (order.status !== 'Cancelado' && order.status !== 'Entregado' && order.status !== 'Completado') {
+          pendientes++;
+        } else if (order.status === 'Entregado' || order.status === 'Completado') {
+          confirmadas++;
+          if (order.financials?.commission !== undefined) {
+            comisiones += Number(order.financials.commission);
+          } else if (Array.isArray(order.items)) {
+            order.items.forEach((item: any) => {
+              const prod = catalogProducts.find(p => String(p.id) === String(item.id));
+              const pct = prod ? Number(prod.affiliateCommission || 10) : 10;
+              comisiones += (item.price * item.quantity * (pct / 100));
+            });
+          } else {
+            comisiones += (order.financials.total * 0.10);
+          }
+        }
+      }
+    });
+
+    setMetrics({
+      ventasPendientes: pendientes,
+      ventasConfirmadas: confirmadas,
+      comisionesDisponibles: comisiones,
+    });
+  };
+
+  const handleRegister = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!acceptedTerms) {
+      alert('Debes aceptar las condiciones comerciales para continuar.');
+      return;
+    }
+    const cleanCode = formData.codigo.toUpperCase().replace(/\s+/g, '');
+    const newUser: AffiliateUser = {
+      nombre: formData.nombre,
+      email: formData.email,
+      codigo: cleanCode,
+      joinedAt: new Date().toISOString()
+    };
+    localStorage.setItem('todomax_affiliate_user', JSON.stringify(newUser));
+    setUser(newUser);
+
+    try {
+      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      let currentAffiliates: AffiliateUser[] = [];
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) currentAffiliates = json.data;
+      }
+      const updated = [newUser, ...currentAffiliates.filter(a => a.codigo !== cleanCode)];
+      await fetch('/api/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'store_affiliates', value: updated }),
+      });
+    } catch (e) {}
+
+    await calcularMetricas(cleanCode, liveProducts);
+  };
+
+  const handleLoginExisting = async (e: FormEvent) => {
+    e.preventDefault();
+    const cleanCode = loginCode.toUpperCase().replace(/\s+/g, '');
+    if (!cleanCode) return;
+
+    let foundUser: AffiliateUser | null = null;
+    try {
+      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          foundUser = json.data.find((a: AffiliateUser) => a.codigo === cleanCode) || null;
+        }
+      }
+    } catch (e) {}
+
+    if (!foundUser) {
+      foundUser = {
+        nombre: 'Embajador TodoMax',
+        email: 'afiliado@todomax.com',
+        codigo: cleanCode,
+        joinedAt: new Date().toISOString()
+      };
+    }
+
+    localStorage.setItem('todomax_affiliate_user', JSON.stringify(foundUser));
+    setUser(foundUser);
+    await calcularMetricas(cleanCode, liveProducts);
+  };
+
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedLink(type);
+    setTimeout(() => setCopiedLink(''), 2000);
+  };
+
+  const buildAdText = (product: Product, affiliateUrl: string) => {
+    const rawCopy = product.adCopy || `¡Compra ${product.title} hoy mismo con garantía y envío rápido!`;
+    if (rawCopy.includes('[ENLACE]')) {
+      return rawCopy.replace('[ENLACE]', affiliateUrl);
+    }
+    return `${rawCopy}\n\nCómpralo aquí: ${affiliateUrl}`;
+  };
+
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
+  const handleChatSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const newMsgs = [...chatMessages, { role: 'user' as const, text: chatInput }];
+    setChatMessages(newMsgs);
+    const query = chatInput.toLowerCase();
+    setChatInput('');
+
+    setTimeout(() => {
+      let responseText = "No encontré un producto exacto con ese nombre. ¿Puedes intentar con palabras como 'Aspiradora', 'Freidora', 'UPS', 'Cepillo' o 'Proyector'?";
+      
+      const foundProduct = liveProducts.find(
+        p =>
+          p.title.toLowerCase().includes(query) ||
+          query.includes(p.title.split(' ')[0].toLowerCase()) ||
+          query.includes(p.category.toLowerCase())
+      );
+      
+      if (foundProduct) {
+        const prodLink = `${baseUrl}/product/${foundProduct.id}?ref=${user?.codigo}`;
+        const copyReady = buildAdText(foundProduct, prodLink);
+        responseText = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
+          `💰 *Tu Comisión:* ${foundProduct.affiliateCommission}% (${siteConfig.currencySymbol}${(foundProduct.price * (foundProduct.affiliateCommission / 100)).toFixed(2)} por venta)\n` +
+          `📸 *Material Visual:* Descárgalo en la pestaña 'Biblioteca de Anuncios'.\n\n` +
+          `📝 *Texto listo para publicar:*\n${copyReady}\n\n` +
+          `🔗 *Tu Enlace Directo:* ${prodLink}`;
+      }
+
+      setChatMessages([...newMsgs, { role: 'ia', text: responseText }]);
+    }, 600);
+  };
+
+  if (!isLoaded) return <div className="min-h-screen bg-slate-50 pt-32 flex items-center justify-center font-bold">Cargando...</div>;
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-20">
+        <div className="w-full px-4 md:px-12 lg:px-16 flex flex-col lg:flex-row items-center gap-12 max-w-7xl mx-auto">
+          
+          <div className="flex-1 space-y-6">
+            <span className="inline-block px-4 py-1.5 bg-orange-100 text-orange-600 text-xs font-black rounded-full uppercase tracking-widest">
+              Programa de Embajadores
+            </span>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
+              Gana Dinero Vendiendo <span className="text-orange-500">Sin Inventario</span>
+            </h1>
+            <p className="text-sm md:text-base text-slate-600 font-medium leading-relaxed max-w-xl">
+              Únete al equipo comercial de {siteConfig.storeName}. Te damos los videos, las imágenes y tu enlace personalizado. Tú solo publicas; nosotros cobramos, despachamos y te pagamos tu comisión.
+            </p>
+            
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">1</div>
+                <p className="text-sm font-bold text-slate-800">Regístrate y crea tu código único.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black">2</div>
+                <p className="text-sm font-bold text-slate-800">Descarga las fotos y videos de nuestros productos.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-black">3</div>
+                <p className="text-sm font-bold text-slate-800">Cobra comisiones por cada compra entregada.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-gray-100 space-y-6">
+            <div className="flex items-center justify-between border-b pb-4">
+              <h2 className="text-xl font-black text-slate-900">{isLoginMode ? 'Iniciar Sesión' : 'Crea tu Cuenta'}</h2>
+              <button 
+                onClick={() => setIsLoginMode(!isLoginMode)} 
+                className="text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+              >
+                {isLoginMode ? '¿Nuevo? Regístrate' : '¿Ya tienes código? Entra aquí'}
+              </button>
+            </div>
+
+            {isLoginMode ? (
+              <form onSubmit={handleLoginExisting} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tu Código de Afiliado</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={loginCode} 
+                    onChange={e => setLoginCode(e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black uppercase focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" 
+                    placeholder="EJ: CARLOS2026" 
+                  />
+                </div>
+                <button type="submit" className="w-full bg-slate-900 hover:bg-orange-500 text-white font-black py-4 rounded-xl transition-colors cursor-pointer active:scale-95 shadow-md flex items-center justify-center gap-2">
+                  <LogIn className="w-4 h-4" /> Acceder a Mi Panel
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Nombre Completo</label>
+                  <input type="text" required value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="Tu nombre y apellido" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Correo Electrónico</label>
+                  <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="tu@email.com" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Crea tu Código de Afiliado</label>
+                  <input type="text" required value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black uppercase focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="EJ: CARLOS2026" />
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
+                  <input type="checkbox" id="terms" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-1" />
+                  <label htmlFor="terms" className="text-[10px] text-slate-700 font-medium leading-tight cursor-pointer">
+                    Acepto que {siteConfig.storeName} se encarga del cobro y despacho al cliente final. Mis comisiones se liberarán únicamente cuando el pedido marque estado &quot;Entregado&quot;.
+                  </label>
+                </div>
+                <button type="submit" className="w-full bg-slate-900 hover:bg-orange-500 text-white font-black py-4 rounded-xl transition-colors cursor-pointer active:scale-95 shadow-md">
+                  Unirme al Programa
+                </button>
+              </form>
+            )}
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  const universalLink = `${baseUrl}/?ref=${user.codigo}`;
+
+  return (
+    <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-20">
+      <div className="w-full px-4 md:px-12 lg:px-16 max-w-7xl mx-auto space-y-8">
+        
+        <div className="bg-slate-900 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-orange-500 rounded-full flex items-center justify-center text-white text-xl font-black shadow-lg">
+              {user.nombre.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-orange-400 text-xs font-black uppercase tracking-wider">Panel de Afiliado</p>
+              <h1 className="text-2xl md:text-3xl font-black text-white">{user.nombre}</h1>
+              <p className="text-slate-400 text-xs">Código: <span className="text-white font-bold">{user.codigo}</span></p>
+            </div>
+          </div>
+          <button 
+            onClick={() => { localStorage.removeItem('todomax_affiliate_user'); setUser(null); }}
+            className="text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+
+        <div className="flex overflow-x-auto gap-2 border-b border-gray-200 pb-px scrollbar-hide">
+          <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'dashboard' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+            <BarChart3 className="w-4 h-4 inline-block mr-2" /> Resumen y Ganancias
+          </button>
+          <button onClick={() => setActiveTab('biblioteca')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'biblioteca' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+            <Download className="w-4 h-4 inline-block mr-2" /> Biblioteca de Anuncios
+          </button>
+          <button onClick={() => setActiveTab('ia')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'ia' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+            <MessageCircle className="w-4 h-4 inline-block mr-2" /> Asistente IA (Sofía)
+          </button>
+        </div>
+
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Tu Enlace Universal de Tienda</h3>
+                <p className="text-xs text-slate-500 mt-1">Cualquier persona que entre con este link y compre, generará comisión para ti durante 30 días.</p>
+              </div>
+              <div className="flex items-center w-full md:w-auto bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
+                <span className="px-4 text-xs font-bold text-slate-600 truncate max-w-[220px] md:max-w-sm">
+                  {universalLink}
+                </span>
+                <button 
+                  onClick={() => copyToClipboard(universalLink, 'general')}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-xs font-black transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copiedLink === 'general' ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copiedLink === 'general' ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 text-slate-500 mb-4">
+                  <div className="p-2 bg-blue-50 text-blue-500 rounded-lg"><User className="w-5 h-5" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider">Ventas en Proceso</span>
+                </div>
+                <div className="text-3xl font-black text-slate-900">{metrics.ventasPendientes}</div>
+                <p className="text-[10px] text-slate-400 mt-2">En verificación o tránsito de envío</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 text-slate-500 mb-4">
+                  <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg"><CheckCircle2 className="w-5 h-5" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider">Ventas Entregadas</span>
+                </div>
+                <div className="text-3xl font-black text-slate-900">{metrics.ventasConfirmadas}</div>
+                <p className="text-[10px] text-slate-400 mt-2">Confirmadas y completadas</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-500 to-amber-500 p-6 rounded-3xl shadow-md text-white flex flex-col justify-between hover:shadow-lg transition-shadow hover:-translate-y-1">
+                <div className="flex items-center gap-3 mb-4 text-white/90">
+                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Wallet className="w-5 h-5" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider">Comisión Disponible</span>
+                </div>
+                <div className="text-4xl font-black">{siteConfig.currencySymbol}{metrics.comisionesDisponibles.toFixed(2)}</div>
+                <p className="text-[10px] text-white/80 mt-2">Solicita tu retiro al llegar a $20</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'biblioteca' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black text-slate-900">Kits de Venta por Producto ({liveProducts.length})</h2>
+              <p className="text-xs text-slate-500">Descarga, copia y publica en tus redes.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {liveProducts.map((product) => {
+                const productRefUrl = `${baseUrl}/product/${product.id}?ref=${user.codigo}`;
+                const fullAdCopy = buildAdText(product, productRefUrl);
+                const commAmount = (product.price * ((product.affiliateCommission || 10) / 100)).toFixed(2);
+                const coverMedia = product.images?.[0] || '';
+
+                return (
+                  <div key={product.id} className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden flex flex-col">
+                    <div className="aspect-video bg-slate-50 relative p-4 flex items-center justify-center border-b border-gray-100">
+                      {isVideo(coverMedia) ? (
+                        <video src={coverMedia} className="h-full w-full object-cover rounded-xl" muted autoPlay loop />
+                      ) : (
+                        <img src={coverMedia} alt={product.title} className="h-full object-contain mix-blend-multiply" />
+                      )}
+                      <span className="absolute top-3 left-3 bg-orange-50 text-orange-600 text-[10px] font-black px-2 py-0.5 rounded uppercase">{product.category}</span>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 line-clamp-2">{product.title}</h3>
+                        <p className="text-xs text-emerald-600 font-bold mt-1">
+                          Ganas {product.affiliateCommission || 10}% por venta: {siteConfig.currencySymbol}{commAmount}
+                        </p>
+                      </div>
+                      
+                      <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                        <button 
+                          onClick={() => copyToClipboard(productRefUrl, `link-${product.id}`)}
+                          className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          {copiedLink === `link-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <LinkIcon className="w-4 h-4" />}
+                          {copiedLink === `link-${product.id}` ? 'Enlace Copiado' : 'Copiar Tu Enlace'}
+                        </button>
+
+                        <button 
+                          onClick={() => copyToClipboard(fullAdCopy, `copy-${product.id}`)}
+                          className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          {copiedLink === `copy-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                          {copiedLink === `copy-${product.id}` ? 'Texto Copiado' : 'Copiar Texto para Redes'}
+                        </button>
+
+                        <a 
+                          href={coverMedia} 
+                          download={`${product.id}-todomax`}
+                          className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <Download className="w-4 h-4" /> Descargar Material (Foto/Video)
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ia' && (
+          <div className="max-w-3xl mx-auto bg-white rounded-3xl border border-gray-100 shadow-md overflow-hidden flex flex-col h-[600px] animate-in fade-in">
+            <div className="bg-slate-900 px-6 py-4 flex items-center gap-4">
+              <div className="relative">
+                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white">
+                  <MessageCircle className="w-6 h-6" />
+                </div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
+              </div>
+              <div>
+                <h3 className="text-white font-black text-sm">Sofía (IA {siteConfig.storeName})</h3>
+                <p className="text-emerald-400 text-[10px] font-bold">En línea • Sincronizada con el catálogo actual</p>
+              </div>
+            </div>
+
+            <div className="flex-1 p-6 overflow-y-auto bg-slate-50 space-y-4">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'ia' ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-[80%] rounded-2xl p-4 text-sm ${
+                    msg.role === 'ia' 
+                      ? 'bg-white border border-gray-200 text-slate-800 rounded-tl-none shadow-sm whitespace-pre-line' 
+                      : 'bg-orange-500 text-white rounded-tr-none shadow-md'
+                  }`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 bg-white border-t border-gray-100">
+              <form onSubmit={handleChatSubmit} className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  placeholder="Ej: Quiero vender la Freidora de Aire..."
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors"
+                />
+                <button type="submit" className="bg-slate-900 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-sm cursor-pointer">
+                  Enviar
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
 </file>
 
 <file path="src/app/product/[id]/page.tsx">
@@ -3573,6 +3348,323 @@ export default function ProductPage() {
 }
 </file>
 
+<file path="src/components/Header.tsx">
+'use client';
+
+import { useState, useEffect, Suspense } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useSearchParams, usePathname } from 'next/navigation';
+import { Menu, Search, ShoppingCart, X, Home, Cpu, Utensils, Car, Sparkles, Flame, CircleDollarSign, Truck } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import { products as defaultProducts, Product } from '@/data/products';
+import AuthModal from './AuthModal';
+
+function HeaderContent() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
+
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const { items, toggleCart } = useCartStore();
+  const cartItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
+
+  const showSearch = pathname === '/' || pathname === '/catalogo';
+
+  useEffect(() => {
+    productService.getProducts().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveProducts(data);
+      }
+    });
+  }, [pathname]);
+
+  useEffect(() => {
+    if (searchParams?.get('auth') === 'register') {
+      setIsAuthOpen(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 120) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
+  const categories = [
+    { name: 'Hogar', icon: Home },
+    { name: 'Tecnología', icon: Cpu },
+    { name: 'Cocina', icon: Utensils },
+    { name: 'Automóvil', icon: Car },
+    { name: 'Belleza', icon: Sparkles },
+    { name: 'Productos Virales', icon: Flame },
+  ];
+
+  const filteredProducts = searchQuery.trim() === ''
+    ? []
+    : liveProducts.filter(
+        (p) =>
+          p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.category?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
+  return (
+    <>
+      <div className={`fixed top-0 left-0 right-0 z-[100] w-full transition-transform duration-300 ${!isHeaderVisible ? '-translate-y-full' : 'translate-y-0'}`}>
+        
+        {/* Barra superior panorámica */}
+        <div className="bg-slate-900 text-white text-[11px] md:text-xs py-2 px-4 md:px-12 border-b border-slate-800">
+          <div className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-2 font-medium">
+              <Truck className="w-4 h-4 text-orange-400" />
+              <span>
+                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por MRW, Zoom y Tealca
+              </span>
+            </div>
+            <Link
+              href="/afiliados"
+              className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
+            >
+              <CircleDollarSign className="w-4 h-4" />
+              <span>Gana dinero con TodoMax</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Cabecera Principal Panorámica Flotante */}
+        <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xs px-4 md:px-12 lg:px-16 py-3">
+          <div className="w-full flex items-center justify-between gap-6">
+            
+            {/* Logo y Menú */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2.5 text-slate-700 hover:text-orange-500 rounded-xl hover:bg-slate-50 transition-all cursor-pointer hover:scale-105"
+                aria-label="Abrir menú"
+              >
+                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+
+              <Link href="/" className="flex items-center transition-transform hover:scale-105">
+                <Image
+                  src="/logo-todomax.png"
+                  alt={siteConfig.storeName}
+                  width={160}
+                  height={45}
+                  priority
+                  className="w-32 md:w-44 h-auto object-contain"
+                />
+              </Link>
+            </div>
+
+            {/* Buscador Panorámico en PC */}
+            {showSearch && (
+              <div className="hidden md:flex flex-1 max-w-2xl mx-8 relative">
+                <div className="w-full flex items-center gap-3 bg-slate-50 border border-gray-200 rounded-full px-5 py-2.5 focus-within:border-orange-500 focus-within:bg-white focus-within:shadow-md transition-all">
+                  <Search className="w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar en TodoMax: freidoras, mini UPS, aspiradoras, belleza..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-transparent outline-none text-sm text-slate-800 placeholder-gray-400 font-medium"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-slate-600 cursor-pointer">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {searchQuery.trim() !== '' && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 max-h-96 overflow-y-auto z-50 animate-in fade-in">
+                    {filteredProducts.length === 0 ? (
+                      <p className="text-xs text-gray-500 text-center py-4">No se encontraron productos.</p>
+                    ) : (
+                      filteredProducts.map((p) => (
+                        <Link
+                          key={p.id}
+                          href={`/product/${p.id}`}
+                          onClick={() => setSearchQuery('')}
+                          className="flex items-center gap-4 p-2.5 hover:bg-slate-50 rounded-xl transition-all group"
+                        >
+                          <img src={p.images[0]} alt={p.title} className="w-12 h-12 object-contain rounded-lg bg-slate-50 p-1" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate group-hover:text-orange-500">{p.title}</p>
+                            <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Acciones Derecha */}
+            <div className="flex items-center gap-3">
+              <Link
+                href="/afiliados"
+                className="md:hidden flex items-center gap-1 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl text-xs font-black"
+              >
+                <CircleDollarSign className="w-3.5 h-3.5" />
+                <span>Afiliados</span>
+              </Link>
+
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="hidden md:inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-orange-500 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
+              >
+                Mi Cuenta
+              </button>
+
+              <button
+                onClick={toggleCart}
+                className="relative p-3 bg-slate-900 hover:bg-orange-500 text-white rounded-2xl transition-all cursor-pointer flex items-center justify-center shadow-md hover:shadow-xl hover:scale-105 active:scale-95"
+                aria-label="Abrir carrito"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {cartItemsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[11px] w-5 h-5 rounded-full flex items-center justify-center font-black border-2 border-white shadow-xs">
+                    {cartItemsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Buscador Móvil */}
+        {showSearch && (
+          <div className="md:hidden bg-white border-b border-gray-100 px-4 py-2.5">
+            <div className="flex items-center gap-2 bg-slate-50 border border-gray-200 rounded-full px-3.5 py-2">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar en TodoMax..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent outline-none text-xs text-slate-800 placeholder-gray-400 font-medium"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-gray-400 cursor-pointer">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {searchQuery.trim() !== '' && (
+              <div className="mt-2 bg-white rounded-xl shadow-lg border border-gray-100 p-2 max-h-60 overflow-y-auto">
+                {filteredProducts.length === 0 ? (
+                  <p className="text-xs text-gray-500 text-center py-3">No hay productos.</p>
+                ) : (
+                  filteredProducts.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/product/${p.id}`}
+                      onClick={() => setSearchQuery('')}
+                      className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg text-left"
+                    >
+                      <img src={p.images[0]} alt={p.title} className="w-10 h-10 object-contain rounded bg-slate-50 p-1" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
+                        <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Menú Desplegable con Enlaces Directos y Seguros */}
+        {isMobileMenuOpen && (
+          <div className="bg-white/98 backdrop-blur-xl border-b border-gray-200 shadow-2xl p-6 md:px-12 space-y-4 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center justify-between border-b pb-3">
+              <span className="text-xs font-black uppercase text-orange-500 tracking-wider">Categorías Multiproductos</span>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {categories.map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <Link
+                    key={cat.name}
+                    href={`/catalogo?category=${encodeURIComponent(cat.name)}`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-orange-50 hover:text-orange-600 text-xs font-bold text-slate-700 transition-all hover:scale-105 hover:shadow-md"
+                  >
+                    <Icon className="w-5 h-5 text-orange-500" />
+                    <span>{cat.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="border-t pt-3 flex flex-wrap items-center justify-between gap-4">
+              <Link
+                href="/catalogo"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-sm font-bold text-slate-800 hover:text-orange-500"
+              >
+                📦 Ver Catálogo Completo
+              </Link>
+              <Link
+                href="/afiliados"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-sm font-black text-orange-500 hover:text-orange-600"
+              >
+                🤝 Programa de Afiliados (Gana Dinero)
+              </Link>
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); setIsAuthOpen(true); }}
+                className="text-sm font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+              >
+                👤 Mi Cuenta / Registrarse
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+    </>
+  );
+}
+
+export default function Header() {
+  return (
+    <Suspense fallback={<div className="h-24 w-full bg-white" />}>
+      <HeaderContent />
+    </Suspense>
+  );
+}
+</file>
+
 <file path="src/components/HeroCarousel.tsx">
 'use client';
 
@@ -3582,72 +3674,64 @@ import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 
-export const defaultHeroSlides = [
-  {
-    id: 1,
-    badge: 'PRODUCTO ESTRELLA & COMBOS',
-    title: 'Importadora Directa TodoMax',
-    subtitle: 'Tecnología, hogar, cocina, automóvil y belleza con garantía y envío gratis en compras mayores a $50.',
-    btnText: 'Comprar Ahora',
-    btnLink: '/catalogo',
-    desktopImg: '/hero/hero1catalogo.png',
-    mobileImg: '/hero/hero1catalogo-mobile.png',
-    bgGradient: 'from-orange-600 via-orange-500 to-amber-500',
-  },
-  {
-    id: 2,
-    badge: 'PROGRAMA DE AFILIADOS',
-    title: 'Gana Dinero con TodoMax',
-    subtitle: 'Promociona productos de alta rotación con videos profesionales preaprobados y cobra comisiones directas.',
-    btnText: 'Quiero ser Afiliado',
-    btnLink: '/afiliados',
-    desktopImg: '/hero/hero2afiliados.png',
-    mobileImg: '/hero/hero2afiliados-mobile.png',
-    bgGradient: 'from-slate-950 via-slate-900 to-orange-950',
-  },
-  {
-    id: 3,
-    badge: 'ENVÍO GRATIS A TODO EL PAÍS',
-    title: 'Despachos por MRW, Zoom y Tealca',
-    subtitle: 'Recibe directo en tu puerta con entrega rápida y respaldo asegurado en cada orden.',
-    btnText: 'Explorar Catálogo',
-    btnLink: '/catalogo',
-    desktopImg: '/hero/hero3registro.png',
-    mobileImg: '/hero/hero3registro-mobile.png',
-    bgGradient: 'from-emerald-800 via-teal-700 to-slate-900',
-  },
-];
+// Array vacío para que ni la tienda ni el Admin carguen parchos naranjas por defecto
+export const defaultHeroSlides: any[] = [];
+
+// Filtra cualquier slide viejo que apunte a rutas locales inexistentes (/hero/...)
+function filterValidAdminSlides(rawSlides: any[]): any[] {
+  if (!Array.isArray(rawSlides)) return [];
+  return rawSlides.filter((s) => {
+    const dImg = String(s?.desktopImg || '').trim();
+    const mImg = String(s?.mobileImg || '').trim();
+    const isLegacyFakePath =
+      dImg.startsWith('/hero/') ||
+      mImg.startsWith('/hero/');
+    const hasRealImage = Boolean(dImg || mImg);
+    return hasRealImage && !isLegacyFakePath;
+  });
+}
 
 export function HeroCarousel() {
   const autoplayOptions = { delay: 6500, stopOnInteraction: false };
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [slides, setSlides] = useState<any[]>(defaultHeroSlides);
+  const [slides, setSlides] = useState<any[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const loadSlides = async () => {
-      try {
-        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setSlides(json.data);
-            return;
-          }
-        }
-      } catch (e) {}
-
+      // 1. Lectura instantánea de caché local si existe
       if (typeof window !== 'undefined') {
         const local = localStorage.getItem('store_hero_slides');
         if (local) {
           try {
-            const parsed = JSON.parse(local);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            const parsed = filterValidAdminSlides(JSON.parse(local));
+            if (parsed.length > 0) {
               setSlides(parsed);
+              setIsLoaded(true);
             }
           } catch (e) {}
         }
       }
+
+      // 2. Sincronización con la base de datos del Admin
+      try {
+        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data)) {
+            const cleanSlides = filterValidAdminSlides(json.data);
+            setSlides(cleanSlides);
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+
+      setIsLoaded(true);
     };
 
     loadSlides();
@@ -3658,18 +3742,30 @@ export function HeroCarousel() {
     emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
   }, [emblaApi]);
 
+  // Mientras carga desde el servidor: esqueleto neutro (CERO parcho naranja)
+  if (!isLoaded) {
+    return (
+      <div className="w-full h-[42vh] md:h-[58vh] min-h-[320px] md:min-h-[460px] rounded-2xl md:rounded-3xl bg-slate-200/70 animate-pulse" />
+    );
+  }
+
+  // Si aún no se ha subido ningún banner en el Admin, no muestra parchos rotos
+  if (slides.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
+    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
       <div ref={emblaRef} className="overflow-hidden w-full">
         <div className="flex w-full">
-          {slides.map((slide) => {
-            const dImg = slide.desktopImg || '';
-            const mImg = slide.mobileImg || dImg;
+          {slides.map((slide, idx) => {
+            const dImg = slide.desktopImg || slide.mobileImg || '';
+            const mImg = slide.mobileImg || slide.desktopImg || '';
 
             return (
               <div
-                key={slide.id}
-                className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient || 'from-slate-900 via-slate-800 to-orange-950'} flex flex-col justify-center items-start overflow-hidden group`}
+                key={slide.id || idx}
+                className="flex-[0_0_100%] min-w-0 relative h-[42vh] md:h-[58vh] min-h-[320px] md:min-h-[460px] py-10 pb-16 md:py-16 md:pb-20 px-6 md:px-20 text-white bg-slate-950 flex flex-col justify-center items-start overflow-hidden group"
               >
                 {dImg && (
                   <img
@@ -3687,23 +3783,28 @@ export function HeroCarousel() {
                   />
                 )}
 
-                <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
+                <Link
+                  href={slide.btnLink || '/catalogo'}
+                  className="absolute inset-0 z-10 cursor-pointer"
+                  aria-label={slide.title || 'Ver catálogo'}
+                />
 
-                {slide.title && (
-                  <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none mt-40 md:mt-56">
+                {/* Solo muestra textos superpuestos si el Admin escribió un título explícitamente */}
+                {slide.title && slide.title.trim() !== '' && (
+                  <div className="max-w-3xl space-y-3.5 md:space-y-5 relative z-20 pointer-events-none my-auto">
                     {slide.badge && (
                       <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
-                        <ShieldCheck className="w-4 h-4 text-white" />
-                        {slide.badge}
+                        <ShieldCheck className="w-4 h-4 text-white flex-shrink-0" />
+                        <span>{slide.badge}</span>
                       </span>
                     )}
 
-                    <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
+                    <h1 className="text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
                       {slide.title}
                     </h1>
 
                     {slide.subtitle && (
-                      <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
+                      <p className="text-xs sm:text-sm md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
                         {slide.subtitle}
                       </p>
                     )}
@@ -3711,7 +3812,7 @@ export function HeroCarousel() {
                     <div className="pt-2 pointer-events-auto">
                       <Link
                         href={slide.btnLink || '/catalogo'}
-                        className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-7 py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
+                        className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-6 md:px-7 py-3.5 md:py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
                       >
                         <ShoppingBag className="w-4 h-4 text-white group-hover/btn:scale-110 transition-transform" />
                         <span>{slide.btnText || 'Comprar Ahora'}</span>
@@ -3726,16 +3827,20 @@ export function HeroCarousel() {
         </div>
       </div>
 
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => emblaApi?.scrollTo(i)}
-            className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'}`}
-            aria-label={`Slide ${i + 1}`}
-          />
-        ))}
-      </div>
+      {slides.length > 1 && (
+        <div className="absolute bottom-4 md:bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => emblaApi?.scrollTo(i)}
+              className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'
+              }`}
+              aria-label={`Slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3750,79 +3855,66 @@ import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
-export const defaultOffers = [
-  {
-    id: 1,
-    tag: 'COMBO AHORRO',
-    title: 'Aspiradora Auto + Mini UPS',
-    desc: 'Respaldo eléctrico ininterrumpido para tu hogar y limpieza total para tu vehículo.',
-    discount: '30% OFF',
-    link: '/product/combo-hogar-inteligente',
-    desktopImg: '/ofertas/oferta1.png',
-    mobileImg: '/ofertas/oferta1-mobile.png',
-    gradient: 'from-slate-900 via-slate-800 to-orange-950',
-  },
-  {
-    id: 2,
-    tag: 'ENVÍO GRATIS',
-    title: 'Freidora de Aire 6L Familiar',
-    desc: 'Cocina saludable sin aceite. Llévala hoy con flete cubierto por TodoMax a cualquier ciudad.',
-    discount: 'ENVÍO $0',
-    link: '/product/freidora-aire-digital',
-    desktopImg: '/ofertas/oferta2.png',
-    mobileImg: '/ofertas/oferta2-mobile.png',
-    gradient: 'from-orange-600 via-orange-500 to-amber-600',
-  },
-  {
-    id: 3,
-    tag: 'PRODUCTO VIRAL',
-    title: 'Proyector Galaxia LED',
-    desc: 'El proyector más vendido de TikTok. Parlante bluetooth y efectos espaciales inmersivos.',
-    discount: 'TOP VENTAS',
-    link: '/product/proyector-galaxia-led',
-    desktopImg: '/ofertas/oferta3.png',
-    mobileImg: '/ofertas/oferta3-mobile.png',
-    gradient: 'from-indigo-950 via-slate-900 to-slate-900',
-  },
-];
+// Exportación requerida por el panel administrativo (/admin/page.tsx)
+export const defaultOffers: any[] = [];
+
+function filterValidAdminOffers(rawOffers: any[]): any[] {
+  if (!Array.isArray(rawOffers)) return [];
+  return rawOffers.filter((o) => {
+    const dImg = String(o?.desktopImg || '').trim();
+    const mImg = String(o?.mobileImg || '').trim();
+    const isLegacyFakePath =
+      dImg.startsWith('/ofertas/') ||
+      mImg.startsWith('/ofertas/');
+    const hasRealImage = Boolean(dImg || mImg);
+    return hasRealImage && !isLegacyFakePath;
+  });
+}
 
 export function OffersCarousel() {
   const autoplayOptions = { delay: 6000, stopOnInteraction: false };
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [offers, setOffers] = useState<any[]>(defaultOffers);
 
-  useEffect(() => {
-    const loadOffers = async () => {
+  // Inicialización síncrona inmediata con localStorage para carga instantánea en 0ms
+  const [offers, setOffers] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
       try {
-        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setOffers(json.data);
-            return;
-          }
-        }
-      } catch (e) {}
-
-      if (typeof window !== 'undefined') {
         const saved = localStorage.getItem('store_offers');
         if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) setOffers(parsed);
-          } catch (error) {}
+          const parsed = filterValidAdminOffers(JSON.parse(saved));
+          if (parsed.length > 0) return parsed;
         }
-      }
-    };
+      } catch (error) {}
+    }
+    return [];
+  });
 
-    loadOffers();
+  useEffect(() => {
+    fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && Array.isArray(json.data)) {
+          const cleanOffers = filterValidAdminOffers(json.data);
+          if (cleanOffers.length > 0) {
+            setOffers(cleanOffers);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+            }
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!emblaApi) return;
     emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
   }, [emblaApi]);
+
+  if (offers.length === 0) {
+    return null;
+  }
 
   return (
     <div className="w-full py-4 md:py-6" id="ofertas">
@@ -3835,17 +3927,17 @@ export function OffersCarousel() {
         </div>
       </div>
 
-      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
+      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
         <div ref={emblaRef} className="overflow-hidden w-full">
           <div className="flex w-full">
-            {offers.map((offer) => {
-              const dImg = offer.desktopImg || '';
-              const mImg = offer.mobileImg || dImg;
+            {offers.map((offer, idx) => {
+              const dImg = offer.desktopImg || offer.mobileImg || '';
+              const mImg = offer.mobileImg || offer.desktopImg || '';
 
               return (
                 <div
-                  key={offer.id}
-                  className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
+                  key={offer.id || idx}
+                  className="flex-[0_0_100%] min-w-0 relative h-[38vh] md:h-[48vh] min-h-[280px] md:min-h-[380px] py-10 pb-14 md:py-14 md:pb-16 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
                 >
                   {dImg && (
                     <img
@@ -3862,11 +3954,15 @@ export function OffersCarousel() {
                     />
                   )}
 
-                  <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
+                  <Link
+                    href={offer.link || '/catalogo'}
+                    className="absolute inset-0 z-10 cursor-pointer"
+                    aria-label={offer.title || 'Oferta'}
+                  />
 
-                  {offer.title && (
-                    <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none mt-32 md:mt-48">
-                      <div className="flex items-center gap-3">
+                  {offer.title && offer.title.trim() !== '' && (
+                    <div className="px-6 sm:px-10 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none my-auto">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         {offer.tag && (
                           <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
                             {offer.tag}
@@ -3878,18 +3974,22 @@ export function OffersCarousel() {
                           </span>
                         )}
                       </div>
-                      <h3 className="text-2xl md:text-5xl font-black drop-shadow-md">{offer.title}</h3>
+                      <h3 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight drop-shadow-md">
+                        {offer.title}
+                      </h3>
                       {offer.desc && (
-                        <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">{offer.desc}</p>
+                        <p className="text-xs sm:text-sm md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">
+                          {offer.desc}
+                        </p>
                       )}
-                      
+
                       <div className="pt-2 pointer-events-auto">
                         <Link
                           href={offer.link || '/catalogo'}
-                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-3 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
+                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs md:text-sm py-3.5 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
                         >
                           <span>Aprovechar Oferta</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-white group-hover/btn:translate-x-1 transition-transform" />
+                          <ArrowRight className="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" />
                         </Link>
                       </div>
                     </div>
@@ -3900,16 +4000,20 @@ export function OffersCarousel() {
           </div>
         </div>
 
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
-          {offers.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => emblaApi?.scrollTo(i)}
-              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'}`}
-              aria-label={`Ir a oferta ${i + 1}`}
-            />
-          ))}
-        </div>
+        {offers.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
+            {offers.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => emblaApi?.scrollTo(i)}
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'
+                }`}
+                aria-label={`Ir a oferta ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3930,7 +4034,7 @@ import { OffersCarousel } from '@/components/OffersCarousel';
 import { useCartStore } from '@/store/cartStore';
 import { 
   Home as HomeIcon, Cpu, Utensils, Car, Sparkles, Flame, 
-  ShoppingBag, ShieldCheck, Truck, CreditCard, Star, CheckCircle, ArrowRight
+  ShoppingBag, ShieldCheck, Truck, CreditCard, Star, ArrowRight
 } from 'lucide-react';
 
 const categoriesList = [
@@ -3964,14 +4068,21 @@ function HomeContent() {
     }
   }, [searchParams]);
 
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
   const handleBuyNow = (product: Product, e: React.MouseEvent) => {
     e.preventDefault();
+    if (product.stock <= 0) return;
+    const firstValidImg = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
-        image: product.images[0],
+        image: firstValidImg,
       },
       1
     );
@@ -3984,7 +4095,6 @@ function HomeContent() {
     : products.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
 
   return (
-    // Se aumentó el pt (padding-top) para que el Header fijo no pise el Hero
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-28">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-12 md:space-y-16">
         
@@ -4041,7 +4151,7 @@ function HomeContent() {
           </div>
         </section>
 
-        {/* 3. PRODUCTOS MÁS VENDIDOS: Carrusel Horizontal */}
+        {/* 3. PRODUCTOS MÁS VENDIDOS */}
         <section className="w-full">
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
@@ -4053,50 +4163,60 @@ function HomeContent() {
           </div>
 
           <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
-            {bestSellers.map((product) => (
-              <div
-                key={product.id}
-                className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
-
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                        {product.title}
-                      </h3>
-                    </Link>
-                  </div>
-
-                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                    <div>
-                      <span className="text-lg md:text-xl font-black text-slate-900">
-                        {siteConfig.currencySymbol}{product.price.toFixed(2)}
+            {bestSellers.map((product) => {
+              const outOfStock = product.stock <= 0;
+              const coverMedia = product.images?.[0] || '';
+              return (
+                <div
+                  key={product.id}
+                  className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                >
+                  <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                    {isVideo(coverMedia) ? (
+                      <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                    )}
+                    {outOfStock ? (
+                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
+                        Agotado
                       </span>
+                    ) : product.badge ? (
+                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </Link>
+
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
+                      <Link href={`/product/${product.id}`}>
+                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
+                          {product.title}
+                        </h3>
+                      </Link>
                     </div>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                    </button>
+
+                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-lg md:text-xl font-black text-slate-900">
+                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={(e) => handleBuyNow(product, e)}
+                        disabled={outOfStock}
+                        title={outOfStock ? 'Sin stock disponible' : 'Comprar ahora'}
+                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -4105,7 +4225,7 @@ function HomeContent() {
           <OffersCarousel />
         </section>
 
-        {/* 5. CATÁLOGO GENERAL: Ahora también es Carrusel Horizontal */}
+        {/* 5. CATÁLOGO GENERAL */}
         <section className="w-full" id="catalogo-grilla">
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
@@ -4120,48 +4240,58 @@ function HomeContent() {
           </div>
 
           <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
+            {filteredProducts.map((product) => {
+              const outOfStock = product.stock <= 0;
+              const coverMedia = product.images?.[0] || '';
+              return (
+                <div
+                  key={product.id}
+                  className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                >
+                  <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                    {isVideo(coverMedia) ? (
+                      <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                    )}
+                    {outOfStock ? (
+                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                        Agotado
+                      </span>
+                    ) : product.badge ? (
+                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </Link>
 
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
-                        {product.title}
-                      </h3>
-                    </Link>
-                  </div>
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
+                      <Link href={`/product/${product.id}`}>
+                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
+                          {product.title}
+                        </h3>
+                      </Link>
+                    </div>
 
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-base md:text-lg font-black text-slate-900">
-                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-slate-900 hover:bg-orange-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md shadow-slate-900/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-orange-500/40 active:scale-95 cursor-pointer"
-                    >
-                      Comprar
-                    </button>
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-base md:text-lg font-black text-slate-900">
+                        {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={(e) => handleBuyNow(product, e)}
+                        disabled={outOfStock}
+                        title={outOfStock ? 'Sin stock disponible' : 'Comprar'}
+                        className="bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        {outOfStock ? 'Agotado' : 'Comprar'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -4230,8 +4360,9 @@ import Link from 'next/link';
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
+import { products as defaultProducts } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { Truck, Sparkles, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 
 const availableCategories = [
   'Todos',
@@ -4240,98 +4371,137 @@ const availableCategories = [
   'Cocina',
   'Automóvil',
   'Belleza',
-  'Productos Virales'
+  'Productos Virales',
 ];
+
+function normalizeCatName(val: string) {
+  return (val || 'Todos')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function filterValidCatBanners(rawSlides: any[]): any[] {
+  if (!Array.isArray(rawSlides)) return [];
+  return rawSlides.filter((s) => {
+    const dImg = String(s?.desktopImg || '').trim();
+    const mImg = String(s?.mobileImg || '').trim();
+    const isLegacyFakePath =
+      dImg.startsWith('/categories/') ||
+      mImg.startsWith('/categories/');
+    const hasRealImage = Boolean(dImg || mImg);
+    return hasRealImage && !isLegacyFakePath;
+  });
+}
 
 function CatalogoContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { addItem } = useCartStore();
-  
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('Todos');
-  const [catSlides, setCatSlides] = useState<any[]>([]);
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_products');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return defaultProducts;
+  });
+
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    return searchParams.get('category') || 'Todos';
+  });
+
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>(() => {
+    const cat = searchParams.get('category');
+    if (!cat || cat.toLowerCase() === 'todos') return products;
+    const targetNorm = normalizeCatName(cat);
+    return products.filter((p) => normalizeCatName(p.category) === targetNorm);
+  });
+
+  const [catSlides, setCatSlides] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const localSlides = localStorage.getItem('store_cat_slides');
+        if (localSlides) {
+          const parsed = filterValidCatBanners(JSON.parse(localSlides));
+          if (parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
   const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
 
   useEffect(() => {
-    const loadData = async () => {
-      const data = await productService.getProducts();
-      setProducts(data);
-
-      try {
-        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setCatSlides(json.data);
-            return;
-          }
-        }
-      } catch (e) {}
-
-      if (typeof window !== 'undefined') {
-        const localSlides = localStorage.getItem('store_cat_slides');
-        if (localSlides) {
-          try {
-            const parsed = JSON.parse(localSlides);
-            if (Array.isArray(parsed)) setCatSlides(parsed);
-          } catch (e) {}
-        }
-      }
-    };
-    loadData();
-  }, []);
-
-  useEffect(() => {
     const categoryParam = searchParams.get('category');
-    if (products.length > 0) {
-      if (!categoryParam || categoryParam.toLowerCase() === 'todos') {
-        setActiveCategory('Todos');
-        setFilteredProducts(products);
-      } else {
-        setActiveCategory(categoryParam);
-        const filtered = products.filter(
-          p => p.category?.toLowerCase() === categoryParam.toLowerCase()
-        );
-        setFilteredProducts(filtered);
-      }
+    const currentCat = categoryParam || 'Todos';
+    setActiveCategory(currentCat);
+
+    if (!currentCat || currentCat.toLowerCase() === 'todos') {
+      setFilteredProducts(products);
+    } else {
+      const targetNorm = normalizeCatName(currentCat);
+      setFilteredProducts(products.filter((p) => normalizeCatName(p.category) === targetNorm));
     }
   }, [searchParams, products]);
 
-  // Coincidencia flexible y robusta para reconocer los banners ya subidos por el Admin
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const prods = await productService.getProducts();
+        if (Array.isArray(prods) && prods.length > 0) {
+          setProducts(prods);
+          const currentCat = searchParams.get('category') || 'Todos';
+          if (!currentCat || currentCat.toLowerCase() === 'todos') {
+            setFilteredProducts(prods);
+          } else {
+            const targetNorm = normalizeCatName(currentCat);
+            setFilteredProducts(prods.filter((p) => normalizeCatName(p.category) === targetNorm));
+          }
+        }
+
+        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.data)) {
+            const cleanSlides = filterValidCatBanners(json.data);
+            setCatSlides(cleanSlides);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('store_cat_slides', JSON.stringify(cleanSlides));
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    loadData();
+  }, [searchParams]);
+
+  // FILTRO ESTRICTO DE BANNERS: Si la categoría no tiene banner propio, no muestra banner cruzado de otra categoría (evita contaminación)
   const activeCategorySlides = (() => {
-    const normalizedActive = activeCategory
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
-    
-    // Buscar coincidencia exacta con la categoría activa normalizada
-    const byCat = catSlides.filter((s: any) => {
-      const slideCat = (s.category || 'Todos')
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-      return slideCat === normalizedActive;
-    });
+    const normalizedActive = normalizeCatName(activeCategory);
 
-    if (byCat.length > 0) return byCat;
+    const exactMatches = catSlides.filter(
+      (s: any) => normalizeCatName(s.category) === normalizedActive
+    );
+    if (exactMatches.length > 0) return exactMatches;
 
-    // Si no hay banner específico para esa categoría, buscar el general o de "Todos"
-    const generalSlides = catSlides.filter((s: any) => {
-      const slideCat = (s.category || 'Todos')
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-      return slideCat === 'todos' || slideCat === 'general';
-    });
+    // Si está en 'Todos', mostrar generales
+    if (normalizedActive === 'todos') {
+      return catSlides.filter((s: any) => {
+        const slideCat = normalizeCatName(s.category);
+        return slideCat === 'todos' || slideCat === 'general';
+      });
+    }
 
-    if (generalSlides.length > 0) return generalSlides;
-
-    return catSlides;
+    return [];
   })();
 
   useEffect(() => {
@@ -4351,14 +4521,21 @@ function CatalogoContent() {
     }
   };
 
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
   const handleBuyNow = (product: Product, e: React.MouseEvent) => {
     e.preventDefault();
+    if (product.stock <= 0) return;
+    const firstValidImg = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
-        image: product.images[0],
+        image: firstValidImg,
       },
       1
     );
@@ -4368,17 +4545,16 @@ function CatalogoContent() {
   return (
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
-        
-        <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-white rounded-3xl p-6 md:p-10 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-3xl">
             <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
               {siteConfig.storeName}
             </span>
-            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-3">
-              Catálogo Completo
+            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-2">
+              {activeCategory === 'Todos' ? 'Catálogo Completo' : `Departamento: ${activeCategory}`}
             </h1>
             <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed">
-              Descubre oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
+              Precios directos de importadora, garantía oficial y envío gratis a partir de {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold}.
             </p>
           </div>
 
@@ -4388,7 +4564,7 @@ function CatalogoContent() {
                 key={cat}
                 onClick={() => handleCategorySelect(cat)}
                 className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
-                  activeCategory.toLowerCase() === cat.toLowerCase()
+                  normalizeCatName(activeCategory) === normalizeCatName(cat)
                     ? 'bg-slate-900 text-white shadow-lg'
                     : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-600'
                 }`}
@@ -4399,8 +4575,8 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {activeCategorySlides.length > 0 ? (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-square md:aspect-[21/9] lg:aspect-[4/1] relative border border-gray-200/80 group">
+        {activeCategorySlides.length > 0 && (
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-950 aspect-[16/9] md:aspect-[21/8] lg:aspect-[4/1] relative border border-gray-200/80 group">
             {activeCategorySlides.map((slide: any, i: number) => {
               const dImg = slide.desktopImg || slide.mobileImg;
               const mImg = slide.mobileImg || slide.desktopImg;
@@ -4409,39 +4585,35 @@ function CatalogoContent() {
                 <Link
                   key={slide.id || i}
                   href={slide.link || '/catalogo'}
-                  className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
                     isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
                   }`}
                 >
-                  {dImg && <img src={dImg} alt="Banner Catálogo PC" className="hidden md:block w-full h-full object-cover" />}
-                  {mImg && <img src={mImg} alt="Banner Catálogo Móvil" className="block md:hidden w-full h-full object-cover" />}
+                  {dImg && (
+                    <img
+                      src={dImg}
+                      alt={`Banner ${slide.category || activeCategory}`}
+                      className="hidden md:block w-full h-full object-cover"
+                    />
+                  )}
+                  {mImg && (
+                    <img
+                      src={mImg}
+                      alt={`Banner ${slide.category || activeCategory}`}
+                      className="block md:hidden w-full h-full object-cover"
+                    />
+                  )}
                 </Link>
               );
             })}
-          </div>
-        ) : (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 md:px-12 md:py-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
-            <div className="space-y-1.5">
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-orange-400 bg-white/10 px-3 py-1 rounded-full">
-                <Sparkles className="w-3.5 h-3.5" /> Departamento: {activeCategory}
-              </span>
-              <h2 className="text-xl md:text-2xl font-black">
-                Envío Gratis en compras desde {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold}
-              </h2>
-              <p className="text-xs text-slate-300 font-medium">
-                Despachos rápidos por {siteConfig.shipping.companies.slice(0, 3).join(', ')} con garantía directa de importadora.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-bold bg-white/10 backdrop-blur-xs px-4 py-3 rounded-2xl border border-white/10">
-              <Truck className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <span>Stock verificado y entrega inmediata</span>
-            </div>
           </div>
         )}
 
         {filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
-            <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
+            <p className="text-sm text-gray-500 font-bold mb-4">
+              No hay productos disponibles en esta categoría.
+            </p>
             <button
               onClick={() => handleCategorySelect('Todos')}
               className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs cursor-pointer"
@@ -4451,51 +4623,76 @@ function CatalogoContent() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
+            {filteredProducts.map((product) => {
+              const outOfStock = product.stock <= 0;
+              const coverMedia = product.images?.[0] || '';
+              return (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                >
+                  <Link
+                    href={`/product/${product.id}`}
+                    className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden"
+                  >
+                    {isVideo(coverMedia) ? (
+                      <video
+                        src={coverMedia}
+                        muted
+                        loop
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                    ) : (
+                      <img
+                        src={coverMedia}
+                        alt={product.title}
+                        className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
+                      />
+                    )}
+                    {outOfStock ? (
+                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
+                        Agotado
+                      </span>
+                    ) : product.badge ? (
+                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </Link>
 
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                        {product.title}
-                      </h3>
-                    </Link>
-                  </div>
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">
+                        {product.category}
+                      </span>
+                      <Link href={`/product/${product.id}`}>
+                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
+                          {product.title}
+                        </h3>
+                      </Link>
+                    </div>
 
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-base md:text-lg font-black text-slate-900">
-                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-base md:text-lg font-black text-slate-900">
+                        {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={(e) => handleBuyNow(product, e)}
+                        disabled={outOfStock}
+                        title={outOfStock ? 'Sin stock disponible' : 'Comprar ahora'}
+                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
-
       </div>
     </div>
   );
@@ -4574,6 +4771,13 @@ interface Order {
   };
 }
 
+interface AffiliateUser {
+  nombre: string;
+  email: string;
+  codigo: string;
+  joinedAt: string;
+}
+
 function safeLocalStorageSet(key: string, value: any) {
   if (typeof window === 'undefined') return;
   try {
@@ -4615,6 +4819,9 @@ export default function AdminPage() {
     isBestSeller: false,
     images: ['', '', '', ''],
   });
+
+  const [registeredAffiliates, setRegisteredAffiliates] = useState<AffiliateUser[]>([]);
+  const [paidAffiliateCodes, setPaidAffiliateCodes] = useState<string[]>([]);
 
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
@@ -4692,7 +4899,7 @@ export default function AdminPage() {
       })
       .catch(e => console.error('Error cargando inventario:', e));
 
-    const loadOrders = async () => {
+    const loadOrdersAndAffiliates = async () => {
       try {
         const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
@@ -4700,18 +4907,33 @@ export default function AdminPage() {
           if (Array.isArray(json.data)) {
             setOrders(json.data);
             safeLocalStorageSet('store_orders', json.data);
-            return;
           }
         }
       } catch (e) {}
 
-      const savedOrders = localStorage.getItem('store_orders');
-      if (savedOrders) {
-        try { setOrders(JSON.parse(savedOrders)); } catch (e) {}
-      }
+      try {
+        const resAff = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+        if (resAff.ok) {
+          const jsonAff = await resAff.json();
+          if (Array.isArray(jsonAff.data)) {
+            setRegisteredAffiliates(jsonAff.data);
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+        if (resPaid.ok) {
+          const jsonPaid = await resPaid.json();
+          if (Array.isArray(jsonPaid.data)) {
+            setPaidAffiliateCodes(jsonPaid.data);
+          }
+        }
+      } catch (e) {}
     };
-    loadOrders();
-    const orderInterval = setInterval(loadOrders, 4000);
+
+    loadOrdersAndAffiliates();
+    const interval = setInterval(loadOrdersAndAffiliates, 5000);
 
     const loadMarketingData = async () => {
       try {
@@ -4760,7 +4982,7 @@ export default function AdminPage() {
     };
     loadMarketingData();
 
-    return () => clearInterval(orderInterval);
+    return () => clearInterval(interval);
   }, []);
 
   const notify = (msg: string) => {
@@ -4801,11 +5023,28 @@ export default function AdminPage() {
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
+    // Si pasa a Pago Aprobado y antes estaba pendiente, descontamos stock
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = products.map(p => {
         const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
         if (itemPedido) {
           return { ...p, stock: Math.max(0, p.stock - itemPedido.quantity) };
+        }
+        return p;
+      });
+      await syncProducts(productosActualizados);
+    }
+
+    // Si el pedido se Cancela y ya había descontado stock (estaba aprobado, en preparación o despachado), devolvemos el stock automáticamente
+    if (
+      nuevoEstado === 'Cancelado' &&
+      ordenPrevia &&
+      ['Pago Aprobado', 'En Preparación', 'Despachado', 'Entregado'].includes(ordenPrevia.status)
+    ) {
+      const productosActualizados = products.map(p => {
+        const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
+        if (itemPedido) {
+          return { ...p, stock: p.stock + itemPedido.quantity };
         }
         return p;
       });
@@ -4980,13 +5219,10 @@ export default function AdminPage() {
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
   };
 
-  // CORRECCIÓN QUIRÚRGICA: Evita colisiones por ID numérico usando la categoría como clave única indiscutible
-  // CORRECCIÓN DEFINITIVA DE BANNERS DE CATÁLOGO: Normalización de clave por ID único de categoría
   const handleSaveCatBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catBannerForm.category) return;
 
-    // Normalizar la categoría para que las tildes y espacios no rompan la clave única
     const rawCategory = catBannerForm.category.trim();
     const normalizedKey = rawCategory
       .toLowerCase()
@@ -4994,7 +5230,6 @@ export default function AdminPage() {
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/\s+/g, "-");
 
-    // Filtrar cualquier registro previo de esta misma categoría para reemplazarlo limpiamente
     const filteredSlides = catBanners.filter((c: any) => {
       const existingKey = (c.category || '')
         .toLowerCase()
@@ -5082,24 +5317,44 @@ export default function AdminPage() {
     };
   });
 
-  const affiliateStats = Array.from(new Set(orders.map(o => o.attribution?.affiliateCode)))
-    .filter(code => code && code !== 'DIRECTO')
-    .map(code => {
-      const afOrders = orders.filter(o => o.attribution?.affiliateCode === code);
-      const confirmedOrders = afOrders.filter(o => o.status === 'Entregado');
-      const pendingOrders = afOrders.filter(o => o.status !== 'Cancelado' && o.status !== 'Entregado');
-      const totalVendido = confirmedOrders.reduce((sum, o) => sum + o.financials.total, 0);
-      const comisionAcumulada = confirmedOrders.reduce((sum, o) => sum + calcularComisionOrden(o), 0);
+  // Lista unificada de todos los afiliados registrados (incluso con 0 ventas) + códigos detectados en órdenes
+  const allAffiliateCodesSet = new Set<string>();
+  registeredAffiliates.forEach(a => {
+    if (a.codigo) allAffiliateCodesSet.add(a.codigo);
+  });
+  orders.forEach(o => {
+    const code = o.attribution?.affiliateCode;
+    if (code && code !== 'DIRECTO') allAffiliateCodesSet.add(code);
+  });
 
-      return {
-        codigo: code,
-        totalOrdenes: afOrders.length,
-        entregadas: confirmedOrders.length,
-        pendientes: pendingOrders.length,
-        totalVendido,
-        comisionAcumulada,
-      };
-    });
+  const affiliateStats = Array.from(allAffiliateCodesSet).map(code => {
+    const regInfo = registeredAffiliates.find(a => a.codigo === code);
+    const afOrders = orders.filter(o => o.attribution?.affiliateCode === code);
+    const confirmedOrders = afOrders.filter(o => o.status === 'Entregado');
+    const pendingOrders = afOrders.filter(o => o.status !== 'Cancelado' && o.status !== 'Entregado');
+    const totalVendido = confirmedOrders.reduce((sum, o) => sum + o.financials.total, 0);
+    const comisionAcumulada = confirmedOrders.reduce((sum, o) => sum + calcularComisionOrden(o), 0);
+    const isPaid = paidAffiliateCodes.includes(code);
+
+    return {
+      codigo: code,
+      nombre: regInfo?.nombre || 'Afiliado Independiente',
+      email: regInfo?.email || 'N/A',
+      totalOrdenes: afOrders.length,
+      entregadas: confirmedOrders.length,
+      pendientes: pendingOrders.length,
+      totalVendido,
+      comisionAcumulada,
+      isPaid,
+    };
+  });
+
+  const handleMarcarPagadoAfiliado = async (code: string) => {
+    const updatedPaid = Array.from(new Set([...paidAffiliateCodes, code]));
+    setPaidAffiliateCodes(updatedPaid);
+    await syncStoreKey('store_paid_affiliates', updatedPaid);
+    notify(`Comisiones del afiliado [${code}] marcadas como pagadas con éxito.`);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -5489,7 +5744,7 @@ export default function AdminPage() {
                           onClick={() => actualizarEstadoPedido(selectedOrder.id, 'Cancelado')}
                           className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                         >
-                          Cancelar Pedido
+                          Cancelar Pedido (Devolver Stock)
                         </button>
                       )}
 
@@ -5814,12 +6069,12 @@ export default function AdminPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-black text-slate-900">Rendimiento del Programa de Afiliados</h2>
-              <p className="text-xs text-slate-500">Revisa ventas por embajador y montos de comisiones reales disponibles tras entrega.</p>
+              <p className="text-xs text-slate-500">Listado completo de embajadores registrados, volumen facturado y liquidación real de comisiones.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Afiliados con Ventas</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">Afiliados Registrados</p>
                 <p className="text-3xl font-black text-slate-900 mt-2">{affiliateStats.length}</p>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
@@ -5829,9 +6084,9 @@ export default function AdminPage() {
                 </p>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Comisiones por Liquidar</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">Comisiones Pendientes de Pago</p>
                 <p className="text-3xl font-black text-emerald-600 mt-2">
-                  ${totalComisionesAfiliados.toFixed(2)}
+                  ${affiliateStats.filter(a => !a.isPaid).reduce((sum, a) => sum + a.comisionAcumulada, 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -5840,35 +6095,47 @@ export default function AdminPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-[10px] font-black uppercase text-slate-500">
                   <tr>
-                    <th className="p-4">Código Afiliado</th>
+                    <th className="p-4">Embajador / Código</th>
                     <th className="p-4">Órdenes Totales</th>
                     <th className="p-4">Entregadas</th>
                     <th className="p-4">Volumen Facturado</th>
                     <th className="p-4">Comisión Disponible</th>
+                    <th className="p-4">Estatus Pago</th>
                     <th className="p-4 text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {affiliateStats.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 font-bold">
-                        Aún no se han registrado ventas con códigos de afiliados.
+                      <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">
+                        Aún no hay afiliados registrados ni ventas con código.
                       </td>
                     </tr>
                   ) : (
                     affiliateStats.map(af => (
                       <tr key={af.codigo} className="hover:bg-slate-50">
-                        <td className="p-4 font-black text-orange-600">{af.codigo}</td>
+                        <td className="p-4">
+                          <span className="font-black text-slate-900 block">{af.nombre}</span>
+                          <span className="text-[10px] text-orange-600 font-bold">Código: {af.codigo}</span>
+                        </td>
                         <td className="p-4">{af.totalOrdenes} pedidos</td>
                         <td className="p-4 text-emerald-600 font-bold">{af.entregadas} entregados</td>
                         <td className="p-4 font-black">${af.totalVendido.toFixed(2)}</td>
                         <td className="p-4 font-black text-emerald-600">${af.comisionAcumulada.toFixed(2)}</td>
+                        <td className="p-4">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            af.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {af.isPaid ? 'Pagado' : 'Por Liquidar'}
+                          </span>
+                        </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => notify(`Liquidación para ${af.codigo} registrada con éxito.`)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                            onClick={() => handleMarcarPagadoAfiliado(af.codigo)}
+                            disabled={af.isPaid || af.comisionAcumulada <= 0}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
                           >
-                            Marcar Pagado
+                            {af.isPaid ? 'Liquidado' : 'Marcar Pagado'}
                           </button>
                         </td>
                       </tr>
@@ -6128,7 +6395,7 @@ export default function AdminPage() {
                 <span className="text-[10px] text-slate-500 mt-1 block">Publicidad: ${adSpendInput} • Afiliados: ${totalComisionesAfiliados.toFixed(2)}</span>
               </div>
 
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg">
+              <div className="gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg bg-slate-900">
                 <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">Utilidad Neta Estimada</span>
                 <p className="text-3xl font-black mt-2 text-emerald-400">${utilidadNetaEstimada.toFixed(2)}</p>
                 <span className="text-[10px] text-white/70 mt-1 block">

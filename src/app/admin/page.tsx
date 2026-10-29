@@ -111,7 +111,7 @@ export default function AdminPage() {
   });
 
   const [registeredAffiliates, setRegisteredAffiliates] = useState<AffiliateUser[]>([]);
-  const [paidAffiliateCodes, setPaidAffiliateCodes] = useState<string[]>([]);
+  const [paidAffiliateMap, setPaidAffiliateMap] = useState<Record<string, number>>({});
 
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
@@ -161,13 +161,69 @@ export default function AdminPage() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
+  // Carga multimedia con preservación de nitidez absoluta en banners y textos
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    if (file.type.includes('video') || file.name.toLowerCase().endsWith('.mp4')) {
+      if (file.size > 8 * 1024 * 1024) {
+        alert('El video supera los 8MB. Te recomendamos usar un video corto y optimizado.');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => callback(reader.result as string);
       reader.readAsDataURL(file);
+      return;
     }
+
+    // Si ya viene optimizado desde Canva/editor (< 250KB), no se altera su resolución original
+    if (file.size < 250 * 1024 && (file.type === 'image/webp' || file.type === 'image/jpeg' || file.type === 'image/png')) {
+      const reader = new FileReader();
+      reader.onloadend = () => callback(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Si supera los 250KB, redimensionar solo si supera Full HD (1920px) manteniendo textos nítidos
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1920;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimizedUrl = canvas.toDataURL('image/webp', 0.90);
+          callback(optimizedUrl);
+        } else {
+          callback(event.target?.result as string);
+        }
+      };
+    };
+    reader.readAsDataURL(file);
   };
 
   useEffect(() => {
@@ -215,8 +271,14 @@ export default function AdminPage() {
         const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
         if (resPaid.ok) {
           const jsonPaid = await resPaid.json();
-          if (Array.isArray(jsonPaid.data)) {
-            setPaidAffiliateCodes(jsonPaid.data);
+          if (jsonPaid.data) {
+            if (Array.isArray(jsonPaid.data)) {
+              const map: Record<string, number> = {};
+              jsonPaid.data.forEach((c: string) => { map[c] = 999999; });
+              setPaidAffiliateMap(map);
+            } else if (typeof jsonPaid.data === 'object') {
+              setPaidAffiliateMap(jsonPaid.data);
+            }
           }
         }
       } catch (e) {}
@@ -313,7 +375,6 @@ export default function AdminPage() {
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
-    // Si pasa a Pago Aprobado y antes estaba pendiente, descontamos stock
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = products.map(p => {
         const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
@@ -325,7 +386,6 @@ export default function AdminPage() {
       await syncProducts(productosActualizados);
     }
 
-    // Si el pedido se Cancela y ya había descontado stock (estaba aprobado, en preparación o despachado), devolvemos el stock automáticamente
     if (
       nuevoEstado === 'Cancelado' &&
       ordenPrevia &&
@@ -607,7 +667,6 @@ export default function AdminPage() {
     };
   });
 
-  // Lista unificada de todos los afiliados registrados (incluso con 0 ventas) + códigos detectados en órdenes
   const allAffiliateCodesSet = new Set<string>();
   registeredAffiliates.forEach(a => {
     if (a.codigo) allAffiliateCodesSet.add(a.codigo);
@@ -624,7 +683,9 @@ export default function AdminPage() {
     const pendingOrders = afOrders.filter(o => o.status !== 'Cancelado' && o.status !== 'Entregado');
     const totalVendido = confirmedOrders.reduce((sum, o) => sum + o.financials.total, 0);
     const comisionAcumulada = confirmedOrders.reduce((sum, o) => sum + calcularComisionOrden(o), 0);
-    const isPaid = paidAffiliateCodes.includes(code);
+    const totalPagado = Number(paidAffiliateMap[code] || 0);
+    const comisionDisponible = Math.max(0, comisionAcumulada - totalPagado);
+    const isPaid = comisionAcumulada > 0 && comisionDisponible <= 0;
 
     return {
       codigo: code,
@@ -635,15 +696,17 @@ export default function AdminPage() {
       pendientes: pendingOrders.length,
       totalVendido,
       comisionAcumulada,
+      totalPagado,
+      comisionDisponible,
       isPaid,
     };
   });
 
-  const handleMarcarPagadoAfiliado = async (code: string) => {
-    const updatedPaid = Array.from(new Set([...paidAffiliateCodes, code]));
-    setPaidAffiliateCodes(updatedPaid);
-    await syncStoreKey('store_paid_affiliates', updatedPaid);
-    notify(`Comisiones del afiliado [${code}] marcadas como pagadas con éxito.`);
+  const handleMarcarPagadoAfiliado = async (code: string, montoTotal: number) => {
+    const updatedPaidMap = { ...paidAffiliateMap, [code]: montoTotal };
+    setPaidAffiliateMap(updatedPaidMap);
+    await syncStoreKey('store_paid_affiliates', updatedPaidMap);
+    notify(`Comisiones del afiliado [${code}] liquidadas con éxito ($${montoTotal.toFixed(2)} acumulado).`);
   };
 
   if (!isAuthenticated) {
@@ -684,13 +747,6 @@ export default function AdminPage() {
               Iniciar Sesión
             </button>
           </form>
-
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-[11px] text-slate-600 space-y-1">
-            <p className="font-bold text-slate-800">Contraseñas por Rol:</p>
-            <p>• Super Admin (Todo): <span className="font-mono font-bold text-orange-600">Admin1234.</span></p>
-            <p>• Logística y Pagos: <span className="font-mono font-bold text-slate-800">Logistica123.</span></p>
-            <p>• Marketing y Afiliados: <span className="font-mono font-bold text-slate-800">Marketing123.</span></p>
-          </div>
 
           <div className="text-center pt-2">
             <Link href="/" className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1">
@@ -1168,7 +1224,7 @@ export default function AdminPage() {
                       type="text"
                       value={productForm.badge}
                       onChange={e => setProductForm({ ...productForm, badge: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                      className="w-full px-3 py-2 border rounded-xl font-semibold"
                       placeholder="Oferta / Envío Gratis"
                     />
                   </div>
@@ -1376,7 +1432,7 @@ export default function AdminPage() {
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
                 <p className="text-xs font-bold text-slate-400 uppercase">Comisiones Pendientes de Pago</p>
                 <p className="text-3xl font-black text-emerald-600 mt-2">
-                  ${affiliateStats.filter(a => !a.isPaid).reduce((sum, a) => sum + a.comisionAcumulada, 0).toFixed(2)}
+                  ${affiliateStats.reduce((sum, a) => sum + a.comisionDisponible, 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -1389,15 +1445,16 @@ export default function AdminPage() {
                     <th className="p-4">Órdenes Totales</th>
                     <th className="p-4">Entregadas</th>
                     <th className="p-4">Volumen Facturado</th>
-                    <th className="p-4">Comisión Disponible</th>
-                    <th className="p-4">Estatus Pago</th>
+                    <th className="p-4">Comisión Pendiente</th>
+                    <th className="p-4">Total Ya Pagado</th>
+                    <th className="p-4">Estatus</th>
                     <th className="p-4 text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {affiliateStats.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">
+                      <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
                         Aún no hay afiliados registrados ni ventas con código.
                       </td>
                     </tr>
@@ -1411,21 +1468,22 @@ export default function AdminPage() {
                         <td className="p-4">{af.totalOrdenes} pedidos</td>
                         <td className="p-4 text-emerald-600 font-bold">{af.entregadas} entregados</td>
                         <td className="p-4 font-black">${af.totalVendido.toFixed(2)}</td>
-                        <td className="p-4 font-black text-emerald-600">${af.comisionAcumulada.toFixed(2)}</td>
+                        <td className="p-4 font-black text-emerald-600">${af.comisionDisponible.toFixed(2)}</td>
+                        <td className="p-4 text-slate-400">${af.totalPagado.toFixed(2)}</td>
                         <td className="p-4">
                           <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                            af.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            af.isPaid ? 'bg-emerald-100 text-emerald-700' : (af.comisionDisponible > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')
                           }`}>
-                            {af.isPaid ? 'Pagado' : 'Por Liquidar'}
+                            {af.isPaid ? 'Al Día' : (af.comisionDisponible > 0 ? 'Por Liquidar' : 'Sin Saldo')}
                           </span>
                         </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => handleMarcarPagadoAfiliado(af.codigo)}
-                            disabled={af.isPaid || af.comisionAcumulada <= 0}
+                            onClick={() => handleMarcarPagadoAfiliado(af.codigo, af.comisionAcumulada)}
+                            disabled={af.comisionDisponible <= 0}
                             className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
                           >
-                            {af.isPaid ? 'Liquidado' : 'Marcar Pagado'}
+                            {af.comisionDisponible <= 0 ? (af.totalPagado > 0 ? 'Liquidado' : 'Sin Saldo') : 'Liquidar Pago'}
                           </button>
                         </td>
                       </tr>
@@ -1685,7 +1743,7 @@ export default function AdminPage() {
                 <span className="text-[10px] text-slate-500 mt-1 block">Publicidad: ${adSpendInput} • Afiliados: ${totalComisionesAfiliados.toFixed(2)}</span>
               </div>
 
-              <div className="gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg bg-slate-900">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg">
                 <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">Utilidad Neta Estimada</span>
                 <p className="text-3xl font-black mt-2 text-emerald-400">${utilidadNetaEstimada.toFixed(2)}</p>
                 <span className="text-[10px] text-white/70 mt-1 block">

@@ -1,8 +1,4 @@
 import { createClient } from 'redis';
-import fs from 'fs';
-import path from 'path';
-
-const LOCAL_DB_PATH = path.join(process.cwd(), '.todomax-db.json');
 
 declare global {
   // eslint-disable-next-line no-var
@@ -13,31 +9,11 @@ declare global {
   var __memoryDb: Record<string, any> | undefined;
 }
 
-function readLocalFileDb(): Record<string, any> {
-  if (global.__memoryDb) {
-    return global.__memoryDb;
+function getMemoryDb(): Record<string, any> {
+  if (!global.__memoryDb) {
+    global.__memoryDb = {};
   }
-  try {
-    if (fs.existsSync(LOCAL_DB_PATH)) {
-      const content = fs.readFileSync(LOCAL_DB_PATH, 'utf-8');
-      const parsed = JSON.parse(content);
-      global.__memoryDb = parsed;
-      return parsed;
-    }
-  } catch (e) {
-    console.error('Error leyendo respaldo local .todomax-db.json:', e);
-  }
-  global.__memoryDb = {};
   return global.__memoryDb;
-}
-
-function writeLocalFileDb(data: Record<string, any>) {
-  global.__memoryDb = data;
-  try {
-    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (e) {
-    // Entornos serverless de solo lectura mantienen los datos en memoria global
-  }
 }
 
 async function getClient() {
@@ -57,7 +33,7 @@ async function getClient() {
     const client = createClient({
       url: process.env.REDIS_URL,
       socket: {
-        connectTimeout: 1200,
+        connectTimeout: 5000,
         reconnectStrategy: false,
       },
     });
@@ -79,7 +55,7 @@ async function getClient() {
 
 export const dbService = {
   async get(key: string) {
-    const localDb = readLocalFileDb();
+    const memoryDb = getMemoryDb();
 
     try {
       const client = await getClient();
@@ -87,8 +63,7 @@ export const dbService = {
         const data = await client.get(key);
         if (data) {
           const parsed = JSON.parse(data);
-          localDb[key] = parsed;
-          global.__memoryDb = localDb;
+          memoryDb[key] = parsed;
           return parsed;
         }
       }
@@ -96,18 +71,13 @@ export const dbService = {
       global.__redisUnavailableUntil = Date.now() + 60000;
     }
 
-    return localDb[key] !== undefined ? localDb[key] : null;
+    return memoryDb[key] !== undefined ? memoryDb[key] : null;
   },
 
   async set(key: string, value: any): Promise<boolean> {
     let saved = false;
-
-    try {
-      const localDb = readLocalFileDb();
-      localDb[key] = value;
-      writeLocalFileDb(localDb);
-      saved = true;
-    } catch (e) {}
+    const memoryDb = getMemoryDb();
+    memoryDb[key] = value;
 
     try {
       const client = await getClient();
@@ -119,6 +89,6 @@ export const dbService = {
       global.__redisUnavailableUntil = Date.now() + 60000;
     }
 
-    return saved;
+    return saved || !!memoryDb[key];
   },
 };

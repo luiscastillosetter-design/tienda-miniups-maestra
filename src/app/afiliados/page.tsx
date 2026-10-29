@@ -75,7 +75,9 @@ export default function AfiliadosPage() {
         const json = await res.json();
         if (Array.isArray(json.data)) {
           orders = json.data;
-          localStorage.setItem('store_orders', JSON.stringify(orders));
+          try {
+            localStorage.setItem('store_orders', JSON.stringify(orders));
+          } catch (_) {}
         }
       }
     } catch (e) {}
@@ -88,6 +90,22 @@ export default function AfiliadosPage() {
         } catch (e) {}
       }
     }
+
+    // Consulta de comisiones ya pagadas para descontarlas del saldo disponible
+    let paidAmount = 0;
+    try {
+      const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      if (resPaid.ok) {
+        const jPaid = await resPaid.json();
+        if (jPaid.data) {
+          if (typeof jPaid.data === 'object' && !Array.isArray(jPaid.data)) {
+            paidAmount = Number(jPaid.data[codigo] || 0);
+          } else if (Array.isArray(jPaid.data) && jPaid.data.includes(codigo)) {
+            paidAmount = 999999;
+          }
+        }
+      }
+    } catch (e) {}
 
     let pendientes = 0;
     let confirmadas = 0;
@@ -114,10 +132,12 @@ export default function AfiliadosPage() {
       }
     });
 
+    const comisionDisponibleReal = Math.max(0, comisiones - paidAmount);
+
     setMetrics({
       ventasPendientes: pendientes,
       ventasConfirmadas: confirmadas,
-      comisionesDisponibles: comisiones,
+      comisionesDisponibles: comisionDisponibleReal,
     });
   };
 
@@ -128,22 +148,34 @@ export default function AfiliadosPage() {
       return;
     }
     const cleanCode = formData.codigo.toUpperCase().replace(/\s+/g, '');
+
+    // Validación de código duplicado antes de registrar
+    let currentAffiliates: AffiliateUser[] = [];
+    try {
+      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) currentAffiliates = json.data;
+      }
+    } catch (e) {}
+
+    const isCodeTaken = currentAffiliates.some(a => a.codigo === cleanCode);
+    if (isCodeTaken) {
+      alert(`El código "${cleanCode}" ya pertenece a otro embajador. Por favor elige uno diferente.`);
+      return;
+    }
+
     const newUser: AffiliateUser = {
       nombre: formData.nombre,
       email: formData.email,
       codigo: cleanCode,
       joinedAt: new Date().toISOString()
     };
+
     localStorage.setItem('todomax_affiliate_user', JSON.stringify(newUser));
     setUser(newUser);
 
     try {
-      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
-      let currentAffiliates: AffiliateUser[] = [];
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data)) currentAffiliates = json.data;
-      }
       const updated = [newUser, ...currentAffiliates.filter(a => a.codigo !== cleanCode)];
       await fetch('/api/store', {
         method: 'POST',
@@ -172,12 +204,8 @@ export default function AfiliadosPage() {
     } catch (e) {}
 
     if (!foundUser) {
-      foundUser = {
-        nombre: 'Embajador TodoMax',
-        email: 'afiliado@todomax.com',
-        codigo: cleanCode,
-        joinedAt: new Date().toISOString()
-      };
+      alert(`El código "${cleanCode}" no está registrado. Por favor verifica o crea tu cuenta.`);
+      return;
     }
 
     localStorage.setItem('todomax_affiliate_user', JSON.stringify(foundUser));

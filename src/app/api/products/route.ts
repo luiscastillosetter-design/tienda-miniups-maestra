@@ -8,12 +8,13 @@ export const revalidate = 0;
 export async function GET() {
   try {
     const products = await dbService.get('store_products');
+    
     if (!products || !Array.isArray(products) || products.length === 0) {
-      await dbService.set('store_products', defaultProducts);
       return NextResponse.json(defaultProducts, {
         headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
       });
     }
+    
     return NextResponse.json(products, {
       headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
     });
