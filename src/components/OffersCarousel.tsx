@@ -6,7 +6,7 @@ import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
-const defaultOffers = [
+export const defaultOffers = [
   {
     id: 1,
     tag: 'COMBO AHORRO',
@@ -16,7 +16,7 @@ const defaultOffers = [
     link: '/product/combo-hogar-inteligente',
     desktopImg: '/ofertas/oferta1.png',
     mobileImg: '/ofertas/oferta1-mobile.png',
-    gradient: 'from-slate-900 via-slate-800 to-orange-950', // Respaldo si no hay imagen
+    gradient: 'from-slate-900 via-slate-800 to-orange-950',
   },
   {
     id: 2,
@@ -49,15 +49,30 @@ export function OffersCarousel() {
   const [offers, setOffers] = useState<any[]>(defaultOffers);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('store_offers');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) setOffers(parsed);
-        } catch (error) {}
+    const loadOffers = async () => {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('store_offers');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) setOffers(parsed);
+          } catch (error) {}
+        }
       }
-    }
+
+      try {
+        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setOffers(json.data);
+            localStorage.setItem('store_offers', JSON.stringify(json.data));
+          }
+        }
+      } catch (e) {}
+    };
+
+    loadOffers();
   }, []);
 
   useEffect(() => {
@@ -89,27 +104,49 @@ export function OffersCarousel() {
                   className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
                 >
                   {/* Imágenes de Fondo Panorámicas */}
-                  {dImg && <div className="hidden md:block absolute inset-0 bg-cover bg-center z-0 transition-transform duration-700 group-hover:scale-105" style={{ backgroundImage: `url('${dImg}')` }}></div>}
-                  {mImg && <div className="block md:hidden absolute inset-0 bg-cover bg-center z-0 transition-transform duration-700 group-hover:scale-105" style={{ backgroundImage: `url('${mImg}')` }}></div>}
+                  {dImg && (
+                    <img
+                      src={dImg}
+                      alt={offer.title || 'Oferta'}
+                      className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    />
+                  )}
+                  {mImg && (
+                    <img
+                      src={mImg}
+                      alt={offer.title || 'Oferta'}
+                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    />
+                  )}
 
-                  {/* Capa Oscura (Fallback para que el texto se lea sobre las fotos) */}
-                  {(dImg || mImg) && <div className="absolute inset-0 bg-black/50 z-0"></div>}
+                  {/* Capa Oscura para lectura limpia */}
+                  {(dImg || mImg) && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-transparent z-0" />
+                  )}
 
                   {/* Enlace clickeable en toda la tarjeta */}
-                  <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-20 cursor-pointer"></Link>
+                  <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
 
                   {/* Textos de la oferta */}
-                  <div className="px-6 md:px-16 space-y-3 relative z-10 w-full max-w-3xl pointer-events-none">
+                  <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none">
                     <div className="flex items-center gap-3">
-                      <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
-                        {offer.tag}
-                      </span>
-                      <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
-                        {offer.discount}
-                      </span>
+                      {offer.tag && (
+                        <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
+                          {offer.tag}
+                        </span>
+                      )}
+                      {offer.discount && (
+                        <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
+                          {offer.discount}
+                        </span>
+                      )}
                     </div>
-                    <h3 className="text-2xl md:text-5xl font-black drop-shadow-md">{offer.title || 'Oferta Especial'}</h3>
-                    <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-sm max-w-xl">{offer.desc}</p>
+                    {offer.title && (
+                      <h3 className="text-2xl md:text-5xl font-black drop-shadow-md">{offer.title}</h3>
+                    )}
+                    {offer.desc && (
+                      <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-sm max-w-xl">{offer.desc}</p>
+                    )}
                     
                     <div className="pt-2 pointer-events-auto">
                       <Link
@@ -128,7 +165,7 @@ export function OffersCarousel() {
         </div>
 
         {/* Puntos de Navegación */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
           {offers.map((_, i) => (
             <button
               key={i}

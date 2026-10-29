@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -12,17 +12,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 /* Forzar respuesta táctil inmediata y eliminar retrasos en móviles */
 html, body {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  color-scheme: light;
 }
 
 body {
@@ -33,9 +27,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Asegurar que los botones e inputs reciban eventos táctiles sin interferencias */
-button, a, input, select {
+/* Asegurar que los botones e inputs reciban eventos táctiles sin interferencias y tengan texto visible */
+button, a, input, select, textarea {
   touch-action: manipulation;
+  color: inherit;
 }
 
 /* Clase utilitaria scrollbar-hide para ocultar scrollbars horizontales en carruseles */

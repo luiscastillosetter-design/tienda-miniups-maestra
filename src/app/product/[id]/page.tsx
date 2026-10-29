@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ShoppingCart, ChevronLeft, ShieldCheck, Truck, CheckCircle2, Star, CreditCard, Play, Flame } from 'lucide-react';
+import { ShoppingCart, ChevronLeft, Truck, CheckCircle2, CreditCard, Play, Flame, ListChecks } from 'lucide-react';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
@@ -59,6 +59,7 @@ export default function ProductPage() {
   };
 
   const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0];
+  const firstImageForCart = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
 
   const handleAddToCart = () => {
     addItem(
@@ -66,7 +67,7 @@ export default function ProductPage() {
         id: product.id,
         title: product.title,
         price: product.price,
-        image: product.images[0],
+        image: firstImageForCart,
       },
       quantity
     );
@@ -79,7 +80,7 @@ export default function ProductPage() {
         id: product.id,
         title: product.title,
         price: product.price,
-        image: product.images[0],
+        image: firstImageForCart,
       },
       quantity
     );
@@ -88,7 +89,6 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-24">
-      {/* Contenedor Panorámico estilo MercadoLibre */}
       <main className="w-full px-4 md:px-10 lg:px-16 space-y-12">
         
         <button
@@ -105,18 +105,25 @@ export default function ProductPage() {
           {/* LADO IZQUIERDO: Gran Visor Multimedia (7 de 12 columnas) */}
           <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
             
-            {/* Tira de Miniaturas vertical en PC */}
+            {/* Tira de Miniaturas con soporte para Foto y Video */}
             {product.images && product.images.length > 1 && (
               <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto max-h-[550px] pb-2 md:pb-0 scrollbar-hide">
                 {product.images.map((media, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`w-16 h-16 md:w-20 md:h-20 rounded-2xl border-2 overflow-hidden bg-slate-50 flex-shrink-0 cursor-pointer transition-all ${
+                    className={`relative w-16 h-16 md:w-20 md:h-20 rounded-2xl border-2 overflow-hidden bg-slate-50 flex-shrink-0 cursor-pointer transition-all ${
                       selectedImageIndex === idx ? 'border-orange-500 shadow-md scale-105' : 'border-gray-200 opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={media} alt="Miniatura" className="w-full h-full object-contain p-1" />
+                    {isVideo(media) ? (
+                      <div className="w-full h-full bg-slate-900 flex items-center justify-center relative">
+                        <video src={media} muted className="w-full h-full object-cover opacity-70" />
+                        <Play className="w-5 h-5 text-white absolute" />
+                      </div>
+                    ) : (
+                      <img src={media} alt="Miniatura" className="w-full h-full object-contain p-1" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -125,7 +132,7 @@ export default function ProductPage() {
             {/* Imagen/Video Principal Grande */}
             <div className="relative flex-1 aspect-square md:aspect-auto md:min-h-[550px] bg-slate-50 rounded-3xl overflow-hidden border border-gray-100 flex items-center justify-center p-6">
               {isVideo(currentMedia) ? (
-                <video src={currentMedia} controls autoPlay muted loop className="w-full h-full object-cover rounded-2xl" />
+                <video src={currentMedia} controls autoPlay muted loop className="w-full h-full object-contain rounded-2xl max-h-[520px]" />
               ) : (
                 <img src={currentMedia} alt={product.title} className="w-full h-full object-contain" />
               )}
@@ -154,7 +161,7 @@ export default function ProductPage() {
                 {product.title}
               </h1>
 
-              {/* Bloque de Precios y Beneficios */}
+              {/* Bloque de Precios y Envío */}
               <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
                 <div className="flex items-baseline gap-3">
                   <span className="text-3xl md:text-5xl font-black text-slate-900">
@@ -169,13 +176,22 @@ export default function ProductPage() {
 
                 <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
                   <Truck className="w-4 h-4 text-emerald-600" />
-                  {product.price >= siteConfig.shipping.freeShippingThreshold
+                  {product.price * quantity >= siteConfig.shipping.freeShippingThreshold
                     ? '¡Califica para ENVÍO GRATIS a todo el país!'
-                    : `Agrega $${(siteConfig.shipping.freeShippingThreshold - product.price).toFixed(2)} más para envío gratis.`}
+                    : `Agrega ${siteConfig.currencySymbol}${(siteConfig.shipping.freeShippingThreshold - product.price * quantity).toFixed(2)} más para envío gratis.`}
                 </p>
               </div>
 
-              {/* Lo que incluye / Beneficios */}
+              {/* Descripción */}
+              {product.description && (
+                <div className="pt-1">
+                  <p className="text-xs md:text-sm text-gray-600 leading-relaxed font-normal">
+                    {product.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Beneficios destacados */}
               {product.benefits && product.benefits.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <p className="text-xs font-black uppercase text-slate-900 tracking-wider">Beneficios destacados:</p>
@@ -190,12 +206,22 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Descripción */}
-              <div className="pt-2">
-                <p className="text-xs md:text-sm text-gray-600 leading-relaxed font-normal">
-                  {product.description}
-                </p>
-              </div>
+              {/* Características / Ficha Técnica (Sincronizada con el Admin) */}
+              {product.features && product.features.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
+                    <ListChecks className="w-4 h-4 text-orange-500" /> Especificaciones Técnicas:
+                  </p>
+                  <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-100 space-y-1.5">
+                    {product.features.map((f, i) => (
+                      <div key={i} className="text-xs text-slate-600 font-medium flex items-start gap-2">
+                        <span className="text-orange-500 font-black">•</span>
+                        <span>{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Controles de Compra */}
@@ -252,7 +278,7 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* CARRUSEL INFERIOR DE REMARKETING: Productos Relacionados y Más Vendidos */}
+        {/* CARRUSEL INFERIOR DE REMARKETING */}
         {relatedProducts.length > 0 && (
           <section className="w-full pt-8">
             <div className="flex items-center justify-between mb-6">

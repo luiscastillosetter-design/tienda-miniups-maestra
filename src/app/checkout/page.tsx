@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { siteConfig } from '@/config/site';
-import { products } from '@/data/products';
-import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, CreditCard, Truck, ShoppingBag } from 'lucide-react';
+import { productService } from '@/services/productService';
+import { products as defaultProducts, Product } from '@/data/products';
+import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
 
 export default function CheckoutPage() {
   const { items, clearCart } = useCartStore();
   const router = useRouter();
+
+  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
 
   // Estados del Formulario
   const [nombre, setNombre] = useState('');
@@ -30,28 +32,54 @@ export default function CheckoutPage() {
 
   // Estados UI y Atribución
   const [refCode, setRefCode] = useState('DIRECTO');
+  const [adChannel, setAdChannel] = useState('Directo');
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
+    productService.getProducts().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveProducts(data);
+      }
+    });
+
     const storedRef = localStorage.getItem('todomax_ref');
     if (storedRef) {
       setRefCode(storedRef);
     }
+
+    const storedAttribution = localStorage.getItem('todomax_attribution');
+    if (storedAttribution) {
+      try {
+        const parsed = JSON.parse(storedAttribution);
+        if (parsed.affiliateRef && parsed.affiliateRef !== 'DIRECTO') {
+          setRefCode(parsed.affiliateRef);
+        }
+        if (parsed.channel) {
+          setAdChannel(parsed.channel);
+        }
+      } catch (e) {}
+    }
   }, []);
 
-  // Cálculos Financieros
+  // Cálculos Financieros Reales (Cruzados con el inventario vivo del Admin)
   const subtotalPorItem = (price: number, quantity: number) => price * quantity;
   const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
   const isFreeShipping = total >= siteConfig.shipping.freeShippingThreshold;
 
-  // Calculamos el costo real cruzando con la DB de products.ts para saber la utilidad
   const totalCost = items.reduce((acc, item) => {
-    const dbProduct = products.find(p => p.id === item.id);
-    const itemCost = dbProduct ? dbProduct.cost : 0;
+    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
+    const itemCost = dbProduct ? Number(dbProduct.cost || 0) : 0;
     return acc + (itemCost * item.quantity);
   }, 0);
-  const expectedUtility = total - totalCost;
+
+  const totalAffiliateCommission = items.reduce((acc, item) => {
+    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
+    const commPercent = dbProduct ? Number(dbProduct.affiliateCommission || 10) : 10;
+    return acc + ((item.price * item.quantity) * (commPercent / 100));
+  }, 0);
+
+  const expectedUtility = total - totalCost - (refCode !== 'DIRECTO' ? totalAffiliateCommission : 0);
 
   const handleCopyBankData = () => {
     let data = '';
@@ -83,7 +111,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const procesarYEnviarPedido = () => {
+  const procesarYEnviarPedido = async () => {
     if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
       alert('Por favor completa todos los datos personales y de envío.');
       return;
@@ -100,7 +128,7 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     const orderId = `TMX-${Date.now().toString().slice(-6)}`;
 
-    // 1. Crear Objeto del Pedido para la Base de Datos Local (ERP Admin)
+    // 1. Crear Objeto del Pedido para el ERP Admin
     const newOrder = {
       id: orderId,
       date: new Date().toISOString(),
@@ -109,16 +137,59 @@ export default function CheckoutPage() {
       shipping: { courier, estado, ciudad, direccion, isFreeShipping },
       payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview, receiptImage: comprobantePreview },
       items: items,
-      financials: { total, cost: totalCost, utility: expectedUtility },
-      attribution: { affiliateCode: refCode, channel: refCode !== 'DIRECTO' ? 'Afiliado' : 'Directo' }
+      financials: {
+        total,
+        cost: totalCost,
+        commission: refCode !== 'DIRECTO' ? totalAffiliateCommission : 0,
+        utility: expectedUtility,
+      },
+      attribution: {
+        affiliateCode: refCode,
+        channel: refCode !== 'DIRECTO' ? 'Afiliado' : adChannel,
+      }
     };
 
-    // 2. Guardar en store_orders
-    const existingOrdersStr = localStorage.getItem('store_orders');
-    const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
-    localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
+    // 2. Sincronizar con la Nube (Redis) y con localStorage
+    try {
+      let currentCloudOrders: any[] = [];
+      const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+      if (resGet.ok) {
+        const json = await resGet.json();
+        if (Array.isArray(json.data)) {
+          currentCloudOrders = json.data;
+        }
+      }
 
-    // 3. Armar Mensaje de WhatsApp
+      if (currentCloudOrders.length === 0) {
+        const existingLocal = localStorage.getItem('store_orders');
+        if (existingLocal) {
+          try {
+            currentCloudOrders = JSON.parse(existingLocal);
+          } catch (e) {}
+        }
+      }
+
+      const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
+      localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
+
+      await fetch('/api/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'store_orders', value: updatedOrders }),
+      });
+    } catch (error) {
+      console.error('Error guardando pedido en la nube, respaldado en local:', error);
+      const existingOrdersStr = localStorage.getItem('store_orders');
+      const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
+      localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
+    }
+
+    // 3. Disparo de Evento Purchase en Meta Pixel (si existe)
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
+    }
+
+    // 4. Armar Mensaje de WhatsApp
     const listaProductos = items
       .map(item => `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`)
       .join('%0A');
@@ -133,20 +204,19 @@ export default function CheckoutPage() {
       `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
       `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
       `*💳 PAGO:* ${metodoPago}%0A` +
-      (metodoPago !== 'Efectivo' ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en la conversación)*%0A` : '') +
+      (metodoPago !== 'Efectivo' ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en el sistema y en esta conversación)*%0A` : '') +
       (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
 
     const rawWhatsApp = siteConfig.whatsappNumber;
     const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
 
-    // 4. Limpiar Carrito y Redirigir
+    // 5. Limpiar Carrito y Redirigir
     clearCart();
     
-    // Pequeño delay para UX de carga
     setTimeout(() => {
       window.open(`https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`, '_blank');
       router.push('/');
-    }, 1500);
+    }, 1000);
   };
 
   if (items.length === 0 && !isProcessing) {
@@ -183,7 +253,7 @@ export default function CheckoutPage() {
             </div>
             <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
             <p className="text-slate-600 font-medium leading-relaxed">
-              Estamos registrando tu orden en el sistema. En un momento se abrirá WhatsApp para que nos envíes esta solicitud junto con la captura de tu comprobante.
+              Estamos registrando tu orden en la nube de TodoMax. En un momento se abrirá WhatsApp para finalizar tu atención.
             </p>
           </div>
         ) : (
@@ -244,8 +314,8 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Dirección Detallada (Calle, Edificio/Casa, Punto de referencia)</label>
-                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} required placeholder="Av. Principal, Edificio Torre Sur..." className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Dirección Detallada (Agencia o Dirección Exacta)</label>
+                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} required placeholder="Agencia MRW / Av. Principal, Edificio..." className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
                   </div>
                 </div>
               </div>
@@ -264,6 +334,7 @@ export default function CheckoutPage() {
                       {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
                         <button
                           key={metodo}
+                          type="button"
                           onClick={() => setMetodoPago(metodo)}
                           className={`p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
                             metodoPago === metodo ? 'bg-orange-50 border-orange-500 text-orange-600 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
@@ -309,6 +380,7 @@ export default function CheckoutPage() {
                     </div>
                     
                     <button
+                      type="button"
                       onClick={handleCopyBankData}
                       className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
                     >
@@ -406,14 +478,15 @@ export default function CheckoutPage() {
 
                 <button
                   onClick={procesarYEnviarPedido}
-                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2"
+                  disabled={isProcessing}
+                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <ShieldCheck className="w-5 h-5" />
                   Registrar Pago y Enviar Pedido
                 </button>
                 
                 <p className="text-[10px] text-gray-400 text-center font-medium px-4">
-                  Al confirmar, serás redirigido a nuestro WhatsApp oficial para finalizar la compra de manera 100% segura.
+                  Al confirmar, tu orden quedará registrada en TodoMax y se abrirá WhatsApp para atención inmediata.
                 </p>
 
               </div>

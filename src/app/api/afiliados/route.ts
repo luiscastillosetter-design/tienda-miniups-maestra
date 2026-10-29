@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { products } from '@/data/products'; // Simulamos la lectura de DB
+import { products as defaultProducts, Product } from '@/data/products';
+import { dbService } from '@/services/dbService';
 
-// Este archivo sirve como Webhook oficial para Meta / WhatsApp Business API
-// Documentación Meta: https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks
+const BASE_STORE_URL = 'https://tienda-miniups-maestra.vercel.app';
 
 export async function GET(request: NextRequest) {
-  // Verificación del Webhook solicitada por Meta (Facebook)
   const searchParams = request.nextUrl.searchParams;
   const mode = searchParams.get('hub.mode');
   const token = searchParams.get('hub.verify_token');
@@ -14,7 +13,6 @@ export async function GET(request: NextRequest) {
   const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'TODOMAX_SECURE_TOKEN_2024';
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('WEBHOOK_VERIFIED');
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -25,7 +23,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // 1. Verificamos si es un mensaje de WhatsApp válido
     if (body.object === 'whatsapp_business_account') {
       const entry = body.entry?.[0];
       const changes = entry?.changes?.[0];
@@ -35,34 +32,33 @@ export async function POST(request: NextRequest) {
       if (message && message.type === 'text') {
         const telefonoRemitente = message.from;
         const textoCliente = message.text.body.toLowerCase();
-        
-        console.log(`Mensaje recibido de ${telefonoRemitente}: ${textoCliente}`);
 
-        // 2. Lógica del Bot IA "Sofía"
+        // Leer catálogo actualizado desde Redis o respaldo local
+        const storedProducts = await dbService.get('store_products');
+        const activeProducts: Product[] = Array.isArray(storedProducts) && storedProducts.length > 0
+          ? storedProducts
+          : defaultProducts;
+
         let respuestaBot = "¡Hola! Soy Sofía, la asistente IA de TodoMax 🤖.\n¿En qué producto estás interesado para enviarte tu Kit de Afiliado? (Ej: 'Quiero vender freidora')";
 
-        // Buscamos coincidencia de productos
-        const foundProduct = products.find(p => 
+        const foundProduct = activeProducts.find(p => 
           textoCliente.includes(p.title.split(' ')[0].toLowerCase()) || 
           textoCliente.includes(p.category.toLowerCase())
         );
 
         if (foundProduct) {
           respuestaBot = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
-          `📸 *Material Visual:* ${foundProduct.images[0]}\n\n` +
           `📝 *Texto sugerido:* ${foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis!'}\n\n` +
-          `🔗 Recuerda agregar tu enlace personalizado (?ref=TU_CODIGO) al final de tus publicaciones.`;
+          `🔗 Tu enlace base: ${BASE_STORE_URL}/product/${foundProduct.id}?ref=TU_CODIGO`;
         } else if (textoCliente.includes('comision') || textoCliente.includes('ganancia')) {
-          respuestaBot = "Tus comisiones están seguras. Puedes revisar tu balance actualizado directamente en tu Panel Privado web en todomax.com/afiliados 💰";
+          respuestaBot = `Tus comisiones están seguras. Puedes revisar tu balance actualizado directamente en tu Panel Privado web en ${BASE_STORE_URL}/afiliados 💰`;
         } else if (textoCliente.includes('humano') || textoCliente.includes('ayuda')) {
           respuestaBot = "En un momento te transferiré con uno de nuestros asesores humanos. Por favor, aguarda en la línea. 👨‍💻";
         }
 
-        // 3. Envío de Respuesta vía Meta Graph API
         const metaPhoneId = process.env.META_PHONE_ID;
         const metaAccessToken = process.env.META_ACCESS_TOKEN;
 
-        // Si tenemos los tokens configurados en .env, disparamos el mensaje real
         if (metaPhoneId && metaAccessToken) {
           await fetch(`https://graph.facebook.com/v17.0/${metaPhoneId}/messages`, {
             method: 'POST',
@@ -83,9 +79,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Respuesta genérica si no es un mensaje de texto de WA
     return NextResponse.json({ status: 'ok' }, { status: 200 });
-
   } catch (error) {
     console.error('Error en Webhook WhatsApp:', error);
     return NextResponse.json({ error: 'Error procesando webhook' }, { status: 500 });

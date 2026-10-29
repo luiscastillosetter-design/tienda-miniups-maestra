@@ -3,14 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
-  ShoppingBag, Package, Users, Megaphone, UserCheck, DollarSign, 
-  Lock, ArrowLeft, CheckCircle, Clock, Truck, CheckCircle2, 
-  XCircle, AlertTriangle, TrendingUp, Plus, Trash2, Pencil, 
-  X, Search, MessageCircle, ExternalLink, ShieldCheck, Eye, RefreshCw,
+  ShoppingBag, Package, Users, Megaphone, UserCheck, 
+  Lock, ArrowLeft, CheckCircle, CheckCircle2, 
+  TrendingUp, Plus, Trash2, Pencil, 
+  X, Search, MessageCircle, ExternalLink,
   Image as ImageIcon, Video, Sliders, Zap
 } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { products as initialProducts, Product } from '@/data/products';
+import { defaultHeroSlides } from '@/components/HeroCarousel';
+import { defaultOffers } from '@/components/OffersCarousel';
 
 type UserRole = 'Super Admin' | 'Logística y Pagos' | 'Marketing y Afiliados';
 
@@ -50,6 +52,7 @@ interface Order {
   financials: {
     total: number;
     cost: number;
+    commission?: number;
     utility: number;
   };
   attribution: {
@@ -73,7 +76,7 @@ export default function AdminPage() {
   const [trackingInput, setTrackingInput] = useState('');
 
   // 2. Estado de Inventario y Productos
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState({
     title: '',
@@ -89,15 +92,15 @@ export default function AdminPage() {
     badge: '',
     adCopy: '',
     isBestSeller: false,
-    images: ['', '', '', ''], // Recuperados los 4 slots de imágenes/videos
+    images: ['', '', '', ''],
   });
 
-  // 3. Estado de Publicidad y Contenido (Recuperados editores Hero y Ofertas)
-  const [heroSlides, setHeroSlides] = useState<any[]>([]);
+  // 3. Estado de Publicidad y Contenido (Precargados con los banners por defecto)
+  const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
-  const [heroForm, setHeroForm] = useState({ title: '', subtitle: '', badge: '', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
+  const [heroForm, setHeroForm] = useState({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
 
-  const [offers, setOffers] = useState<any[]>([]);
+  const [offers, setOffers] = useState<any[]>(defaultOffers);
   const [editingOfferId, setEditingOfferId] = useState<any>(null);
   const [offerForm, setOfferForm] = useState({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
 
@@ -110,6 +113,39 @@ export default function AdminPage() {
 
   // 4. Búsquedas
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Helper para guardar cualquier llave en Redis + LocalStorage
+  const syncStoreKey = async (key: string, value: any) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+    try {
+      await fetch('/api/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+    } catch (e) {
+      console.error(`Error sincronizando ${key} en la nube:`, e);
+    }
+  };
+
+  // Helper para guardar productos en Redis + LocalStorage
+  const syncProducts = async (updatedProducts: Product[]) => {
+    setProducts(updatedProducts);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('store_products', JSON.stringify(updatedProducts));
+    }
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProducts),
+      });
+    } catch (err) {
+      console.error('Error sincronizando productos con Redis:', err);
+    }
+  };
 
   // 5. Utilidades Multimedia
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
@@ -127,46 +163,99 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // 1. INVENTARIO EN VIVO (Con respaldo de seguridad anti-vacíos)
+    // 0. Restaurar sesión del Admin al dar F5
+    const savedAuth = localStorage.getItem('todomax_admin_auth');
+    const savedRole = localStorage.getItem('todomax_admin_role') as UserRole | null;
+    if (savedAuth === 'true' && savedRole) {
+      setIsAuthenticated(true);
+      setCurrentRole(savedRole);
+      if (savedRole === 'Marketing y Afiliados') setActiveTab('afiliados');
+    }
+
+    // 1. Cargar Inventario en vivo desde la Nube
     fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setProducts(data);
-        } else {
-          import('@/data/products').then(module => setProducts(module.products));
+          localStorage.setItem('store_products', JSON.stringify(data));
         }
       })
-      .catch(e => {
-        console.error('Error cargando inventario:', e);
-        import('@/data/products').then(module => setProducts(module.products));
-      });
+      .catch(e => console.error('Error cargando inventario:', e));
 
-    // 2. PEDIDOS EN TIEMPO REAL (Lectura automática cada 3 segundos)
-    const loadOrders = () => {
+    // 2. Cargar Pedidos en tiempo real (Nube + Local cada 4 segundos)
+    const loadOrders = async () => {
+      try {
+        const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data)) {
+            setOrders(json.data);
+            localStorage.setItem('store_orders', JSON.stringify(json.data));
+            return;
+          }
+        }
+      } catch (e) {}
+
       const savedOrders = localStorage.getItem('store_orders');
       if (savedOrders) {
         try { setOrders(JSON.parse(savedOrders)); } catch (e) {}
       }
     };
     loadOrders();
-    const orderInterval = setInterval(loadOrders, 3000);
+    const orderInterval = setInterval(loadOrders, 4000);
 
-    // 3. RECUPERAR BANNERS Y PROMOCIONES (Restaurar lo que desapareció)
-    const savedHero = localStorage.getItem('store_hero_slides');
-    if (savedHero) {
-      try { setHeroSlides(JSON.parse(savedHero)); } catch(e) {}
-    }
-    
-    const savedOffers = localStorage.getItem('store_offers');
-    if (savedOffers) {
-      try { setOffers(JSON.parse(savedOffers)); } catch(e) {}
-    }
+    // 3. Cargar Banners Hero, Ofertas, Categorías y Configuración Marketing desde la Nube
+    const loadMarketingData = async () => {
+      // Hero
+      try {
+        const resHero = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (resHero.ok) {
+          const jHero = await resHero.json();
+          if (Array.isArray(jHero.data) && jHero.data.length > 0) {
+            setHeroSlides(jHero.data);
+            localStorage.setItem('store_hero_slides', JSON.stringify(jHero.data));
+          }
+        }
+      } catch (e) {}
 
-    const savedCatBanners = localStorage.getItem('store_cat_slides');
-    if (savedCatBanners) {
-      try { setCatBanners(JSON.parse(savedCatBanners)); } catch(e) {}
-    }
+      // Ofertas
+      try {
+        const resOff = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
+        if (resOff.ok) {
+          const jOff = await resOff.json();
+          if (Array.isArray(jOff.data) && jOff.data.length > 0) {
+            setOffers(jOff.data);
+            localStorage.setItem('store_offers', JSON.stringify(jOff.data));
+          }
+        }
+      } catch (e) {}
+
+      // Banners Catálogo
+      try {
+        const resCat = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (resCat.ok) {
+          const jCat = await resCat.json();
+          if (Array.isArray(jCat.data)) {
+            setCatBanners(jCat.data);
+            localStorage.setItem('store_cat_slides', JSON.stringify(jCat.data));
+          }
+        }
+      } catch (e) {}
+
+      // Configuración de Ads y Pixel
+      try {
+        const resMkt = await fetch(`/api/store?key=store_marketing_config&t=${Date.now()}`, { cache: 'no-store' });
+        if (resMkt.ok) {
+          const jMkt = await resMkt.json();
+          if (jMkt.data) {
+            if (jMkt.data.metaPixelId) setMetaPixelId(jMkt.data.metaPixelId);
+            if (jMkt.data.adSpend !== undefined) setAdSpendInput(Number(jMkt.data.adSpend));
+          }
+        }
+      } catch (e) {}
+    };
+    loadMarketingData();
 
     return () => clearInterval(orderInterval);
   }, []);
@@ -209,19 +298,19 @@ export default function AdminPage() {
   // ==========================================
   // OPERACIONES DE PEDIDOS (MÓDULO 1)
   // ==========================================
-  const actualizarEstadoPedido = (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
+  const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
+    // Descuento automático y permanente de stock en la nube al aprobar el pago
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
-      const productosActualizados = [...products];
-      ordenPrevia.items.forEach(item => {
-        const prodIndex = productosActualizados.findIndex(p => p.id === item.id);
-        if (prodIndex !== -1) {
-          productosActualizados[prodIndex].stock = Math.max(0, productosActualizados[prodIndex].stock - item.quantity);
+      const productosActualizados = products.map(p => {
+        const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
+        if (itemPedido) {
+          return { ...p, stock: Math.max(0, p.stock - itemPedido.quantity) };
         }
+        return p;
       });
-      setProducts(productosActualizados);
-      localStorage.setItem('store_products', JSON.stringify(productosActualizados));
+      await syncProducts(productosActualizados);
     }
 
     const ordenesActualizadas = orders.map(ord => {
@@ -239,11 +328,12 @@ export default function AdminPage() {
     });
 
     setOrders(ordenesActualizadas);
-    localStorage.setItem('store_orders', JSON.stringify(ordenesActualizadas));
+    await syncStoreKey('store_orders', ordenesActualizadas);
+
     if (selectedOrder && selectedOrder.id === orderId) {
       setSelectedOrder(ordenesActualizadas.find(o => o.id === orderId) || null);
     }
-    notify(`Pedido ${orderId} actualizado a "${nuevoEstado}"`);
+    notify(`Pedido ${orderId} actualizado a "${nuevoEstado}" en la nube`);
   };
 
   const enviarNotificacionCliente = (order: Order, tipo: 'aprobado' | 'despacho') => {
@@ -285,7 +375,7 @@ export default function AdminPage() {
             category: productForm.category,
             affiliateCommission: Number(productForm.affiliateCommission) || 10,
             description: productForm.description,
-            features: featuresArray.length > 0 ? featuresArray : p.features,
+            features: featuresArray,
             benefits: benefitsArray,
             badge: productForm.badge || undefined,
             adCopy: productForm.adCopy,
@@ -319,18 +409,7 @@ export default function AdminPage() {
       notify('Producto agregado a la nube');
     }
 
-    setProducts(updated);
-    localStorage.setItem('store_products', JSON.stringify(updated));
-    
-    try {
-      await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
-      });
-    } catch (err) {
-      console.error('Error sincronizando con Redis:', err);
-    }
+    await syncProducts(updated);
 
     setEditingProductId(null);
     setProductForm({
@@ -366,19 +445,7 @@ export default function AdminPage() {
   const handleDeleteProduct = async (id: string) => {
     if (confirm('¿Seguro que deseas eliminar este producto?')) {
       const updated = products.filter(p => p.id !== id);
-      setProducts(updated);
-      localStorage.setItem('store_products', JSON.stringify(updated));
-      
-      try {
-        await fetch('/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updated),
-        });
-      } catch (err) {
-        console.error('Error eliminando en Redis:', err);
-      }
-
+      await syncProducts(updated);
       notify('Producto eliminado de la nube');
     }
   };
@@ -386,48 +453,79 @@ export default function AdminPage() {
   // ==========================================
   // OPERACIONES DE MARKETING Y DISEÑO
   // ==========================================
-  const handleSaveHero = (e: React.FormEvent) => {
+  const handleSaveHero = async (e: React.FormEvent) => {
     e.preventDefault();
+    let updated: any[];
     if (editingHeroId) {
-      const updated = heroSlides.map(s => s.id === editingHeroId ? { ...s, ...heroForm } : s);
-      setHeroSlides(updated); localStorage.setItem('store_hero_slides', JSON.stringify(updated)); setEditingHeroId(null); notify('Banner Hero actualizado');
+      updated = heroSlides.map(s => s.id === editingHeroId ? { ...s, ...heroForm } : s);
+      setEditingHeroId(null);
+      notify('Banner Hero actualizado en la nube');
     } else {
-      const newItem = { id: Date.now(), ...heroForm };
-      const updated = [...heroSlides, newItem];
-      setHeroSlides(updated); localStorage.setItem('store_hero_slides', JSON.stringify(updated)); notify('Banner Hero agregado');
+      const newItem = { id: Date.now(), ...heroForm, bgGradient: 'from-slate-900 via-slate-800 to-orange-950' };
+      updated = [...heroSlides, newItem];
+      notify('Banner Hero agregado en la nube');
     }
-    setHeroForm({ title: '', subtitle: '', badge: '', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
+    setHeroSlides(updated);
+    await syncStoreKey('store_hero_slides', updated);
+    setHeroForm({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
   };
 
-  const handleSaveOffer = (e: React.FormEvent) => {
+  const handleSaveOffer = async (e: React.FormEvent) => {
     e.preventDefault();
+    let updated: any[];
     if (editingOfferId) {
-      const updated = offers.map(o => o.id === editingOfferId ? { ...o, ...offerForm } : o);
-      setOffers(updated); localStorage.setItem('store_offers', JSON.stringify(updated)); setEditingOfferId(null); notify('Promoción actualizada');
+      updated = offers.map(o => o.id === editingOfferId ? { ...o, ...offerForm } : o);
+      setEditingOfferId(null);
+      notify('Promoción actualizada en la nube');
     } else {
       const newItem = { id: Date.now(), ...offerForm };
-      const updated = [...offers, newItem];
-      setOffers(updated); localStorage.setItem('store_offers', JSON.stringify(updated)); notify('Promoción agregada');
+      updated = [...offers, newItem];
+      notify('Promoción agregada en la nube');
     }
+    setOffers(updated);
+    await syncStoreKey('store_offers', updated);
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
   };
 
-  const handleSaveCatBanner = (e: React.FormEvent) => {
+  const handleSaveCatBanner = async (e: React.FormEvent) => {
     e.preventDefault();
+    let updated: any[];
     if (editingCatBannerId) {
-      const updated = catBanners.map(c => c.id === editingCatBannerId ? { ...c, ...catBannerForm } : c);
-      setCatBanners(updated); localStorage.setItem('store_cat_slides', JSON.stringify(updated)); setEditingCatBannerId(null); notify('Banner de Catálogo actualizado');
+      updated = catBanners.map(c => c.id === editingCatBannerId ? { ...c, ...catBannerForm } : c);
+      setEditingCatBannerId(null);
+      notify('Banner de Catálogo actualizado en la nube');
     } else {
       const newItem = { id: Date.now(), ...catBannerForm };
-      const updated = [...catBanners, newItem];
-      setCatBanners(updated); localStorage.setItem('store_cat_slides', JSON.stringify(updated)); notify('Banner de Catálogo agregado');
+      updated = [...catBanners, newItem];
+      notify('Banner de Catálogo agregado en la nube');
     }
+    setCatBanners(updated);
+    await syncStoreKey('store_cat_slides', updated);
     setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
   };
 
+  const handleSaveMarketingConfig = async () => {
+    const configData = { metaPixelId: metaPixelId.trim(), adSpend: adSpendInput };
+    localStorage.setItem('store_ad_spend', String(adSpendInput));
+    localStorage.setItem('todomax_meta_pixel', metaPixelId.trim());
+    await syncStoreKey('store_marketing_config', configData);
+    notify('Configuración de Meta Pixel y Gasto Publicitario guardada en la nube');
+  };
+
   // ==========================================
-  // FINANZAS Y MÉTRICAS
+  // FINANZAS Y MÉTRICAS REALES
   // ==========================================
+  const calcularComisionOrden = (order: Order) => {
+    if (order.financials?.commission !== undefined) {
+      return Number(order.financials.commission);
+    }
+    return order.items.reduce((sum, item) => {
+      const prod = products.find(p => String(p.id) === String(item.id));
+      const pct = prod ? Number(prod.affiliateCommission || 10) : 10;
+      return sum + (item.price * item.quantity * (pct / 100));
+    }, 0);
+  };
+
   const totalVentasConfirmadas = orders
     .filter(o => o.status !== 'Cancelado' && o.status !== 'Pendiente de verificación')
     .reduce((acc, o) => acc + o.financials.total, 0);
@@ -437,8 +535,8 @@ export default function AdminPage() {
     .reduce((acc, o) => acc + o.financials.cost, 0);
 
   const totalComisionesAfiliados = orders
-    .filter(o => o.status === 'Entregado' && o.attribution.affiliateCode !== 'DIRECTO')
-    .reduce((acc, o) => acc + (o.financials.total * 0.10), 0);
+    .filter(o => o.status === 'Entregado' && o.attribution?.affiliateCode && o.attribution.affiliateCode !== 'DIRECTO')
+    .reduce((acc, o) => acc + calcularComisionOrden(o), 0);
 
   const utilidadNetaEstimada = totalVentasConfirmadas - totalCostoMercancia - totalComisionesAfiliados - adSpendInput;
 
@@ -448,7 +546,7 @@ export default function AdminPage() {
       o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.customer.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.customer.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.attribution.affiliateCode.toLowerCase().includes(searchTerm.toLowerCase());
+      (o.attribution?.affiliateCode || '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -470,14 +568,14 @@ export default function AdminPage() {
     };
   });
 
-  const affiliateStats = Array.from(new Set(orders.map(o => o.attribution.affiliateCode)))
+  const affiliateStats = Array.from(new Set(orders.map(o => o.attribution?.affiliateCode)))
     .filter(code => code && code !== 'DIRECTO')
     .map(code => {
-      const afOrders = orders.filter(o => o.attribution.affiliateCode === code);
+      const afOrders = orders.filter(o => o.attribution?.affiliateCode === code);
       const confirmedOrders = afOrders.filter(o => o.status === 'Entregado');
       const pendingOrders = afOrders.filter(o => o.status !== 'Cancelado' && o.status !== 'Entregado');
       const totalVendido = confirmedOrders.reduce((sum, o) => sum + o.financials.total, 0);
-      const comisionAcumulada = totalVendido * 0.10;
+      const comisionAcumulada = confirmedOrders.reduce((sum, o) => sum + calcularComisionOrden(o), 0);
 
       return {
         codigo: code,
@@ -670,7 +768,7 @@ export default function AdminPage() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black text-slate-900">Gestión Central de Pedidos</h2>
-                <p className="text-xs text-slate-500 font-medium">Valida comprobantes de pago, descuenta stock y registra números de guía.</p>
+                <p className="text-xs text-slate-500 font-medium">Valida comprobantes de pago, descuenta stock en la nube y registra números de guía.</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -678,7 +776,7 @@ export default function AdminPage() {
                   <button
                     key={f}
                     onClick={() => setOrderFilter(f)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       orderFilter === f ? 'bg-slate-900 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -711,7 +809,7 @@ export default function AdminPage() {
                       <th className="p-4">Total</th>
                       <th className="p-4">Pago / Ref</th>
                       <th className="p-4">Estado</th>
-                      <th className="p-4">Afiliado</th>
+                      <th className="p-4">Canal / Afiliado</th>
                       <th className="p-4 text-right">Acción</th>
                     </tr>
                   </thead>
@@ -761,7 +859,8 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td className="p-4 whitespace-nowrap">
-                            <span className="font-bold text-orange-600">{order.attribution.affiliateCode}</span>
+                            <span className="font-bold text-orange-600 block">{order.attribution?.affiliateCode || 'DIRECTO'}</span>
+                            <span className="text-[10px] text-slate-400">{order.attribution?.channel || 'Directo'}</span>
                           </td>
                           <td className="p-4 text-right whitespace-nowrap">
                             <button
@@ -788,7 +887,7 @@ export default function AdminPage() {
                       <span className="text-[10px] font-black uppercase text-orange-500 tracking-wider">Detalle Operativo</span>
                       <h3 className="text-xl font-black text-slate-900">Orden {selectedOrder.id}</h3>
                     </div>
-                    <button onClick={() => setSelectedOrder(null)} className="text-slate-400 hover:text-slate-700">
+                    <button onClick={() => setSelectedOrder(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
                       <X className="w-6 h-6" />
                     </button>
                   </div>
@@ -804,6 +903,9 @@ export default function AdminPage() {
                       <p className="font-bold text-slate-500 uppercase text-[10px] mb-1">Destino ({selectedOrder.shipping.courier})</p>
                       <p className="font-bold text-slate-800">{selectedOrder.shipping.estado}, {selectedOrder.shipping.ciudad}</p>
                       <p className="text-slate-600">{selectedOrder.shipping.direccion}</p>
+                      {selectedOrder.shipping.trackingNumber && (
+                        <p className="text-purple-700 font-black mt-1">Guía: {selectedOrder.shipping.trackingNumber}</p>
+                      )}
                     </div>
                   </div>
 
@@ -890,21 +992,21 @@ export default function AdminPage() {
                       )}
 
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           const clave = prompt('Ingresa la contraseña de administración para eliminar este pedido:');
                           if (clave === 'Admin1234.') {
                             const updatedOrders = orders.filter(o => o.id !== selectedOrder.id);
                             setOrders(updatedOrders);
-                            localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
+                            await syncStoreKey('store_orders', updatedOrders);
                             setSelectedOrder(null);
-                            notify('Pedido eliminado permanentemente');
+                            notify('Pedido eliminado permanentemente de la nube');
                           } else if (clave !== null) {
                             alert('Contraseña incorrecta');
                           }
                         }}
                         className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl transition-colors cursor-pointer ml-auto"
                       >
-                        🗑️ Eliminar Pedido (Con Clave)
+                        🗑️ Eliminar Pedido
                       </button>
                     </div>
                   </div>
@@ -914,7 +1016,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* --- 2. INVENTARIO Y PRODUCTOS (CON MULTIMEDIA Y TEXTOS LARGOS RECUPERADOS) --- */}
+        {/* --- 2. INVENTARIO Y PRODUCTOS --- */}
         {activeTab === 'inventario' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
@@ -937,11 +1039,12 @@ export default function AdminPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block font-bold text-slate-500 uppercase mb-1">Precio Venta ($)</label>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">Precio ($)</label>
                     <input
                       type="number"
+                      step="0.01"
                       required
                       value={productForm.price}
                       onChange={e => setProductForm({ ...productForm, price: e.target.value })}
@@ -950,9 +1053,21 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-500 uppercase mb-1">Costo Unitario ($)</label>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">Antes ($)</label>
                     <input
                       type="number"
+                      step="0.01"
+                      value={productForm.originalPrice}
+                      onChange={e => setProductForm({ ...productForm, originalPrice: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                      placeholder="45"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">Costo ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
                       required
                       value={productForm.cost}
                       onChange={e => setProductForm({ ...productForm, cost: e.target.value })}
@@ -991,25 +1106,37 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Comisión Afiliado (%)</label>
-                  <input
-                    type="number"
-                    value={productForm.affiliateCommission}
-                    onChange={e => setProductForm({ ...productForm, affiliateCommission: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
-                    placeholder="10"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">Comisión Afiliado (%)</label>
+                    <input
+                      type="number"
+                      value={productForm.affiliateCommission}
+                      onChange={e => setProductForm({ ...productForm, affiliateCommission: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                      placeholder="10"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">Etiqueta (Badge)</label>
+                    <input
+                      type="text"
+                      value={productForm.badge}
+                      onChange={e => setProductForm({ ...productForm, badge: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                      placeholder="Oferta / Envío Gratis"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Descripción corta (Home)</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Descripción corta</label>
                   <textarea
                     rows={2}
                     value={productForm.description}
                     onChange={e => setProductForm({ ...productForm, description: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="Detalles para la landing de venta..."
+                    placeholder="Detalles para la ficha de producto..."
                   />
                 </div>
 
@@ -1020,7 +1147,7 @@ export default function AdminPage() {
                     value={productForm.features}
                     onChange={e => setProductForm({ ...productForm, features: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="Voltaje: 12V&#10;Capacidad: 2kg"
+                    placeholder="Voltaje: 12V&#10;Capacidad: 2000mAh"
                   />
                 </div>
 
@@ -1031,7 +1158,18 @@ export default function AdminPage() {
                     value={productForm.benefits}
                     onChange={e => setProductForm({ ...productForm, benefits: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="Limpia fácil&#10;Ahorra tiempo"
+                    placeholder="Internet sin cortes&#10;Protege tu router"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Texto Publicitario para Afiliados (AdCopy)</label>
+                  <textarea
+                    rows={2}
+                    value={productForm.adCopy}
+                    onChange={e => setProductForm({ ...productForm, adCopy: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
+                    placeholder="¿Se fue la luz? ¡No te quedes sin internet! Pide tu Mini UPS hoy..."
                   />
                 </div>
 
@@ -1073,7 +1211,7 @@ export default function AdminPage() {
                     onChange={e => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
                   />
                   <label htmlFor="bestSeller" className="font-bold text-slate-700 cursor-pointer">
-                    Marcar como "Más Vendido" en Home
+                    Marcar como &quot;Más Vendido&quot; en Home
                   </label>
                 </div>
 
@@ -1082,7 +1220,7 @@ export default function AdminPage() {
                     type="submit"
                     className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl transition-colors cursor-pointer"
                   >
-                    {editingProductId ? 'Actualizar' : 'Guardar Producto'}
+                    {editingProductId ? 'Actualizar en la Nube' : 'Guardar Producto'}
                   </button>
                   {editingProductId && (
                     <button
@@ -1095,7 +1233,7 @@ export default function AdminPage() {
                           features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''],
                         });
                       }}
-                      className="px-3 bg-slate-200 text-slate-700 font-bold rounded-xl"
+                      className="px-3 bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
                     >
                       Cancelar
                     </button>
@@ -1133,10 +1271,10 @@ export default function AdminPage() {
                             <div className="flex items-center gap-2">
                                {p.images && p.images[0] && (
                                   <div className="w-8 h-8 bg-slate-100 rounded overflow-hidden flex-shrink-0">
-                                     {isVideoSource(p.images[0]) ? <video src={p.images[0]} className="w-full h-full object-cover" /> : <img src={p.images[0]} className="w-full h-full object-cover" />}
+                                     {isVideoSource(p.images[0]) ? <video src={p.images[0]} className="w-full h-full object-cover" /> : <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />}
                                   </div>
                                )}
-                               {p.title}
+                               <span className="truncate">{p.title}</span>
                             </div>
                           </td>
                           <td className="p-3 text-slate-500">{p.category}</td>
@@ -1153,13 +1291,13 @@ export default function AdminPage() {
                           <td className="p-3 text-right space-x-1 whitespace-nowrap">
                             <button
                               onClick={() => handleEditProduct(p)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteProduct(p.id)}
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1180,16 +1318,16 @@ export default function AdminPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-black text-slate-900">Rendimiento del Programa de Afiliados</h2>
-              <p className="text-xs text-slate-500">Revisa ventas por embajador y montos de comisiones disponibles tras entrega.</p>
+              <p className="text-xs text-slate-500">Revisa ventas por embajador y montos de comisiones reales disponibles tras entrega.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Afiliados Activos</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">Afiliados con Ventas</p>
                 <p className="text-3xl font-black text-slate-900 mt-2">{affiliateStats.length}</p>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Ventas por Afiliados</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">Ventas Entregadas por Afiliados</p>
                 <p className="text-3xl font-black text-orange-500 mt-2">
                   ${affiliateStats.reduce((s, a) => s + a.totalVendido, 0).toFixed(2)}
                 </p>
@@ -1231,7 +1369,7 @@ export default function AdminPage() {
                         <td className="p-4 font-black text-emerald-600">${af.comisionAcumulada.toFixed(2)}</td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => notify(`Liquidación para ${af.codigo} procesada con éxito.`)}
+                            onClick={() => notify(`Liquidación para ${af.codigo} registrada con éxito.`)}
                             className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
                           >
                             Marcar Pagado
@@ -1246,7 +1384,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* --- MÓDULO 4: MARKETING, BANNERS Y PÍXELES (NUEVO GESTOR VISUAL) --- */}
+        {/* --- MÓDULO 4: MARKETING, BANNERS Y PÍXELES --- */}
         {activeTab === 'publicidad' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
@@ -1257,18 +1395,19 @@ export default function AdminPage() {
                 <h3 className="text-lg font-black text-slate-900">Banners Principales (Hero)</h3>
               </div>
               <form onSubmit={handleSaveHero} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título Grande</label><input type="text" required value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
-                <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><label className="block font-bold uppercase mb-1">Etiqueta (Badge)</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="Ej. PRODUCTO ESTRELLA" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Enlace del Botón</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional si usas banner con texto)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div><label className="block font-bold uppercase mb-1">Etiqueta</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="OFERTA" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Texto Botón</label><input type="text" value={heroForm.btnText} onChange={e => setHeroForm({...heroForm, btnText: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Comprar Ahora" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace Botón</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
                   <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingHeroId ? 'Actualizar Banner Hero' : 'Agregar Banner Hero'}
+                  {editingHeroId ? 'Actualizar Banner Hero en Nube' : 'Agregar Banner Hero'}
                 </button>
               </form>
               <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
@@ -1279,15 +1418,15 @@ export default function AdminPage() {
                          {s.desktopImg ? <img src={s.desktopImg} alt="Hero" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-black text-slate-800 text-[11px]">{s.title || s.badge || 'Banner (Sin título)'}</span>
+                        <span className="font-black text-slate-800 text-[11px]">{s.title || s.badge || 'Banner Hero'}</span>
                         <span className="text-[9px] text-slate-500 max-w-[150px] truncate">{s.subtitle || s.btnLink}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingHeroId(s.id); setHeroForm({ title: s.title || '', subtitle: s.subtitle || '', badge: s.badge || '', btnLink: s.btnLink || '/catalogo', desktopImg: s.desktopImg || '', mobileImg: s.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar Banner">
+                      <button type="button" onClick={() => { setEditingHeroId(s.id); setHeroForm({ title: s.title || '', subtitle: s.subtitle || '', badge: s.badge || '', btnText: s.btnText || 'Comprar Ahora', btnLink: s.btnLink || '/catalogo', desktopImg: s.desktopImg || '', mobileImg: s.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer" title="Editar Banner">
                         <Pencil className="w-4 h-4"/>
                       </button>
-                      <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); localStorage.setItem('store_hero_slides', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar Banner">
+                      <button type="button" onClick={async () => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); await syncStoreKey('store_hero_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" title="Eliminar Banner">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
@@ -1303,19 +1442,19 @@ export default function AdminPage() {
                 <h3 className="text-lg font-black text-slate-900">Promociones y Combos</h3>
               </div>
               <form onSubmit={handleSaveOffer} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título de la Oferta</label><input type="text" required value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
-                <div><label className="block font-bold uppercase mb-1">Descripción corta</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título de la Oferta</label><input type="text" required value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Descripción corta</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><label className="block font-bold uppercase mb-1">Tag Superior</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="Ej. COMBO AHORRO" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Descuento/Aviso</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="Ej. 30% OFF" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Tag Superior</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. COMBO AHORRO" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Descuento/Aviso</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. 30% OFF" /></div>
                 </div>
-                <div><label className="block font-bold uppercase mb-1">Enlace del Producto</label><input type="text" value={offerForm.link} onChange={e => setOfferForm({...offerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl" /></div>
+                <div><label className="block font-bold uppercase mb-1">Enlace del Producto</label><input type="text" value={offerForm.link} onChange={e => setOfferForm({...offerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, desktopImg: url}))} /></div>
                   <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingOfferId ? 'Actualizar Oferta' : 'Agregar Oferta'}
+                  {editingOfferId ? 'Actualizar Oferta en Nube' : 'Agregar Oferta'}
                 </button>
               </form>
               <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
@@ -1326,15 +1465,15 @@ export default function AdminPage() {
                          {o.desktopImg ? <img src={o.desktopImg} alt="Oferta" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-black text-slate-800 text-[11px]">{o.title || 'Oferta (Sin título)'}</span>
-                        <span className="text-[9px] text-orange-600 font-bold">{o.discount || 'Sin descuento'}</span>
+                        <span className="font-black text-slate-800 text-[11px]">{o.title || 'Oferta'}</span>
+                        <span className="text-[9px] text-orange-600 font-bold">{o.discount || 'Promoción'}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingOfferId(o.id); setOfferForm({ tag: o.tag || '', title: o.title || '', desc: o.desc || '', discount: o.discount || '', link: o.link || '/catalogo', gradient: o.gradient || 'from-slate-900 via-slate-800 to-orange-950', desktopImg: o.desktopImg || '', mobileImg: o.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar Oferta">
+                      <button type="button" onClick={() => { setEditingOfferId(o.id); setOfferForm({ tag: o.tag || '', title: o.title || '', desc: o.desc || '', discount: o.discount || '', link: o.link || '/catalogo', gradient: o.gradient || 'from-slate-900 via-slate-800 to-orange-950', desktopImg: o.desktopImg || '', mobileImg: o.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer" title="Editar Oferta">
                         <Pencil className="w-4 h-4"/>
                       </button>
-                      <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar esta oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); localStorage.setItem('store_offers', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar Oferta">
+                      <button type="button" onClick={async () => { if(confirm('¿Seguro que deseas eliminar esta oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); await syncStoreKey('store_offers', u); notify('Oferta eliminada'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" title="Eliminar Oferta">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
@@ -1343,7 +1482,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Editor de Banners de Catálogo (Tipo Carrusel Avanzado) */}
+            {/* Editor de Banners de Catálogo */}
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-orange-500" />
@@ -1363,14 +1502,14 @@ export default function AdminPage() {
                       <option value="Productos Virales">Productos Virales</option>
                     </select>
                   </div>
-                  <div><label className="block font-bold uppercase mb-1">Enlace al hacer clic</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="/catalogo" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace al hacer clic</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="/catalogo" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
                   <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingCatBannerId ? 'Actualizar Banner de Catálogo' : 'Agregar Banner de Catálogo'}
+                  {editingCatBannerId ? 'Actualizar Banner de Catálogo en Nube' : 'Agregar Banner de Catálogo'}
                 </button>
               </form>
               <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
@@ -1386,10 +1525,10 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar">
+                      <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer" title="Editar">
                         <Pencil className="w-4 h-4"/>
                       </button>
-                      <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); localStorage.setItem('store_cat_slides', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar">
+                      <button type="button" onClick={async () => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); await syncStoreKey('store_cat_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" title="Eliminar">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
@@ -1402,9 +1541,19 @@ export default function AdminPage() {
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <h3 className="text-lg font-black text-slate-900">Píxeles y Gasto Publicitario</h3>
               <div className="flex flex-col md:flex-row gap-4 text-xs">
-                <input type="text" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} placeholder="Meta Pixel ID..." className="flex-1 px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
-                <input type="number" value={adSpendInput} onChange={e => { setAdSpendInput(Number(e.target.value)); localStorage.setItem('store_ad_spend', e.target.value); }} placeholder="Inversión Mensual Ads ($)..." className="w-full md:w-64 px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
-                <button onClick={() => notify('Configuración de Ads y Pixel guardada con éxito')} className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl cursor-pointer">Guardar</button>
+                <div className="flex-1">
+                  <label className="block font-bold uppercase text-slate-500 mb-1">Meta Pixel ID</label>
+                  <input type="text" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} placeholder="Ej: 123456789012345" className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
+                </div>
+                <div className="w-full md:w-64">
+                  <label className="block font-bold uppercase text-slate-500 mb-1">Inversión Mensual Ads ($)</label>
+                  <input type="number" value={adSpendInput} onChange={e => setAdSpendInput(Number(e.target.value))} placeholder="0" className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
+                </div>
+                <div className="flex items-end">
+                  <button onClick={handleSaveMarketingConfig} className="w-full md:w-auto px-8 py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                    Guardar en Nube
+                  </button>
+                </div>
               </div>
             </div>
           </div>

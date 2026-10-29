@@ -7,7 +7,8 @@ import { useSearchParams, usePathname } from 'next/navigation';
 import { Menu, Search, ShoppingCart, X, Home, Cpu, Utensils, Car, Sparkles, Flame, CircleDollarSign, Truck } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { siteConfig } from '@/config/site';
-import { products } from '@/data/products';
+import { productService } from '@/services/productService';
+import { products as defaultProducts, Product } from '@/data/products';
 import AuthModal from './AuthModal';
 
 function HeaderContent() {
@@ -16,6 +17,7 @@ function HeaderContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -23,6 +25,14 @@ function HeaderContent() {
   const cartItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   const showSearch = pathname === '/' || pathname === '/catalogo';
+
+  useEffect(() => {
+    productService.getProducts().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveProducts(data);
+      }
+    });
+  }, [pathname]);
 
   useEffect(() => {
     if (searchParams?.get('auth') === 'register') {
@@ -57,7 +67,11 @@ function HeaderContent() {
 
   const filteredProducts = searchQuery.trim() === ''
     ? []
-    : products.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    : liveProducts.filter(
+        (p) =>
+          p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.category?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
   if (pathname?.startsWith('/admin')) {
     return null;
@@ -125,7 +139,7 @@ function HeaderContent() {
                     className="w-full bg-transparent outline-none text-sm text-slate-800 placeholder-gray-400 font-medium"
                   />
                   {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-slate-600">
+                    <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-slate-600 cursor-pointer">
                       <X className="w-4 h-4" />
                     </button>
                   )}
@@ -202,7 +216,7 @@ function HeaderContent() {
                 className="w-full bg-transparent outline-none text-xs text-slate-800 placeholder-gray-400 font-medium"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-gray-400">
+                <button onClick={() => setSearchQuery('')} className="text-gray-400 cursor-pointer">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -238,7 +252,7 @@ function HeaderContent() {
           <div className="bg-white/98 backdrop-blur-xl border-b border-gray-200 shadow-2xl p-6 md:px-12 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between border-b pb-3">
               <span className="text-xs font-black uppercase text-orange-500 tracking-wider">Categorías Multiproductos</span>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-slate-700">
+              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-slate-700 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -277,7 +291,7 @@ function HeaderContent() {
               </Link>
               <button
                 onClick={() => { setIsMobileMenuOpen(false); setIsAuthOpen(true); }}
-                className="text-sm font-bold text-slate-600 hover:text-slate-900"
+                className="text-sm font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
               >
                 👤 Mi Cuenta / Registrarse
               </button>

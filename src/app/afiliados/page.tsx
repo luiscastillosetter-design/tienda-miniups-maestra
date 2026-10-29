@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import Link from 'next/link';
 import { siteConfig } from '@/config/site';
-import { products } from '@/data/products';
+import { productService } from '@/services/productService';
+import { products as defaultProducts, Product } from '@/data/products';
 import { 
-  DollarSign, CheckCircle2, MessageCircle, BarChart3, 
-  Link as LinkIcon, Download, Copy, PlaySquare, ArrowRight, User, Wallet
+  CheckCircle2, MessageCircle, BarChart3, 
+  Link as LinkIcon, Download, Copy, User, Wallet
 } from 'lucide-react';
 
 type AffiliateUser = {
@@ -16,16 +16,20 @@ type AffiliateUser = {
   joinedAt: string;
 };
 
+const DEFAULT_BASE_URL = 'https://tienda-miniups-maestra.vercel.app';
+
 export default function AfiliadosPage() {
   const [user, setUser] = useState<AffiliateUser | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'biblioteca' | 'ia'>('dashboard');
   const [isLoaded, setIsLoaded] = useState(false);
+  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
+  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
 
   // Estados del Formulario
   const [formData, setFormData] = useState({ nombre: '', email: '', codigo: '' });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // Estados de Métricas (Leídas del localStorage ERP)
+  // Estados de Métricas (Leídas de Redis + LocalStorage)
   const [metrics, setMetrics] = useState({ ventasPendientes: 0, ventasConfirmadas: 0, comisionesDisponibles: 0 });
 
   // Estados UI
@@ -36,46 +40,93 @@ export default function AfiliadosPage() {
   ]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('todomax_affiliate_user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      calcularMetricas(parsedUser.codigo);
+    if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) {
+      setBaseUrl(window.location.origin);
     }
-    setIsLoaded(true);
+
+    const init = async () => {
+      const prods = await productService.getProducts();
+      if (Array.isArray(prods) && prods.length > 0) {
+        setLiveProducts(prods);
+      }
+
+      const storedUser = localStorage.getItem('todomax_affiliate_user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          await calcularMetricas(parsedUser.codigo, prods);
+        } catch (e) {}
+      }
+      setIsLoaded(true);
+    };
+
+    init();
   }, []);
 
-  const calcularMetricas = (codigo: string) => {
-    const ordersStr = localStorage.getItem('store_orders');
-    if (ordersStr) {
-      const orders = JSON.parse(ordersStr);
-      let pendientes = 0;
-      let confirmadas = 0;
-      let comisiones = 0;
+  const calcularMetricas = async (codigo: string, catalogProducts: Product[]) => {
+    let orders: any[] = [];
 
-      orders.forEach((order: any) => {
-        if (order.attribution?.affiliateCode === codigo) {
-          if (order.status === 'Pendiente de verificación') {
-            pendientes++;
-          } else if (order.status === 'Entregado' || order.status === 'Completado') {
-            confirmadas++;
-            // Calculamos comisión (Ej. 10% base o lectura de la DB si se guardó)
-            comisiones += (order.financials.total * 0.10); 
+    try {
+      const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          orders = json.data;
+          localStorage.setItem('store_orders', JSON.stringify(orders));
+        }
+      }
+    } catch (e) {}
+
+    if (orders.length === 0) {
+      const ordersStr = localStorage.getItem('store_orders');
+      if (ordersStr) {
+        try {
+          orders = JSON.parse(ordersStr);
+        } catch (e) {}
+      }
+    }
+
+    let pendientes = 0;
+    let confirmadas = 0;
+    let comisiones = 0;
+
+    orders.forEach((order: any) => {
+      if (order.attribution?.affiliateCode === codigo) {
+        if (order.status !== 'Cancelado' && order.status !== 'Entregado' && order.status !== 'Completado') {
+          pendientes++;
+        } else if (order.status === 'Entregado' || order.status === 'Completado') {
+          confirmadas++;
+          if (order.financials?.commission !== undefined) {
+            comisiones += Number(order.financials.commission);
+          } else if (Array.isArray(order.items)) {
+            order.items.forEach((item: any) => {
+              const prod = catalogProducts.find(p => String(p.id) === String(item.id));
+              const pct = prod ? Number(prod.affiliateCommission || 10) : 10;
+              comisiones += (item.price * item.quantity * (pct / 100));
+            });
+          } else {
+            comisiones += (order.financials.total * 0.10);
           }
         }
-      });
-      setMetrics({ ventasPendientes: pendientes, ventasConfirmadas: confirmadas, comisionesDisponibles: comisiones });
-    }
+      }
+    });
+
+    setMetrics({
+      ventasPendientes: pendientes,
+      ventasConfirmadas: confirmadas,
+      comisionesDisponibles: comisiones,
+    });
   };
 
-  const handleRegister = (e: FormEvent) => {
+  const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
     if (!acceptedTerms) {
-      alert("Debes aceptar las condiciones comerciales para continuar.");
+      alert('Debes aceptar las condiciones comerciales para continuar.');
       return;
     }
     const cleanCode = formData.codigo.toUpperCase().replace(/\s+/g, '');
-    const newUser = {
+    const newUser: AffiliateUser = {
       nombre: formData.nombre,
       email: formData.email,
       codigo: cleanCode,
@@ -83,12 +134,38 @@ export default function AfiliadosPage() {
     };
     localStorage.setItem('todomax_affiliate_user', JSON.stringify(newUser));
     setUser(newUser);
+
+    // Registrar afiliado en la nube para seguimiento
+    try {
+      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      let currentAffiliates: AffiliateUser[] = [];
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) currentAffiliates = json.data;
+      }
+      const updated = [newUser, ...currentAffiliates.filter(a => a.codigo !== cleanCode)];
+      await fetch('/api/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'store_affiliates', value: updated }),
+      });
+    } catch (e) {}
+
+    await calcularMetricas(cleanCode, liveProducts);
   };
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     setCopiedLink(type);
     setTimeout(() => setCopiedLink(''), 2000);
+  };
+
+  const buildAdText = (product: Product, affiliateUrl: string) => {
+    const rawCopy = product.adCopy || `¡Compra ${product.title} hoy mismo con garantía y envío rápido!`;
+    if (rawCopy.includes('[ENLACE]')) {
+      return rawCopy.replace('[ENLACE]', affiliateUrl);
+    }
+    return `${rawCopy}\n\nCómpralo aquí: ${affiliateUrl}`;
   };
 
   const handleChatSubmit = (e: FormEvent) => {
@@ -101,19 +178,27 @@ export default function AfiliadosPage() {
     setChatInput('');
 
     setTimeout(() => {
-      let responseText = "No encontré un producto exacto con ese nombre. ¿Puedes intentar con palabras como 'Aspiradora', 'Freidora', 'UPS' o 'Proyector'?";
+      let responseText = "No encontré un producto exacto con ese nombre. ¿Puedes intentar con palabras como 'Aspiradora', 'Freidora', 'UPS', 'Cepillo' o 'Proyector'?";
       
-      const foundProduct = products.find(p => query.includes(p.title.split(' ')[0].toLowerCase()) || query.includes(p.category.toLowerCase()));
+      const foundProduct = liveProducts.find(
+        p =>
+          p.title.toLowerCase().includes(query) ||
+          query.includes(p.title.split(' ')[0].toLowerCase()) ||
+          query.includes(p.category.toLowerCase())
+      );
       
       if (foundProduct) {
+        const prodLink = `${baseUrl}/product/${foundProduct.id}?ref=${user?.codigo}`;
+        const copyReady = buildAdText(foundProduct, prodLink);
         responseText = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
-          `📸 *Material Visual:* Accede desde la pestaña 'Biblioteca'.\n` +
-          `📝 *Texto sugerido:* ${foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis!'}\n\n` +
-          `🔗 *Tu Enlace:* https://todomax.com/product/${foundProduct.id}?ref=${user?.codigo}`;
+          `💰 *Tu Comisión:* ${foundProduct.affiliateCommission}% (${siteConfig.currencySymbol}${(foundProduct.price * (foundProduct.affiliateCommission / 100)).toFixed(2)} por venta)\n` +
+          `📸 *Material Visual:* Descárgalo en la pestaña 'Biblioteca de Anuncios'.\n\n` +
+          `📝 *Texto listo para publicar:*\n${copyReady}\n\n` +
+          `🔗 *Tu Enlace Directo:* ${prodLink}`;
       }
 
       setChatMessages([...newMsgs, { role: 'ia', text: responseText }]);
-    }, 1000);
+    }, 600);
   };
 
   if (!isLoaded) return <div className="min-h-screen bg-slate-50 pt-32 flex items-center justify-center font-bold">Cargando...</div>;
@@ -123,7 +208,7 @@ export default function AfiliadosPage() {
   // ==========================================
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 pt-24 md:pt-32 pb-20">
+      <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-20">
         <div className="w-full px-4 md:px-12 lg:px-16 flex flex-col lg:flex-row items-center gap-12 max-w-7xl mx-auto">
           
           <div className="flex-1 space-y-6">
@@ -134,7 +219,7 @@ export default function AfiliadosPage() {
               Gana Dinero Vendiendo <span className="text-orange-500">Sin Inventario</span>
             </h1>
             <p className="text-sm md:text-base text-slate-600 font-medium leading-relaxed max-w-xl">
-              Únete al equipo comercial de TodoMax. Te damos los videos, las imágenes y tu enlace personalizado. Tú solo publicas; nosotros cobramos, despachamos y te pagamos tu comisión.
+              Únete al equipo comercial de {siteConfig.storeName}. Te damos los videos, las imágenes y tu enlace personalizado. Tú solo publicas; nosotros cobramos, despachamos y te pagamos tu comisión.
             </p>
             
             <div className="space-y-4 pt-4">
@@ -144,11 +229,11 @@ export default function AfiliadosPage() {
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black">2</div>
-                <p className="text-sm font-bold text-slate-800">Descarga los videos de nuestros productos.</p>
+                <p className="text-sm font-bold text-slate-800">Descarga las fotos y videos de nuestros productos.</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-black">3</div>
-                <p className="text-sm font-bold text-slate-800">Cobra comisiones por cada compra exitosa.</p>
+                <p className="text-sm font-bold text-slate-800">Cobra comisiones por cada compra entregada.</p>
               </div>
             </div>
           </div>
@@ -166,13 +251,13 @@ export default function AfiliadosPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Crea tu Código de Afiliado</label>
-                <input type="text" required value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black uppercase focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="EJ: CARLOS2024" />
-                <p className="text-[10px] text-gray-400 mt-1">Este será el código que compartirás (ej. ?ref=CARLOS2024).</p>
+                <input type="text" required value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black uppercase focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="EJ: CARLOS2026" />
+                <p className="text-[10px] text-gray-400 mt-1">Este será el código que compartirás (ej. ?ref=CARLOS2026).</p>
               </div>
               <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
                 <input type="checkbox" id="terms" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-1" />
                 <label htmlFor="terms" className="text-[10px] text-slate-700 font-medium leading-tight cursor-pointer">
-                  Acepto que TodoMax se encarga del cobro y despacho al cliente final. Mis comisiones se liberarán únicamente cuando el pedido marque estado "Entregado".
+                  Acepto que {siteConfig.storeName} se encarga del cobro y despacho al cliente final. Mis comisiones se liberarán únicamente cuando el pedido marque estado &quot;Entregado&quot;.
                 </label>
               </div>
               <button type="submit" className="w-full bg-slate-900 hover:bg-orange-500 text-white font-black py-4 rounded-xl transition-colors cursor-pointer active:scale-95 shadow-md">
@@ -186,11 +271,13 @@ export default function AfiliadosPage() {
     );
   }
 
+  const universalLink = `${baseUrl}/?ref=${user.codigo}`;
+
   // ==========================================
   // VISTA 2: PANEL PRIVADO DEL AFILIADO
   // ==========================================
   return (
-    <div className="min-h-screen bg-slate-50 pt-24 md:pt-32 pb-20">
+    <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-20">
       <div className="w-full px-4 md:px-12 lg:px-16 max-w-7xl mx-auto space-y-8">
         
         {/* Header del Panel */}
@@ -207,7 +294,7 @@ export default function AfiliadosPage() {
           </div>
           <button 
             onClick={() => { localStorage.removeItem('todomax_affiliate_user'); setUser(null); }}
-            className="text-xs font-bold text-slate-400 hover:text-white transition-colors"
+            className="text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             Cerrar Sesión
           </button>
@@ -215,13 +302,13 @@ export default function AfiliadosPage() {
 
         {/* Navegación Interna */}
         <div className="flex overflow-x-auto gap-2 border-b border-gray-200 pb-px scrollbar-hide">
-          <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${activeTab === 'dashboard' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+          <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'dashboard' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             <BarChart3 className="w-4 h-4 inline-block mr-2" /> Resumen y Ganancias
           </button>
-          <button onClick={() => setActiveTab('biblioteca')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${activeTab === 'biblioteca' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+          <button onClick={() => setActiveTab('biblioteca')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'biblioteca' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             <Download className="w-4 h-4 inline-block mr-2" /> Biblioteca de Anuncios
           </button>
-          <button onClick={() => setActiveTab('ia')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${activeTab === 'ia' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+          <button onClick={() => setActiveTab('ia')} className={`px-6 py-3 font-bold text-sm border-b-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'ia' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             <MessageCircle className="w-4 h-4 inline-block mr-2" /> Asistente IA (Sofía)
           </button>
         </div>
@@ -233,15 +320,15 @@ export default function AfiliadosPage() {
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-black text-slate-900">Tu Enlace Universal de Tienda</h3>
-                <p className="text-xs text-slate-500 mt-1">Cualquier persona que entre con este link y compre, generará comisión para ti.</p>
+                <p className="text-xs text-slate-500 mt-1">Cualquier persona que entre con este link y compre, generará comisión para ti durante 30 días.</p>
               </div>
               <div className="flex items-center w-full md:w-auto bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
-                <span className="px-4 text-xs font-bold text-slate-600 truncate max-w-[200px] md:max-w-xs">
-                  https://todomax.com/?ref={user.codigo}
+                <span className="px-4 text-xs font-bold text-slate-600 truncate max-w-[220px] md:max-w-sm">
+                  {universalLink}
                 </span>
                 <button 
-                  onClick={() => copyToClipboard(`https://todomax.com/?ref=${user.codigo}`, 'general')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-xs font-black transition-colors flex items-center gap-1.5"
+                  onClick={() => copyToClipboard(universalLink, 'general')}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-xs font-black transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   {copiedLink === 'general' ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   {copiedLink === 'general' ? 'Copiado' : 'Copiar'}
@@ -254,19 +341,19 @@ export default function AfiliadosPage() {
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 text-slate-500 mb-4">
                   <div className="p-2 bg-blue-50 text-blue-500 rounded-lg"><User className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider">Ventas Pendientes</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Ventas en Proceso</span>
                 </div>
                 <div className="text-3xl font-black text-slate-900">{metrics.ventasPendientes}</div>
-                <p className="text-[10px] text-slate-400 mt-2">En proceso de verificación y envío</p>
+                <p className="text-[10px] text-slate-400 mt-2">En verificación o tránsito de envío</p>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 text-slate-500 mb-4">
                   <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg"><CheckCircle2 className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider">Ventas Confirmadas</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Ventas Entregadas</span>
                 </div>
                 <div className="text-3xl font-black text-slate-900">{metrics.ventasConfirmadas}</div>
-                <p className="text-[10px] text-slate-400 mt-2">Entregadas exitosamente</p>
+                <p className="text-[10px] text-slate-400 mt-2">Confirmadas y completadas</p>
               </div>
 
               <div className="bg-gradient-to-br from-orange-500 to-amber-500 p-6 rounded-3xl shadow-md text-white flex flex-col justify-between hover:shadow-lg transition-shadow hover:-translate-y-1">
@@ -285,54 +372,62 @@ export default function AfiliadosPage() {
         {activeTab === 'biblioteca' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-slate-900">Kits de Venta por Producto</h2>
+              <h2 className="text-xl font-black text-slate-900">Kits de Venta por Producto ({liveProducts.length})</h2>
               <p className="text-xs text-slate-500">Descarga, copia y publica en tus redes.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden flex flex-col">
-                  <div className="aspect-video bg-slate-50 relative p-4 flex items-center justify-center border-b border-gray-100">
-                    <img src={product.images[0]} alt={product.title} className="h-full object-contain mix-blend-multiply" />
-                    <span className="absolute top-3 left-3 bg-orange-50 text-orange-600 text-[10px] font-black px-2 py-0.5 rounded uppercase">{product.category}</span>
-                  </div>
-                  <div className="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 line-clamp-2">{product.title}</h3>
-                      <p className="text-xs text-emerald-600 font-bold mt-1">Comisión aprox: {siteConfig.currencySymbol}{(product.price * (product.affiliateCommission / 100)).toFixed(2)}</p>
-                    </div>
-                    
-                    <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                      {/* Enlace Específico */}
-                      <button 
-                        onClick={() => copyToClipboard(`https://todomax.com/product/${product.id}?ref=${user.codigo}`, `link-${product.id}`)}
-                        className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors"
-                      >
-                        {copiedLink === `link-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <LinkIcon className="w-4 h-4" />}
-                        {copiedLink === `link-${product.id}` ? 'Enlace Copiado' : 'Copiar Tu Enlace'}
-                      </button>
+              {liveProducts.map((product) => {
+                const productRefUrl = `${baseUrl}/product/${product.id}?ref=${user.codigo}`;
+                const fullAdCopy = buildAdText(product, productRefUrl);
+                const commAmount = (product.price * ((product.affiliateCommission || 10) / 100)).toFixed(2);
 
-                      {/* Texto Publicitario */}
-                      <button 
-                        onClick={() => copyToClipboard(`${product.adCopy}\n\nCómpralo aquí: https://todomax.com/product/${product.id}?ref=${user.codigo}`, `copy-${product.id}`)}
-                        className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors"
-                      >
-                        {copiedLink === `copy-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                        {copiedLink === `copy-${product.id}` ? 'Texto Copiado' : 'Copiar Texto para Redes'}
-                      </button>
+                return (
+                  <div key={product.id} className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden flex flex-col">
+                    <div className="aspect-video bg-slate-50 relative p-4 flex items-center justify-center border-b border-gray-100">
+                      <img src={product.images[0]} alt={product.title} className="h-full object-contain mix-blend-multiply" />
+                      <span className="absolute top-3 left-3 bg-orange-50 text-orange-600 text-[10px] font-black px-2 py-0.5 rounded uppercase">{product.category}</span>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 line-clamp-2">{product.title}</h3>
+                        <p className="text-xs text-emerald-600 font-bold mt-1">
+                          Ganas {product.affiliateCommission || 10}% por venta: {siteConfig.currencySymbol}{commAmount}
+                        </p>
+                      </div>
+                      
+                      <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                        {/* Enlace Específico */}
+                        <button 
+                          onClick={() => copyToClipboard(productRefUrl, `link-${product.id}`)}
+                          className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          {copiedLink === `link-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <LinkIcon className="w-4 h-4" />}
+                          {copiedLink === `link-${product.id}` ? 'Enlace Copiado' : 'Copiar Tu Enlace'}
+                        </button>
 
-                      {/* Descargar Video/Foto */}
-                      <a 
-                        href={product.images[0]} 
-                        download
-                        className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors"
-                      >
-                        <Download className="w-4 h-4" /> Descargar Material (Foto/Video)
-                      </a>
+                        {/* Texto Publicitario */}
+                        <button 
+                          onClick={() => copyToClipboard(fullAdCopy, `copy-${product.id}`)}
+                          className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          {copiedLink === `copy-${product.id}` ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                          {copiedLink === `copy-${product.id}` ? 'Texto Copiado' : 'Copiar Texto para Redes'}
+                        </button>
+
+                        {/* Descargar Video/Foto */}
+                        <a 
+                          href={product.images[0]} 
+                          download={`${product.id}-todomax`}
+                          className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <Download className="w-4 h-4" /> Descargar Material (Foto/Video)
+                        </a>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -349,8 +444,8 @@ export default function AfiliadosPage() {
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
               </div>
               <div>
-                <h3 className="text-white font-black text-sm">Sofía (IA TodoMax)</h3>
-                <p className="text-emerald-400 text-[10px] font-bold">En línea</p>
+                <h3 className="text-white font-black text-sm">Sofía (IA {siteConfig.storeName})</h3>
+                <p className="text-emerald-400 text-[10px] font-bold">En línea • Sincronizada con el catálogo actual</p>
               </div>
             </div>
 
@@ -379,7 +474,7 @@ export default function AfiliadosPage() {
                   placeholder="Ej: Quiero vender la Freidora de Aire..."
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors"
                 />
-                <button type="submit" className="bg-slate-900 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-sm">
+                <button type="submit" className="bg-slate-900 hover:bg-orange-500 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-sm cursor-pointer">
                   Enviar
                 </button>
               </form>

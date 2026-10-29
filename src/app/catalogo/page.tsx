@@ -7,7 +7,7 @@ import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { ShoppingBag } from 'lucide-react';
+import { Truck, ShieldCheck, Sparkles } from 'lucide-react';
 
 const availableCategories = [
   'Todos',
@@ -27,13 +27,37 @@ function CatalogoContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('Todos');
+  const [catSlides, setCatSlides] = useState<any[]>([]);
+  const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
 
   useEffect(() => {
-    const loadProducts = async () => {
+    const loadData = async () => {
       const data = await productService.getProducts();
       setProducts(data);
+
+      // Cargar banners de catálogo desde localStorage y nube
+      if (typeof window !== 'undefined') {
+        const localSlides = localStorage.getItem('store_cat_slides');
+        if (localSlides) {
+          try {
+            const parsed = JSON.parse(localSlides);
+            if (Array.isArray(parsed)) setCatSlides(parsed);
+          } catch (e) {}
+        }
+      }
+
+      try {
+        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setCatSlides(json.data);
+            localStorage.setItem('store_cat_slides', JSON.stringify(json.data));
+          }
+        }
+      } catch (e) {}
     };
-    loadProducts();
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -51,6 +75,22 @@ function CatalogoContent() {
       }
     }
   }, [searchParams, products]);
+
+  // Filtrar slides para la categoría activa
+  const activeCategorySlides = (() => {
+    const byCat = catSlides.filter((s: any) => s.category === activeCategory);
+    if (byCat.length > 0) return byCat;
+    return catSlides.filter((s: any) => s.category === 'Todos');
+  })();
+
+  useEffect(() => {
+    setCurrentSlideIdx(0);
+    if (activeCategorySlides.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlideIdx((prev) => (prev + 1) % activeCategorySlides.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [activeCategory, activeCategorySlides.length]);
 
   const handleCategorySelect = (cat: string) => {
     if (cat === 'Todos') {
@@ -75,7 +115,6 @@ function CatalogoContent() {
   };
 
   return (
-    // Ajuste clave de padding-top para que no choque con el Header
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
         
@@ -110,51 +149,46 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {/* BANNERS DE CATEGORÍAS TIPO CARRUSEL (Conectado al Admin en Vivo) */}
-        <div key={activeCategory} className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-100 aspect-[3/1] md:aspect-[6/1] relative border border-gray-200/80 group">
-          <div 
-            ref={(el) => {
-              if (el && typeof window !== 'undefined') {
-                const rawSlides = JSON.parse(localStorage.getItem('store_cat_slides') || '[]');
-                // Mostrar solo los de la categoría activa (o los de "Todos" si no hay específicos)
-                let categorySlides = rawSlides.filter((s: any) => s.category === activeCategory);
-                if (categorySlides.length === 0) categorySlides = rawSlides.filter((s: any) => s.category === 'Todos');
-                
-                if (categorySlides.length === 0) {
-                  el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-slate-100"><span class="text-slate-400 font-bold text-sm text-center px-4">Añade banners de catálogo desde el Panel Administrador</span></div>`;
-                  return;
-                }
-
-                const isMobile = window.innerWidth < 768;
-                let html = '';
-                categorySlides.forEach((s: any, i: number) => {
-                  const img = (isMobile && s.mobileImg) ? s.mobileImg : (s.desktopImg || s.mobileImg);
-                  html += `<a href="${s.link || '#'}" class="absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out slide-item" style="opacity: ${i === 0 ? 1 : 0}; z-index: ${i === 0 ? 10 : 0};"><img src="${img}" class="w-full h-full object-cover" alt="Banner" /></a>`;
-                });
-                el.innerHTML = html;
-
-                if (categorySlides.length > 1) {
-                  let currentIdx = 0;
-                  const items = el.querySelectorAll('.slide-item');
-                  if ((el as any)._slideInterval) clearInterval((el as any)._slideInterval);
-                  
-                  (el as any)._slideInterval = setInterval(() => {
-                    if(items[currentIdx]) {
-                      (items[currentIdx] as HTMLElement).style.opacity = '0';
-                      (items[currentIdx] as HTMLElement).style.zIndex = '0';
-                    }
-                    currentIdx = (currentIdx + 1) % categorySlides.length;
-                    if(items[currentIdx]) {
-                      (items[currentIdx] as HTMLElement).style.opacity = '1';
-                      (items[currentIdx] as HTMLElement).style.zIndex = '10';
-                    }
-                  }, 4000);
-                }
-              }
-            }}
-            className="w-full h-full relative"
-          />
-        </div>
+        {/* BANNERS DE CATEGORÍAS (Conectado al Admin en Vivo o Banner Corporativo Limpio por defecto) */}
+        {activeCategorySlides.length > 0 ? (
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-[3/1] md:aspect-[6/1] relative border border-gray-200/80 group">
+            {activeCategorySlides.map((slide: any, i: number) => {
+              const dImg = slide.desktopImg || slide.mobileImg;
+              const mImg = slide.mobileImg || slide.desktopImg;
+              const isVisible = i === currentSlideIdx;
+              return (
+                <Link
+                  key={slide.id || i}
+                  href={slide.link || '/catalogo'}
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
+                    isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                  }`}
+                >
+                  {dImg && <img src={dImg} alt="Banner Catálogo PC" className="hidden md:block w-full h-full object-cover" />}
+                  {mImg && <img src={mImg} alt="Banner Catálogo Móvil" className="block md:hidden w-full h-full object-cover" />}
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 md:px-12 md:py-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-orange-400 bg-white/10 px-3 py-1 rounded-full">
+                <Sparkles className="w-3.5 h-3.5" /> Departamento: {activeCategory}
+              </span>
+              <h2 className="text-xl md:text-2xl font-black">
+                Envío Gratis en compras desde {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold}
+              </h2>
+              <p className="text-xs text-slate-300 font-medium">
+                Despachos rápidos por {siteConfig.shipping.companies.slice(0, 3).join(', ')} con garantía directa de importadora.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-xs font-bold bg-white/10 backdrop-blur-xs px-4 py-3 rounded-2xl border border-white/10">
+              <Truck className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <span>Stock verificado y entrega inmediata</span>
+            </div>
+          </div>
+        )}
 
         {/* Grilla de Productos */}
         {filteredProducts.length === 0 ? (
@@ -162,7 +196,7 @@ function CatalogoContent() {
             <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
             <button
               onClick={() => handleCategorySelect('Todos')}
-              className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs"
+              className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs cursor-pointer"
             >
               Ver Todos los Productos
             </button>

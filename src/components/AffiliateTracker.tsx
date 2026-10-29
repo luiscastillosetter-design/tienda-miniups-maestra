@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { siteConfig } from '@/config/site';
@@ -56,11 +56,28 @@ function TrackerLogic() {
 }
 
 export default function AffiliateTracker() {
-  const pixelId = siteConfig.metaPixelId;
+  const [pixelId, setPixelId] = useState<string>(siteConfig.metaPixelId || '');
+
+  useEffect(() => {
+    const localPixel = localStorage.getItem('todomax_meta_pixel');
+    if (localPixel && localPixel !== 'TU_PIXEL_ID_AQUI') {
+      setPixelId(localPixel);
+    }
+
+    fetch('/api/store?key=store_marketing_config')
+      .then(res => res.json())
+      .then(json => {
+        if (json?.data?.metaPixelId && json.data.metaPixelId !== 'TU_PIXEL_ID_AQUI') {
+          setPixelId(json.data.metaPixelId);
+          localStorage.setItem('todomax_meta_pixel', json.data.metaPixelId);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <>
-      {/* Script Base Oficial de Meta Pixel (si el ID está configurado) */}
+      {/* Script Base Oficial de Meta Pixel (si el ID está configurado en siteConfig o Admin) */}
       {pixelId && pixelId !== 'TU_PIXEL_ID_AQUI' && (
         <Script
           id="meta-pixel-init"

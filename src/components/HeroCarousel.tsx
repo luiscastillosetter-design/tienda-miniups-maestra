@@ -6,7 +6,7 @@ import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 
-const defaultSlides = [
+export const defaultHeroSlides = [
   {
     id: 1,
     badge: 'PRODUCTO ESTRELLA & COMBOS',
@@ -14,6 +14,8 @@ const defaultSlides = [
     subtitle: 'Tecnología, hogar, cocina, automóvil y belleza con garantía y envío gratis en compras mayores a $50.',
     btnText: 'Comprar Ahora',
     btnLink: '/catalogo',
+    desktopImg: '/hero/hero1catalogo.png',
+    mobileImg: '/hero/hero1catalogo-mobile.png',
     bgGradient: 'from-orange-600 via-orange-500 to-amber-500',
   },
   {
@@ -23,6 +25,8 @@ const defaultSlides = [
     subtitle: 'Promociona productos de alta rotación con videos profesionales preaprobados y cobra comisiones directas.',
     btnText: 'Quiero ser Afiliado',
     btnLink: '/afiliados',
+    desktopImg: '/hero/hero2afiliados.png',
+    mobileImg: '/hero/hero2afiliados-mobile.png',
     bgGradient: 'from-slate-950 via-slate-900 to-orange-950',
   },
   {
@@ -32,6 +36,8 @@ const defaultSlides = [
     subtitle: 'Recibe directo en tu puerta con entrega rápida y respaldo asegurado en cada orden.',
     btnText: 'Explorar Catálogo',
     btnLink: '/catalogo',
+    desktopImg: '/hero/hero3registro.png',
+    mobileImg: '/hero/hero3registro-mobile.png',
     bgGradient: 'from-emerald-800 via-teal-700 to-slate-900',
   },
 ];
@@ -40,6 +46,36 @@ export function HeroCarousel() {
   const autoplayOptions = { delay: 6500, stopOnInteraction: false };
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [slides, setSlides] = useState<any[]>(defaultHeroSlides);
+
+  useEffect(() => {
+    const loadSlides = async () => {
+      if (typeof window !== 'undefined') {
+        const local = localStorage.getItem('store_hero_slides');
+        if (local) {
+          try {
+            const parsed = JSON.parse(local);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setSlides(parsed);
+            }
+          } catch (e) {}
+        }
+      }
+
+      try {
+        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setSlides(json.data);
+            localStorage.setItem('store_hero_slides', JSON.stringify(json.data));
+          }
+        }
+      } catch (e) {}
+    };
+
+    loadSlides();
+  }, []);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -50,44 +86,82 @@ export function HeroCarousel() {
     <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
       <div ref={emblaRef} className="overflow-hidden w-full">
         <div className="flex w-full">
-          {defaultSlides.map((slide) => (
-            <div
-              key={slide.id}
-              className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient} flex flex-col justify-center items-start`}
-            >
-              <div className="max-w-3xl space-y-4 md:space-y-6 relative z-10">
-                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
-                  <ShieldCheck className="w-4 h-4 text-white" />
-                  {slide.badge}
-                </span>
+          {slides.map((slide) => {
+            const dImg = slide.desktopImg || '';
+            const mImg = slide.mobileImg || dImg;
+            const hasText = Boolean(slide.title || slide.subtitle || slide.badge);
 
-                <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
-                  {slide.title}
-                </h1>
+            return (
+              <div
+                key={slide.id}
+                className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient || 'from-slate-900 via-slate-800 to-orange-950'} flex flex-col justify-center items-start overflow-hidden group`}
+              >
+                {/* Imagen PC */}
+                {dImg && (
+                  <img
+                    src={dImg}
+                    alt={slide.title || 'Banner Principal'}
+                    className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                  />
+                )}
 
-                <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed">
-                  {slide.subtitle}
-                </p>
+                {/* Imagen Móvil */}
+                {mImg && (
+                  <img
+                    src={mImg}
+                    alt={slide.title || 'Banner Principal'}
+                    className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                  />
+                )}
 
-                <div className="pt-2">
-                  <Link
-                    href={slide.btnLink}
-                    className="inline-flex items-center gap-2.5 bg-white text-slate-900 hover:bg-orange-50 font-black px-7 py-4 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all text-xs md:text-sm active:scale-95 cursor-pointer group"
-                  >
-                    <ShoppingBag className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
-                    <span>{slide.btnText}</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Link>
+                {/* Velo oscuro para legibilidad si hay texto e imagen */}
+                {(dImg || mImg) && hasText && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/50 to-transparent z-0" />
+                )}
+
+                {/* Enlace global si el banner es solo imagen */}
+                <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
+
+                <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none">
+                  {slide.badge && (
+                    <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
+                      <ShieldCheck className="w-4 h-4 text-white" />
+                      {slide.badge}
+                    </span>
+                  )}
+
+                  {slide.title && (
+                    <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
+                      {slide.title}
+                    </h1>
+                  )}
+
+                  {slide.subtitle && (
+                    <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-xs">
+                      {slide.subtitle}
+                    </p>
+                  )}
+
+                  <div className="pt-2 pointer-events-auto">
+                    <Link
+                      href={slide.btnLink || '/catalogo'}
+                      className="inline-flex items-center gap-2.5 bg-white text-slate-900 hover:bg-orange-50 font-black px-7 py-4 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
+                    >
+                      <ShoppingBag className="w-4 h-4 text-orange-500 group-hover/btn:scale-110 transition-transform" />
+                      <span>{slide.btnText || 'Comprar Ahora'}</span>
+                      <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* Puntos de navegación */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-20">
-        {defaultSlides.map((_, i) => (
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
+        {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => emblaApi?.scrollTo(i)}

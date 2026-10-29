@@ -98,6 +98,7 @@ src/
     product/
       [id]/
         page.tsx
+      route.ts
     favicon.ico
     globals.css
     layout.tsx
@@ -117,6 +118,7 @@ src/
   data/
     products.ts
   services/
+    dbService.ts
     productService.ts
   store/
     cartStore.ts
@@ -267,6 +269,37 @@ export async function GET() {
     service: 'TodoMax Logistics Sync Gateway',
     version: '1.0.0',
   }, { status: 200 });
+}
+</file>
+
+<file path="src/app/product/route.ts">
+import { NextRequest, NextResponse } from 'next/server';
+import { dbService } from '@/services/dbService';
+import { products as defaultProducts } from '@/data/products';
+
+export async function GET() {
+  try {
+    const products = await dbService.get('store_products');
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      await dbService.set('store_products', defaultProducts);
+      return NextResponse.json(defaultProducts);
+    }
+    return NextResponse.json(products);
+  } catch (error) {
+    console.error('Error fetching products from Redis:', error);
+    return NextResponse.json(defaultProducts);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    await dbService.set('store_products', body);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error saving products to Redis:', error);
+    return NextResponse.json({ success: false, error: 'Failed to save' }, { status: 500 });
+  }
 }
 </file>
 
@@ -440,6 +473,47 @@ export default function BackButton({ label = "Volver" }: { label?: string }) {
     </button>
   );
 }
+</file>
+
+<file path="src/services/dbService.ts">
+import { createClient } from 'redis';
+
+let redisClient: any = null;
+
+async function getClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL,
+    });
+    redisClient.on('error', (err: any) => console.error('Error en cliente Redis:', err));
+    await redisClient.connect();
+  }
+  return redisClient;
+}
+
+export const dbService = {
+  async get(key: string) {
+    try {
+      const client = await getClient();
+      const data = await client.get(key);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.error(`Error leyendo ${key} de Redis:`, error);
+      return null;
+    }
+  },
+
+  async set(key: string, value: any) {
+    try {
+      const client = await getClient();
+      await client.set(key, JSON.stringify(value));
+      return true;
+    } catch (error) {
+      console.error(`Error guardando ${key} en Redis:`, error);
+      return false;
+    }
+  }
+};
 </file>
 
 <file path=".clinerules">
@@ -1141,436 +1215,6 @@ export async function POST(request: NextRequest) {
 }
 </file>
 
-<file path="src/app/checkout/page.tsx">
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useCartStore } from '@/store/cartStore';
-import { siteConfig } from '@/config/site';
-import { products } from '@/data/products';
-import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, CreditCard, Truck, ShoppingBag } from 'lucide-react';
-
-export default function CheckoutPage() {
-  const { items, clearCart } = useCartStore();
-  const router = useRouter();
-
-  // Estados del Formulario
-  const [nombre, setNombre] = useState('');
-  const [apellido, setApellido] = useState('');
-  const [cedula, setCedula] = useState('');
-  const [telefono, setTelefono] = useState('');
-
-  const [courier, setCourier] = useState('MRW');
-  const [estado, setEstado] = useState('');
-  const [ciudad, setCiudad] = useState('');
-  const [direccion, setDireccion] = useState('');
-
-  const [metodoPago, setMetodoPago] = useState('Pago Móvil');
-  const [referencia, setReferencia] = useState('');
-  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
-
-  // Estados UI y Atribución
-  const [refCode, setRefCode] = useState('DIRECTO');
-  const [copied, setCopied] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  useEffect(() => {
-    const storedRef = localStorage.getItem('todomax_ref');
-    if (storedRef) {
-      setRefCode(storedRef);
-    }
-  }, []);
-
-  // Cálculos Financieros
-  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
-  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
-  const isFreeShipping = total >= siteConfig.shipping.freeShippingThreshold;
-
-  // Calculamos el costo real cruzando con la DB de products.ts para saber la utilidad
-  const totalCost = items.reduce((acc, item) => {
-    const dbProduct = products.find(p => p.id === item.id);
-    const itemCost = dbProduct ? dbProduct.cost : 0;
-    return acc + (itemCost * item.quantity);
-  }, 0);
-  const expectedUtility = total - totalCost;
-
-  const handleCopyBankData = () => {
-    let data = '';
-    if (metodoPago === 'Pago Móvil') {
-      const pm = siteConfig.paymentMethods.pagoMovil;
-      data = `Pago Móvil TodoMax\nBanco: ${pm.banco}\nTeléfono: ${pm.telefono}\nCédula/RIF: ${pm.cedula}`;
-    } else if (metodoPago === 'Transferencia') {
-      const tr = siteConfig.paymentMethods.transferencia;
-      data = `Transferencia TodoMax\nBanco: ${tr.banco}\nCuenta: ${tr.cuenta}\nTitular: ${tr.titular}\nRIF: ${tr.rif}`;
-    } else if (metodoPago === 'Zelle') {
-      const zl = siteConfig.paymentMethods.zelle;
-      data = `Zelle TodoMax\nCorreo: ${zl.email}\nTitular: ${zl.titular}`;
-    } else if (metodoPago === 'Binance Pay') {
-      const bn = siteConfig.paymentMethods.binance;
-      data = `Binance TodoMax\nPay ID: ${bn.payId}\nUSDT (TRC20): ${bn.usdtAddress}`;
-    }
-
-    navigator.clipboard.writeText(data);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setComprobantePreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const procesarYEnviarPedido = () => {
-    if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
-      alert('Por favor completa todos los datos personales y de envío.');
-      return;
-    }
-    if (metodoPago !== 'Efectivo' && !referencia.trim()) {
-      alert('Debes ingresar el número de referencia de tu pago.');
-      return;
-    }
-    if (metodoPago !== 'Efectivo' && !comprobantePreview) {
-      alert('Por favor adjunta la captura o foto del comprobante de pago.');
-      return;
-    }
-
-    setIsProcessing(true);
-    const orderId = `TMX-${Date.now().toString().slice(-6)}`;
-
-    // 1. Crear Objeto del Pedido para la Base de Datos Local (ERP Admin)
-    const newOrder = {
-      id: orderId,
-      date: new Date().toISOString(),
-      status: 'Pendiente de verificación',
-      customer: { nombre, apellido, cedula, telefono },
-      shipping: { courier, estado, ciudad, direccion, isFreeShipping },
-      payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview },
-      items: items,
-      financials: { total, cost: totalCost, utility: expectedUtility },
-      attribution: { affiliateCode: refCode, channel: refCode !== 'DIRECTO' ? 'Afiliado' : 'Directo' }
-    };
-
-    // 2. Guardar en store_orders
-    const existingOrdersStr = localStorage.getItem('store_orders');
-    const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
-    localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
-
-    // 3. Armar Mensaje de WhatsApp
-    const listaProductos = items
-      .map(item => `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`)
-      .join('%0A');
-
-    const mensajeWhatsApp = 
-      `*NUEVO PEDIDO: ${orderId}*%0A%0A` +
-      `*CLIENTE:* ${nombre} ${apellido}%0A` +
-      `*CÉDULA:* ${cedula}%0A` +
-      `*TELÉFONO:* ${telefono}%0A%0A` +
-      `*📦 PRODUCTOS:*%0A${listaProductos}%0A%0A` +
-      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}%0A` +
-      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
-      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
-      `*💳 PAGO:* ${metodoPago}%0A` +
-      (metodoPago !== 'Efectivo' ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en la conversación)*%0A` : '') +
-      (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
-
-    const rawWhatsApp = siteConfig.whatsappNumber;
-    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
-
-    // 4. Limpiar Carrito y Redirigir
-    clearCart();
-    
-    // Pequeño delay para UX de carga
-    setTimeout(() => {
-      window.open(`https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`, '_blank');
-      router.push('/');
-    }, 1500);
-  };
-
-  if (items.length === 0 && !isProcessing) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
-        <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-6">
-          <ShoppingBag className="w-12 h-12" />
-        </div>
-        <h2 className="text-3xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
-        <p className="text-gray-500 mb-8 font-medium">Aún no has agregado productos a tu compra.</p>
-        <Link href="/catalogo" className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1">
-          Ir al Catálogo
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-slate-50 min-h-screen pt-24 md:pt-32 pb-20">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12">
-        
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs mb-8 transition-transform hover:-translate-x-1 cursor-pointer"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Modificar Carrito</span>
-        </button>
-
-        {isProcessing ? (
-          <div className="bg-white rounded-3xl p-12 text-center shadow-xl border border-gray-100 max-w-2xl mx-auto mt-10">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
-            <p className="text-slate-600 font-medium leading-relaxed">
-              Estamos registrando tu orden en el sistema. En un momento se abrirá WhatsApp para que nos envíes esta solicitud junto con la captura de tu comprobante.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-            
-            {/* LADO IZQUIERDO: FORMULARIOS (7 de 12 columnas) */}
-            <div className="lg:col-span-7 space-y-8">
-              
-              {/* 1. Datos Personales */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">1</div>
-                  <h2 className="text-xl font-black text-slate-900">Tus Datos</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nombre</label>
-                    <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required placeholder="Ej. Carlos" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Apellido</label>
-                    <input type="text" value={apellido} onChange={e => setApellido(e.target.value)} required placeholder="Ej. Pérez" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Cédula o RIF</label>
-                    <input type="text" value={cedula} onChange={e => setCedula(e.target.value)} required placeholder="V-12345678" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">WhatsApp / Teléfono</label>
-                    <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} required placeholder="0412-1234567" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Datos de Envío */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">2</div>
-                  <h2 className="text-xl font-black text-slate-900">Datos de Envío</h2>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Empresa de Envío</label>
-                    <select value={courier} onChange={e => setCourier(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer">
-                      {siteConfig.shipping.companies.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Estado</label>
-                      <input type="text" value={estado} onChange={e => setEstado(e.target.value)} required placeholder="Ej. Distrito Capital" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Ciudad</label>
-                      <input type="text" value={ciudad} onChange={e => setCiudad(e.target.value)} required placeholder="Ej. Caracas" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Dirección Detallada (Calle, Edificio/Casa, Punto de referencia)</label>
-                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} required placeholder="Av. Principal, Edificio Torre Sur..." className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Pago y Comprobante */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-orange-200 shadow-md">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">3</div>
-                  <h2 className="text-xl font-black text-slate-900">Validación de Pago</h2>
-                </div>
-                
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">Selecciona cómo deseas pagar</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
-                        <button
-                          key={metodo}
-                          onClick={() => setMetodoPago(metodo)}
-                          className={`p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
-                            metodoPago === metodo ? 'bg-orange-50 border-orange-500 text-orange-600 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
-                          }`}
-                        >
-                          {metodo}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Datos Bancarios Copiables */}
-                  <div className="bg-slate-900 rounded-2xl p-5 text-white relative group">
-                    <h3 className="text-xs font-black uppercase text-orange-400 mb-3 tracking-wider">Datos para {metodoPago}</h3>
-                    <div className="space-y-2 text-sm font-medium">
-                      {metodoPago === 'Pago Móvil' && (
-                        <>
-                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.pagoMovil.banco}</p>
-                          <p><span className="text-slate-400">Teléfono:</span> {siteConfig.paymentMethods.pagoMovil.telefono}</p>
-                          <p><span className="text-slate-400">Cédula/RIF:</span> {siteConfig.paymentMethods.pagoMovil.cedula}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Transferencia' && (
-                        <>
-                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.transferencia.banco}</p>
-                          <p><span className="text-slate-400">Cuenta:</span> {siteConfig.paymentMethods.transferencia.cuenta}</p>
-                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.transferencia.titular}</p>
-                          <p><span className="text-slate-400">RIF:</span> {siteConfig.paymentMethods.transferencia.rif}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Zelle' && (
-                        <>
-                          <p><span className="text-slate-400">Correo:</span> {siteConfig.paymentMethods.zelle.email}</p>
-                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.zelle.titular}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Binance Pay' && (
-                        <>
-                          <p><span className="text-slate-400">Pay ID:</span> {siteConfig.paymentMethods.binance.payId}</p>
-                          <p className="break-all"><span className="text-slate-400">USDT (TRC20):</span> {siteConfig.paymentMethods.binance.usdtAddress}</p>
-                        </>
-                      )}
-                    </div>
-                    
-                    <button
-                      onClick={handleCopyBankData}
-                      className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                    >
-                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      {copied ? '¡Datos copiados!' : 'Copiar Datos de Pago'}
-                    </button>
-                  </div>
-
-                  {/* Carga de Comprobante */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Número de Referencia</label>
-                      <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} required placeholder="Ej. 123456" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Adjuntar Comprobante (Captura)</label>
-                      <div className="relative">
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="comprobante-upload" />
-                        <label htmlFor="comprobante-upload" className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-sm font-semibold text-slate-600 hover:border-orange-500 hover:text-orange-500 cursor-pointer transition-colors">
-                          <Upload className="w-4 h-4" />
-                          {comprobantePreview ? 'Cambiar imagen' : 'Subir foto o captura'}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {comprobantePreview && (
-                    <div className="mt-4 p-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
-                      <img src={comprobantePreview} alt="Comprobante" className="h-32 object-contain rounded-xl mb-2" />
-                      <p className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Comprobante adjuntado con éxito</p>
-                    </div>
-                  )}
-
-                </div>
-              </div>
-
-            </div>
-
-            {/* LADO DERECHO: RESUMEN DE ORDEN (5 de 12 columnas) */}
-            <div className="lg:col-span-5 relative">
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-lg sticky top-32 space-y-6">
-                
-                <h2 className="text-xl font-black text-slate-900 border-b border-gray-100 pb-4 flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-orange-500" />
-                  Resumen de tu Compra
-                </h2>
-
-                <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-4 py-2">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100">
-                          <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">{item.title}</span>
-                          <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Cant: {item.quantity}</span>
-                        </div>
-                      </div>
-                      <span className="font-black text-sm text-slate-900 flex-shrink-0">
-                        {siteConfig.currencySymbol}{subtotalPorItem(item.price, item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-sm text-gray-600 font-medium">
-                    <span>Subtotal de productos</span>
-                    <span>{siteConfig.currencySymbol}{total.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600 font-medium">Envío ({courier})</span>
-                    <span className={`font-black ${isFreeShipping ? 'text-emerald-600' : 'text-slate-900'}`}>
-                      {isFreeShipping ? '¡GRATIS!' : 'Cobro en Destino'}
-                    </span>
-                  </div>
-                </div>
-
-                {!isFreeShipping && (
-                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl">
-                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed text-center">
-                      ¡Agrega {siteConfig.currencySymbol}{(siteConfig.shipping.freeShippingThreshold - total).toFixed(2)} más en productos y tu envío sale GRATIS!
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <span className="text-base font-black text-slate-900">Total a Pagar</span>
-                  <span className="text-3xl font-black text-orange-500">
-                    {siteConfig.currencySymbol}{total.toFixed(2)}
-                  </span>
-                </div>
-
-                <button
-                  onClick={procesarYEnviarPedido}
-                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <ShieldCheck className="w-5 h-5" />
-                  Registrar Pago y Enviar Pedido
-                </button>
-                
-                <p className="text-[10px] text-gray-400 text-center font-medium px-4">
-                  Al confirmar, serás redirigido a nuestro WhatsApp oficial para finalizar la compra de manera 100% segura.
-                </p>
-
-              </div>
-            </div>
-
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="src/app/globals.css">
 @import "tailwindcss";
 
@@ -1871,33 +1515,6 @@ export function getAllProductIds(): string[] {
 }
 </file>
 
-<file path="src/services/productService.ts">
-import { Product, products as defaultProducts } from '@/data/products';
-
-export const productService = {
-  async getProducts(): Promise<Product[]> {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('store_products');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error('Error leyendo store_products', e);
-        }
-      }
-      // Si la memoria está vacía, la inicializamos con los nuevos productos base
-      localStorage.setItem('store_products', JSON.stringify(defaultProducts));
-    }
-    return Promise.resolve(defaultProducts);
-  },
-
-  async getProductById(id: string): Promise<Product | undefined> {
-    const allProducts = await this.getProducts();
-    return allProducts.find((product) => String(product.id) === String(id));
-  },
-};
-</file>
-
 <file path="next.config.ts">
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -1914,40 +1531,6 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-</file>
-
-<file path="package.json">
-{
-  "name": "mi-tienda-maestra",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "embla-carousel-autoplay": "^8.6.0",
-    "embla-carousel-react": "^8.6.0",
-    "lucide-react": "^1.52.0",
-    "next": "16.3.8",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "zustand": "^5.0.15"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.8",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  },
-  "packageManager": "pnpm@12.9.1"
-}
 </file>
 
 <file path="src/app/afiliados/page.tsx">
@@ -2346,187 +1929,432 @@ export default function AfiliadosPage() {
 }
 </file>
 
-<file path="src/app/catalogo/page.tsx">
+<file path="src/app/checkout/page.tsx">
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
-import { siteConfig } from '@/config/site';
-import { productService } from '@/services/productService';
-import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { ShoppingBag } from 'lucide-react';
+import { siteConfig } from '@/config/site';
+import { products } from '@/data/products';
+import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, CreditCard, Truck, ShoppingBag } from 'lucide-react';
 
-const availableCategories = [
-  'Todos',
-  'Hogar',
-  'Tecnología',
-  'Cocina',
-  'Automóvil',
-  'Belleza',
-  'Productos Virales'
-];
-
-function CatalogoContent() {
-  const searchParams = useSearchParams();
+export default function CheckoutPage() {
+  const { items, clearCart } = useCartStore();
   const router = useRouter();
-  const { addItem } = useCartStore();
-  
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('Todos');
+
+  // Estados del Formulario
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
+  const [cedula, setCedula] = useState('');
+  const [telefono, setTelefono] = useState('');
+
+  const [courier, setCourier] = useState('MRW');
+  const [estado, setEstado] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [direccion, setDireccion] = useState('');
+
+  const [metodoPago, setMetodoPago] = useState('Pago Móvil');
+  const [referencia, setReferencia] = useState('');
+  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
+
+  // Estados UI y Atribución
+  const [refCode, setRefCode] = useState('DIRECTO');
+  const [copied, setCopied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    const loadProducts = async () => {
-      const data = await productService.getProducts();
-      setProducts(data);
-    };
-    loadProducts();
+    const storedRef = localStorage.getItem('todomax_ref');
+    if (storedRef) {
+      setRefCode(storedRef);
+    }
   }, []);
 
-  useEffect(() => {
-    const categoryParam = searchParams.get('category');
-    if (products.length > 0) {
-      if (!categoryParam || categoryParam.toLowerCase() === 'todos') {
-        setActiveCategory('Todos');
-        setFilteredProducts(products);
-      } else {
-        setActiveCategory(categoryParam);
-        const filtered = products.filter(
-          p => p.category?.toLowerCase() === categoryParam.toLowerCase()
-        );
-        setFilteredProducts(filtered);
-      }
-    }
-  }, [searchParams, products]);
+  // Cálculos Financieros
+  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
+  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
+  const isFreeShipping = total >= siteConfig.shipping.freeShippingThreshold;
 
-  const handleCategorySelect = (cat: string) => {
-    if (cat === 'Todos') {
-      router.push('/catalogo');
-    } else {
-      router.push(`/catalogo?category=${encodeURIComponent(cat)}`);
+  // Calculamos el costo real cruzando con la DB de products.ts para saber la utilidad
+  const totalCost = items.reduce((acc, item) => {
+    const dbProduct = products.find(p => p.id === item.id);
+    const itemCost = dbProduct ? dbProduct.cost : 0;
+    return acc + (itemCost * item.quantity);
+  }, 0);
+  const expectedUtility = total - totalCost;
+
+  const handleCopyBankData = () => {
+    let data = '';
+    if (metodoPago === 'Pago Móvil') {
+      const pm = siteConfig.paymentMethods.pagoMovil;
+      data = `Pago Móvil TodoMax\nBanco: ${pm.banco}\nTeléfono: ${pm.telefono}\nCédula/RIF: ${pm.cedula}`;
+    } else if (metodoPago === 'Transferencia') {
+      const tr = siteConfig.paymentMethods.transferencia;
+      data = `Transferencia TodoMax\nBanco: ${tr.banco}\nCuenta: ${tr.cuenta}\nTitular: ${tr.titular}\nRIF: ${tr.rif}`;
+    } else if (metodoPago === 'Zelle') {
+      const zl = siteConfig.paymentMethods.zelle;
+      data = `Zelle TodoMax\nCorreo: ${zl.email}\nTitular: ${zl.titular}`;
+    } else if (metodoPago === 'Binance Pay') {
+      const bn = siteConfig.paymentMethods.binance;
+      data = `Binance TodoMax\nPay ID: ${bn.payId}\nUSDT (TRC20): ${bn.usdtAddress}`;
+    }
+
+    navigator.clipboard.writeText(data);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setComprobantePreview(reader.result as string);
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleBuyNow = (product: Product, e: React.MouseEvent) => {
-    e.preventDefault();
-    addItem(
-      {
-        id: product.id,
-        title: product.title,
-        price: product.price,
-        image: product.images[0],
-      },
-      1
+  const procesarYEnviarPedido = () => {
+    if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
+      alert('Por favor completa todos los datos personales y de envío.');
+      return;
+    }
+    if (metodoPago !== 'Efectivo' && !referencia.trim()) {
+      alert('Debes ingresar el número de referencia de tu pago.');
+      return;
+    }
+    if (metodoPago !== 'Efectivo' && !comprobantePreview) {
+      alert('Por favor adjunta la captura o foto del comprobante de pago.');
+      return;
+    }
+
+    setIsProcessing(true);
+    const orderId = `TMX-${Date.now().toString().slice(-6)}`;
+
+    // 1. Crear Objeto del Pedido para la Base de Datos Local (ERP Admin)
+    const newOrder = {
+      id: orderId,
+      date: new Date().toISOString(),
+      status: 'Pendiente de verificación',
+      customer: { nombre, apellido, cedula, telefono },
+      shipping: { courier, estado, ciudad, direccion, isFreeShipping },
+      payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview, receiptImage: comprobantePreview },
+      items: items,
+      financials: { total, cost: totalCost, utility: expectedUtility },
+      attribution: { affiliateCode: refCode, channel: refCode !== 'DIRECTO' ? 'Afiliado' : 'Directo' }
+    };
+
+    // 2. Guardar en store_orders
+    const existingOrdersStr = localStorage.getItem('store_orders');
+    const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
+    localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
+
+    // 3. Armar Mensaje de WhatsApp
+    const listaProductos = items
+      .map(item => `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`)
+      .join('%0A');
+
+    const mensajeWhatsApp = 
+      `*NUEVO PEDIDO: ${orderId}*%0A%0A` +
+      `*CLIENTE:* ${nombre} ${apellido}%0A` +
+      `*CÉDULA:* ${cedula}%0A` +
+      `*TELÉFONO:* ${telefono}%0A%0A` +
+      `*📦 PRODUCTOS:*%0A${listaProductos}%0A%0A` +
+      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}%0A` +
+      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
+      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
+      `*💳 PAGO:* ${metodoPago}%0A` +
+      (metodoPago !== 'Efectivo' ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en la conversación)*%0A` : '') +
+      (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
+
+    const rawWhatsApp = siteConfig.whatsappNumber;
+    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
+
+    // 4. Limpiar Carrito y Redirigir
+    clearCart();
+    
+    // Pequeño delay para UX de carga
+    setTimeout(() => {
+      window.open(`https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`, '_blank');
+      router.push('/');
+    }, 1500);
+  };
+
+  if (items.length === 0 && !isProcessing) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
+        <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-6">
+          <ShoppingBag className="w-12 h-12" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
+        <p className="text-gray-500 mb-8 font-medium">Aún no has agregado productos a tu compra.</p>
+        <Link href="/catalogo" className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1">
+          Ir al Catálogo
+        </Link>
+      </div>
     );
-    router.push('/checkout');
-  };
+  }
 
   return (
-    // Ajuste clave de padding-top para que no choque con el Header
-    <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
-      <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
+    <div className="bg-slate-50 min-h-screen pt-24 md:pt-32 pb-20">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12">
         
-        {/* Cabecera Panorámica */}
-        <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="max-w-3xl">
-            <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
-              {siteConfig.storeName}
-            </span>
-            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-3">
-              Catálogo Completo
-            </h1>
-            <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed">
-              Descubre oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs mb-8 transition-transform hover:-translate-x-1 cursor-pointer"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Modificar Carrito</span>
+        </button>
+
+        {isProcessing ? (
+          <div className="bg-white rounded-3xl p-12 text-center shadow-xl border border-gray-100 max-w-2xl mx-auto mt-10">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
+            <p className="text-slate-600 font-medium leading-relaxed">
+              Estamos registrando tu orden en el sistema. En un momento se abrirá WhatsApp para que nos envíes esta solicitud junto con la captura de tu comprobante.
             </p>
           </div>
-
-          <div className="flex overflow-x-auto md:flex-wrap gap-2 pb-2 md:pb-0 scrollbar-hide">
-            {availableCategories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => handleCategorySelect(cat)}
-                className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
-                  activeCategory.toLowerCase() === cat.toLowerCase()
-                    ? 'bg-slate-900 text-white shadow-lg'
-                    : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-600'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Grilla de Productos */}
-        {filteredProducts.length === 0 ? (
-          <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
-            <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
-            <button
-              onClick={() => handleCategorySelect('Todos')}
-              className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs"
-            >
-              Ver Todos los Productos
-            </button>
-          </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
-
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+            
+            {/* LADO IZQUIERDO: FORMULARIOS (7 de 12 columnas) */}
+            <div className="lg:col-span-7 space-y-8">
+              
+              {/* 1. Datos Personales */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">1</div>
+                  <h2 className="text-xl font-black text-slate-900">Tus Datos</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                        {product.title}
-                      </h3>
-                    </Link>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nombre</label>
+                    <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required placeholder="Ej. Carlos" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
                   </div>
-
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-base md:text-lg font-black text-slate-900">
-                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm"
-                    >
-                      Comprar
-                    </button>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Apellido</label>
+                    <input type="text" value={apellido} onChange={e => setApellido(e.target.value)} required placeholder="Ej. Pérez" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Cédula o RIF</label>
+                    <input type="text" value={cedula} onChange={e => setCedula(e.target.value)} required placeholder="V-12345678" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">WhatsApp / Teléfono</label>
+                    <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} required placeholder="0412-1234567" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
                   </div>
                 </div>
               </div>
-            ))}
+
+              {/* 2. Datos de Envío */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">2</div>
+                  <h2 className="text-xl font-black text-slate-900">Datos de Envío</h2>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Empresa de Envío</label>
+                    <select value={courier} onChange={e => setCourier(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer">
+                      {siteConfig.shipping.companies.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Estado</label>
+                      <input type="text" value={estado} onChange={e => setEstado(e.target.value)} required placeholder="Ej. Distrito Capital" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Ciudad</label>
+                      <input type="text" value={ciudad} onChange={e => setCiudad(e.target.value)} required placeholder="Ej. Caracas" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Dirección Detallada (Calle, Edificio/Casa, Punto de referencia)</label>
+                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} required placeholder="Av. Principal, Edificio Torre Sur..." className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Pago y Comprobante */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-orange-200 shadow-md">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">3</div>
+                  <h2 className="text-xl font-black text-slate-900">Validación de Pago</h2>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">Selecciona cómo deseas pagar</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
+                        <button
+                          key={metodo}
+                          onClick={() => setMetodoPago(metodo)}
+                          className={`p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                            metodoPago === metodo ? 'bg-orange-50 border-orange-500 text-orange-600 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
+                          }`}
+                        >
+                          {metodo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Datos Bancarios Copiables */}
+                  <div className="bg-slate-900 rounded-2xl p-5 text-white relative group">
+                    <h3 className="text-xs font-black uppercase text-orange-400 mb-3 tracking-wider">Datos para {metodoPago}</h3>
+                    <div className="space-y-2 text-sm font-medium">
+                      {metodoPago === 'Pago Móvil' && (
+                        <>
+                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.pagoMovil.banco}</p>
+                          <p><span className="text-slate-400">Teléfono:</span> {siteConfig.paymentMethods.pagoMovil.telefono}</p>
+                          <p><span className="text-slate-400">Cédula/RIF:</span> {siteConfig.paymentMethods.pagoMovil.cedula}</p>
+                        </>
+                      )}
+                      {metodoPago === 'Transferencia' && (
+                        <>
+                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.transferencia.banco}</p>
+                          <p><span className="text-slate-400">Cuenta:</span> {siteConfig.paymentMethods.transferencia.cuenta}</p>
+                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.transferencia.titular}</p>
+                          <p><span className="text-slate-400">RIF:</span> {siteConfig.paymentMethods.transferencia.rif}</p>
+                        </>
+                      )}
+                      {metodoPago === 'Zelle' && (
+                        <>
+                          <p><span className="text-slate-400">Correo:</span> {siteConfig.paymentMethods.zelle.email}</p>
+                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.zelle.titular}</p>
+                        </>
+                      )}
+                      {metodoPago === 'Binance Pay' && (
+                        <>
+                          <p><span className="text-slate-400">Pay ID:</span> {siteConfig.paymentMethods.binance.payId}</p>
+                          <p className="break-all"><span className="text-slate-400">USDT (TRC20):</span> {siteConfig.paymentMethods.binance.usdtAddress}</p>
+                        </>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={handleCopyBankData}
+                      className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                      {copied ? '¡Datos copiados!' : 'Copiar Datos de Pago'}
+                    </button>
+                  </div>
+
+                  {/* Carga de Comprobante */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Número de Referencia</label>
+                      <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} required placeholder="Ej. 123456" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Adjuntar Comprobante (Captura)</label>
+                      <div className="relative">
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="comprobante-upload" />
+                        <label htmlFor="comprobante-upload" className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-sm font-semibold text-slate-600 hover:border-orange-500 hover:text-orange-500 cursor-pointer transition-colors">
+                          <Upload className="w-4 h-4" />
+                          {comprobantePreview ? 'Cambiar imagen' : 'Subir foto o captura'}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {comprobantePreview && (
+                    <div className="mt-4 p-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <img src={comprobantePreview} alt="Comprobante" className="h-32 object-contain rounded-xl mb-2" />
+                      <p className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Comprobante adjuntado con éxito</p>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+            </div>
+
+            {/* LADO DERECHO: RESUMEN DE ORDEN (5 de 12 columnas) */}
+            <div className="lg:col-span-5 relative">
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-lg sticky top-32 space-y-6">
+                
+                <h2 className="text-xl font-black text-slate-900 border-b border-gray-100 pb-4 flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-orange-500" />
+                  Resumen de tu Compra
+                </h2>
+
+                <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
+                  {items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-4 py-2">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100">
+                          <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">{item.title}</span>
+                          <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Cant: {item.quantity}</span>
+                        </div>
+                      </div>
+                      <span className="font-black text-sm text-slate-900 flex-shrink-0">
+                        {siteConfig.currencySymbol}{subtotalPorItem(item.price, item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between text-sm text-gray-600 font-medium">
+                    <span>Subtotal de productos</span>
+                    <span>{siteConfig.currencySymbol}{total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 font-medium">Envío ({courier})</span>
+                    <span className={`font-black ${isFreeShipping ? 'text-emerald-600' : 'text-slate-900'}`}>
+                      {isFreeShipping ? '¡GRATIS!' : 'Cobro en Destino'}
+                    </span>
+                  </div>
+                </div>
+
+                {!isFreeShipping && (
+                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl">
+                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed text-center">
+                      ¡Agrega {siteConfig.currencySymbol}{(siteConfig.shipping.freeShippingThreshold - total).toFixed(2)} más en productos y tu envío sale GRATIS!
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <span className="text-base font-black text-slate-900">Total a Pagar</span>
+                  <span className="text-3xl font-black text-orange-500">
+                    {siteConfig.currencySymbol}{total.toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  onClick={procesarYEnviarPedido}
+                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  Registrar Pago y Enviar Pedido
+                </button>
+                
+                <p className="text-[10px] text-gray-400 text-center font-medium px-4">
+                  Al confirmar, serás redirigido a nuestro WhatsApp oficial para finalizar la compra de manera 100% segura.
+                </p>
+
+              </div>
+            </div>
+
           </div>
         )}
-
       </div>
     </div>
-  );
-}
-
-export default function CatalogoPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando Catálogo...</div>}>
-      <CatalogoContent />
-    </Suspense>
   );
 }
 </file>
@@ -2776,6 +2604,67 @@ export function HeroCarousel() {
       </div>
     </div>
   );
+}
+</file>
+
+<file path="src/services/productService.ts">
+import { Product, products as defaultProducts } from '@/data/products';
+
+export const productService = {
+  async getProducts(): Promise<Product[]> {
+    try {
+      const res = await fetch('/api/products', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching products from API, falling back to default:', e);
+    }
+    return defaultProducts;
+  },
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    const allProducts = await this.getProducts();
+    return allProducts.find((product) => String(product.id) === String(id));
+  },
+};
+</file>
+
+<file path="package.json">
+{
+  "name": "mi-tienda-maestra",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "embla-carousel-autoplay": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "lucide-react": "^1.52.0",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "redis": "^6.3.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@12.9.1"
 }
 </file>
 
@@ -3565,6 +3454,237 @@ export default function ProductPage() {
 }
 </file>
 
+<file path="src/app/catalogo/page.tsx">
+'use client';
+
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import type { Product } from '@/data/products';
+import { useCartStore } from '@/store/cartStore';
+import { ShoppingBag } from 'lucide-react';
+
+const availableCategories = [
+  'Todos',
+  'Hogar',
+  'Tecnología',
+  'Cocina',
+  'Automóvil',
+  'Belleza',
+  'Productos Virales'
+];
+
+function CatalogoContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { addItem } = useCartStore();
+  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>('Todos');
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      const data = await productService.getProducts();
+      setProducts(data);
+    };
+    loadProducts();
+  }, []);
+
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    if (products.length > 0) {
+      if (!categoryParam || categoryParam.toLowerCase() === 'todos') {
+        setActiveCategory('Todos');
+        setFilteredProducts(products);
+      } else {
+        setActiveCategory(categoryParam);
+        const filtered = products.filter(
+          p => p.category?.toLowerCase() === categoryParam.toLowerCase()
+        );
+        setFilteredProducts(filtered);
+      }
+    }
+  }, [searchParams, products]);
+
+  const handleCategorySelect = (cat: string) => {
+    if (cat === 'Todos') {
+      router.push('/catalogo');
+    } else {
+      router.push(`/catalogo?category=${encodeURIComponent(cat)}`);
+    }
+  };
+
+  const handleBuyNow = (product: Product, e: React.MouseEvent) => {
+    e.preventDefault();
+    addItem(
+      {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        image: product.images[0],
+      },
+      1
+    );
+    router.push('/checkout');
+  };
+
+  return (
+    // Ajuste clave de padding-top para que no choque con el Header
+    <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
+      <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
+        
+        {/* Cabecera Panorámica */}
+        <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="max-w-3xl">
+            <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
+              {siteConfig.storeName}
+            </span>
+            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-3">
+              Catálogo Completo
+            </h1>
+            <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed">
+              Descubre oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
+            </p>
+          </div>
+
+          <div className="flex overflow-x-auto md:flex-wrap gap-2 pb-2 md:pb-0 scrollbar-hide">
+            {availableCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => handleCategorySelect(cat)}
+                className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
+                  activeCategory.toLowerCase() === cat.toLowerCase()
+                    ? 'bg-slate-900 text-white shadow-lg'
+                    : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-600'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* BANNERS DE CATEGORÍAS TIPO CARRUSEL (Conectado al Admin en Vivo) */}
+        <div key={activeCategory} className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-100 aspect-[3/1] md:aspect-[6/1] relative border border-gray-200/80 group">
+          <div 
+            ref={(el) => {
+              if (el && typeof window !== 'undefined') {
+                const rawSlides = JSON.parse(localStorage.getItem('store_cat_slides') || '[]');
+                // Mostrar solo los de la categoría activa (o los de "Todos" si no hay específicos)
+                let categorySlides = rawSlides.filter((s: any) => s.category === activeCategory);
+                if (categorySlides.length === 0) categorySlides = rawSlides.filter((s: any) => s.category === 'Todos');
+                
+                if (categorySlides.length === 0) {
+                  el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-slate-100"><span class="text-slate-400 font-bold text-sm text-center px-4">Añade banners de catálogo desde el Panel Administrador</span></div>`;
+                  return;
+                }
+
+                const isMobile = window.innerWidth < 768;
+                let html = '';
+                categorySlides.forEach((s: any, i: number) => {
+                  const img = (isMobile && s.mobileImg) ? s.mobileImg : (s.desktopImg || s.mobileImg);
+                  html += `<a href="${s.link || '#'}" class="absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out slide-item" style="opacity: ${i === 0 ? 1 : 0}; z-index: ${i === 0 ? 10 : 0};"><img src="${img}" class="w-full h-full object-cover" alt="Banner" /></a>`;
+                });
+                el.innerHTML = html;
+
+                if (categorySlides.length > 1) {
+                  let currentIdx = 0;
+                  const items = el.querySelectorAll('.slide-item');
+                  if ((el as any)._slideInterval) clearInterval((el as any)._slideInterval);
+                  
+                  (el as any)._slideInterval = setInterval(() => {
+                    if(items[currentIdx]) {
+                      (items[currentIdx] as HTMLElement).style.opacity = '0';
+                      (items[currentIdx] as HTMLElement).style.zIndex = '0';
+                    }
+                    currentIdx = (currentIdx + 1) % categorySlides.length;
+                    if(items[currentIdx]) {
+                      (items[currentIdx] as HTMLElement).style.opacity = '1';
+                      (items[currentIdx] as HTMLElement).style.zIndex = '10';
+                    }
+                  }, 4000);
+                }
+              }
+            }}
+            className="w-full h-full relative"
+          />
+        </div>
+
+        {/* Grilla de Productos */}
+        {filteredProducts.length === 0 ? (
+          <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
+            <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
+            <button
+              onClick={() => handleCategorySelect('Todos')}
+              className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs"
+            >
+              Ver Todos los Productos
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+            {filteredProducts.map((product) => (
+              <div
+                key={product.id}
+                className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+              >
+                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                  <img
+                    src={product.images[0]}
+                    alt={product.title}
+                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
+                  />
+                  {product.badge && (
+                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
+                      {product.badge}
+                    </span>
+                  )}
+                </Link>
+
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
+                    <Link href={`/product/${product.id}`}>
+                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
+                        {product.title}
+                      </h3>
+                    </Link>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-base md:text-lg font-black text-slate-900">
+                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                    </span>
+                    <button
+                      onClick={(e) => handleBuyNow(product, e)}
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm"
+                    >
+                      Comprar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+export default function CatalogoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando Catálogo...</div>}>
+      <CatalogoContent />
+    </Suspense>
+  );
+}
+</file>
+
 <file path="src/app/page.tsx">
 'use client';
 
@@ -3659,14 +3779,17 @@ function HomeContent() {
             )}
           </div>
 
-          <div className="flex overflow-x-auto md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-5 snap-x pb-4 scrollbar-hide px-1">
+          <div className="flex overflow-x-auto md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-5 snap-x pb-4 pt-3 scrollbar-hide px-1">
             {categoriesList.map((cat) => {
               const Icon = cat.icon;
               const isSelected = selectedCategory.toLowerCase() === cat.name.toLowerCase();
               return (
                 <button
                   key={cat.name}
-                  onClick={() => setSelectedCategory(isSelected ? 'Todos' : cat.name)}
+                  onClick={() => {
+                    setSelectedCategory(isSelected ? 'Todos' : cat.name);
+                    document.getElementById('catalogo-grilla')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
                   className={`flex-shrink-0 w-[140px] md:w-auto snap-start p-4 md:p-5 rounded-3xl border text-center transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer group hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/80 ${
                     isSelected
                       ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-105'
@@ -3914,6 +4037,7 @@ interface Order {
     method: string;
     reference: string;
     hasReceipt: boolean;
+    receiptImage?: string;
   };
   items: OrderItem[];
   financials: {
@@ -3970,6 +4094,10 @@ export default function AdminPage() {
   const [editingOfferId, setEditingOfferId] = useState<any>(null);
   const [offerForm, setOfferForm] = useState({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
 
+  const [catBanners, setCatBanners] = useState<any[]>([]);
+  const [editingCatBannerId, setEditingCatBannerId] = useState<any>(null);
+  const [catBannerForm, setCatBannerForm] = useState({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
+
   const [adSpendInput, setAdSpendInput] = useState<number>(0);
   const [metaPixelId, setMetaPixelId] = useState(siteConfig.metaPixelId || '');
 
@@ -3992,49 +4120,48 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // Cargar sesión
-    const savedAuth = localStorage.getItem('todomax_admin_auth');
-    const savedRole = localStorage.getItem('todomax_admin_role') as UserRole;
-    if (savedAuth === 'true') {
-      setIsAuthenticated(true);
-      if (savedRole) setCurrentRole(savedRole);
-    }
+    // 1. INVENTARIO EN VIVO (Con respaldo de seguridad anti-vacíos)
+    fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+        } else {
+          import('@/data/products').then(module => setProducts(module.products));
+        }
+      })
+      .catch(e => {
+        console.error('Error cargando inventario:', e);
+        import('@/data/products').then(module => setProducts(module.products));
+      });
 
-    // Cargar Pedidos
-    const savedOrders = localStorage.getItem('store_orders');
-    if (savedOrders) {
-      try {
-        setOrders(JSON.parse(savedOrders));
-      } catch (e) {
-        console.error('Error cargando órdenes', e);
+    // 2. PEDIDOS EN TIEMPO REAL (Lectura automática cada 3 segundos)
+    const loadOrders = () => {
+      const savedOrders = localStorage.getItem('store_orders');
+      if (savedOrders) {
+        try { setOrders(JSON.parse(savedOrders)); } catch (e) {}
       }
-    }
+    };
+    loadOrders();
+    const orderInterval = setInterval(loadOrders, 3000);
 
-    // Cargar Productos
-    const savedProducts = localStorage.getItem('store_products');
-    if (savedProducts) {
-      try {
-        setProducts(JSON.parse(savedProducts));
-      } catch (e) {
-        setProducts(initialProducts);
-      }
-    } else {
-      setProducts(initialProducts);
-      localStorage.setItem('store_products', JSON.stringify(initialProducts));
-    }
-
-    // Cargar Hero y Ofertas
+    // 3. RECUPERAR BANNERS Y PROMOCIONES (Restaurar lo que desapareció)
     const savedHero = localStorage.getItem('store_hero_slides');
-    if (savedHero) setHeroSlides(JSON.parse(savedHero));
-
-    const savedOffers = localStorage.getItem('store_offers');
-    if (savedOffers) setOffers(JSON.parse(savedOffers));
-
-    // Cargar Gasto Publicitario para Finanzas
-    const savedAdSpend = localStorage.getItem('store_ad_spend');
-    if (savedAdSpend) {
-      setAdSpendInput(Number(savedAdSpend));
+    if (savedHero) {
+      try { setHeroSlides(JSON.parse(savedHero)); } catch(e) {}
     }
+    
+    const savedOffers = localStorage.getItem('store_offers');
+    if (savedOffers) {
+      try { setOffers(JSON.parse(savedOffers)); } catch(e) {}
+    }
+
+    const savedCatBanners = localStorage.getItem('store_cat_slides');
+    if (savedCatBanners) {
+      try { setCatBanners(JSON.parse(savedCatBanners)); } catch(e) {}
+    }
+
+    return () => clearInterval(orderInterval);
   }, []);
 
   const notify = (msg: string) => {
@@ -4128,7 +4255,7 @@ export default function AdminPage() {
   // ==========================================
   // OPERACIONES DE INVENTARIO (MÓDULO 2)
   // ==========================================
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productForm.title || !productForm.price) return;
 
@@ -4136,8 +4263,10 @@ export default function AdminPage() {
     const featuresArray = productForm.features.split('\n').map(f => f.trim()).filter(Boolean);
     const imagesArray = productForm.images.filter(img => img.trim() !== '');
 
+    let updated = [...products];
+
     if (editingProductId) {
-      const updated = products.map(p => {
+      updated = products.map(p => {
         if (p.id === editingProductId) {
           return {
             ...p,
@@ -4159,9 +4288,7 @@ export default function AdminPage() {
         }
         return p;
       });
-      setProducts(updated);
-      localStorage.setItem('store_products', JSON.stringify(updated));
-      notify('Producto actualizado con éxito');
+      notify('Producto actualizado en la nube');
     } else {
       const newProd: Product = {
         id: `prod-${Date.now()}`,
@@ -4181,10 +4308,21 @@ export default function AdminPage() {
         images: imagesArray.length > 0 ? imagesArray : [`data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' style='background:%23f8fafc'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23f97316'%3ENUEVO PRODUCTO%3C/text%3E%3C/svg%3E`],
         paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
       };
-      const updated = [newProd, ...products];
-      setProducts(updated);
-      localStorage.setItem('store_products', JSON.stringify(updated));
-      notify('Producto agregado al catálogo');
+      updated = [newProd, ...products];
+      notify('Producto agregado a la nube');
+    }
+
+    setProducts(updated);
+    localStorage.setItem('store_products', JSON.stringify(updated));
+    
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+    } catch (err) {
+      console.error('Error sincronizando con Redis:', err);
     }
 
     setEditingProductId(null);
@@ -4218,12 +4356,23 @@ export default function AdminPage() {
     });
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = async (id: string) => {
     if (confirm('¿Seguro que deseas eliminar este producto?')) {
       const updated = products.filter(p => p.id !== id);
       setProducts(updated);
       localStorage.setItem('store_products', JSON.stringify(updated));
-      notify('Producto eliminado');
+      
+      try {
+        await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        });
+      } catch (err) {
+        console.error('Error eliminando en Redis:', err);
+      }
+
+      notify('Producto eliminado de la nube');
     }
   };
 
@@ -4254,6 +4403,19 @@ export default function AdminPage() {
       setOffers(updated); localStorage.setItem('store_offers', JSON.stringify(updated)); notify('Promoción agregada');
     }
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
+  };
+
+  const handleSaveCatBanner = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingCatBannerId) {
+      const updated = catBanners.map(c => c.id === editingCatBannerId ? { ...c, ...catBannerForm } : c);
+      setCatBanners(updated); localStorage.setItem('store_cat_slides', JSON.stringify(updated)); setEditingCatBannerId(null); notify('Banner de Catálogo actualizado');
+    } else {
+      const newItem = { id: Date.now(), ...catBannerForm };
+      const updated = [...catBanners, newItem];
+      setCatBanners(updated); localStorage.setItem('store_cat_slides', JSON.stringify(updated)); notify('Banner de Catálogo agregado');
+    }
+    setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
   };
 
   // ==========================================
@@ -4650,6 +4812,15 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {selectedOrder.payment?.receiptImage && (
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Comprobante de Pago Adjunto</h4>
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col items-center">
+                        <img src={selectedOrder.payment.receiptImage} alt="Comprobante" className="max-h-72 object-contain rounded-xl shadow-sm" />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-3 pt-2">
                     <h4 className="text-xs font-black uppercase text-slate-900">Acciones de Despacho y Pagos</h4>
                     
@@ -4710,6 +4881,24 @@ export default function AdminPage() {
                           Cancelar Pedido
                         </button>
                       )}
+
+                      <button
+                        onClick={() => {
+                          const clave = prompt('Ingresa la contraseña de administración para eliminar este pedido:');
+                          if (clave === 'Admin1234.') {
+                            const updatedOrders = orders.filter(o => o.id !== selectedOrder.id);
+                            setOrders(updatedOrders);
+                            localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
+                            setSelectedOrder(null);
+                            notify('Pedido eliminado permanentemente');
+                          } else if (clave !== null) {
+                            alert('Contraseña incorrecta');
+                          }
+                        }}
+                        className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl transition-colors cursor-pointer ml-auto"
+                      >
+                        🗑️ Eliminar Pedido (Con Clave)
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -5139,6 +5328,61 @@ export default function AdminPage() {
                         <Pencil className="w-4 h-4"/>
                       </button>
                       <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar esta oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); localStorage.setItem('store_offers', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar Oferta">
+                        <Trash2 className="w-4 h-4"/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Editor de Banners de Catálogo (Tipo Carrusel Avanzado) */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-orange-500" />
+                <h3 className="text-lg font-black text-slate-900">Banners del Catálogo (Carrusel por Categorías)</h3>
+              </div>
+              <form onSubmit={handleSaveCatBanner} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Categoría Asociada</label>
+                    <select required value={catBannerForm.category} onChange={e => setCatBannerForm({...catBannerForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white">
+                      <option value="Todos">Todos (General / Por Defecto)</option>
+                      <option value="Hogar">Hogar</option>
+                      <option value="Tecnología">Tecnología</option>
+                      <option value="Cocina">Cocina</option>
+                      <option value="Automóvil">Automóvil</option>
+                      <option value="Belleza">Belleza</option>
+                      <option value="Productos Virales">Productos Virales</option>
+                    </select>
+                  </div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace al hacer clic</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl" placeholder="/catalogo" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
+                </div>
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                  {editingCatBannerId ? 'Actualizar Banner de Catálogo' : 'Agregar Banner de Catálogo'}
+                </button>
+              </form>
+              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
+                {catBanners.map(c => (
+                  <div key={c.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white hover:border-orange-300 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-10 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                         {c.desktopImg || c.mobileImg ? <img src={c.desktopImg || c.mobileImg} alt="CatBanner" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-800 text-[11px]">{c.category}</span>
+                        <span className="text-[9px] text-slate-500">{c.link}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar">
+                        <Pencil className="w-4 h-4"/>
+                      </button>
+                      <button type="button" onClick={() => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); localStorage.setItem('store_cat_slides', JSON.stringify(u)); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Eliminar">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
