@@ -145,7 +145,7 @@ export function HeroCarousel() {
                   <div className="pt-2 pointer-events-auto">
                     <Link
                       href={slide.btnLink || '/catalogo'}
-                      className="inline-flex items-center gap-2.5 bg-white text-slate-900 hover:bg-orange-50 font-black px-7 py-4 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
+                      className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-7 py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
                     >
                       <ShoppingBag className="w-4 h-4 text-orange-500 group-hover/btn:scale-110 transition-transform" />
                       <span>{slide.btnText || 'Comprar Ahora'}</span>

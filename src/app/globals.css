@@ -27,10 +27,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Asegurar que los botones e inputs reciban eventos táctiles sin interferencias y tengan texto visible */
+/* Asegurar respuesta táctil */
 button, a, input, select, textarea {
   touch-action: manipulation;
-  color: inherit;
 }
 
 /* Clase utilitaria scrollbar-hide para ocultar scrollbars horizontales en carruseles */

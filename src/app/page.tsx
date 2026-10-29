@@ -102,10 +102,10 @@ function HomeContent() {
                     setSelectedCategory(isSelected ? 'Todos' : cat.name);
                     document.getElementById('catalogo-grilla')?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className={`flex-shrink-0 w-[140px] md:w-auto snap-start p-4 md:p-5 rounded-3xl border text-center transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer group hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/80 ${
+                  className={`flex-shrink-0 w-[140px] md:w-auto snap-start p-4 md:p-5 rounded-3xl border text-center transition-all duration-300 ease-out flex flex-col items-center justify-center gap-3 cursor-pointer group hover:-translate-y-2 hover:shadow-2xl hover:shadow-slate-300/50 ${
                     isSelected
-                      ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-105'
-                      : 'bg-white border-gray-200/80 text-slate-800 hover:border-orange-300'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-300/60 scale-105'
+                      : 'bg-white border-gray-200/80 text-slate-800 hover:border-orange-200'
                   }`}
                 >
                   <div className={`p-4 rounded-2xl transition-all duration-300 group-hover:scale-110 ${
@@ -170,7 +170,7 @@ function HomeContent() {
                     </div>
                     <button
                       onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" />
                     </button>
@@ -235,7 +235,7 @@ function HomeContent() {
                     </span>
                     <button
                       onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-slate-900 hover:bg-orange-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 cursor-pointer"
+                      className="bg-slate-900 hover:bg-orange-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md shadow-slate-900/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-orange-500/40 active:scale-95 cursor-pointer"
                     >
                       Comprar
                     </button>

@@ -151,7 +151,7 @@ export function OffersCarousel() {
                     <div className="pt-2 pointer-events-auto">
                       <Link
                         href={offer.link || '/catalogo'}
-                        className="inline-flex items-center justify-center gap-2 bg-white text-slate-900 hover:bg-orange-50 font-black text-xs py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 cursor-pointer group/btn"
+                        className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-3 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
                       >
                         <span>Aprovechar Oferta</span>
                         <ArrowRight className="w-3.5 h-3.5 text-orange-500 group-hover/btn:translate-x-1 transition-transform" />
