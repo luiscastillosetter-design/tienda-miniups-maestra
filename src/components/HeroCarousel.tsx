@@ -118,7 +118,7 @@ export function HeroCarousel() {
 
                 {/* Renderizar textos y botón SOLO si escribes un Título explícito en el Admin */}
                 {slide.title && (
-                  <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none">
+                  <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none mt-40 md:mt-56">
                     {slide.badge && (
                       <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
                         <ShieldCheck className="w-4 h-4 text-white" />

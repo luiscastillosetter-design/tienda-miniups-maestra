@@ -147,7 +147,7 @@ export default function AdminPage() {
     }
   };
 
-  // 5. Utilidades Multimedia (Con Compresor Automático Integrado a Full HD)
+  // 5. Utilidades Multimedia (Calidad 100% Original - Sin Compresión)
   const isVideoSource = (url: string) => {
     if (!url) return false;
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
@@ -155,43 +155,14 @@ export default function AdminPage() {
 
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type.startsWith('video/')) {
-      if (file.size > 4 * 1024 * 1024) alert('⚠️ Advertencia: El video pesa más de 4MB. Vercel podría bloquear el guardado. Sube un clip más corto de ser posible.');
+    if (file) {
+      if (file.size > 4.5 * 1024 * 1024) {
+        alert('⚠️ Advertencia: El archivo pesa más de 4.5MB. Vercel podría bloquear el guardado en la nube.');
+      }
       const reader = new FileReader();
       reader.onloadend = () => callback(reader.result as string);
       reader.readAsDataURL(file);
-      return;
     }
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const MAX_SIZE = 1920; 
-        
-        if (width > height && width > MAX_SIZE) {
-          height *= MAX_SIZE / width;
-          width = MAX_SIZE;
-        } else if (height > MAX_SIZE) {
-          width *= MAX_SIZE / height;
-          height = MAX_SIZE;
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        
-        callback(canvas.toDataURL('image/webp', 0.9));
-      };
-    };
   };
 
   useEffect(() => {

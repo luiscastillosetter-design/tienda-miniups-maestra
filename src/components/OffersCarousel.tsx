@@ -124,7 +124,7 @@ export function OffersCarousel() {
 
                   {/* Renderizar textos SOLO si se escribió un título explícito en el Admin */}
                   {offer.title && (
-                    <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none">
+                    <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none mt-32 md:mt-48">
                       <div className="flex items-center gap-3">
                         {offer.tag && (
                           <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
