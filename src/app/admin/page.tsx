@@ -95,7 +95,7 @@ export default function AdminPage() {
     images: ['', '', '', ''],
   });
 
-  // 3. Estado de Publicidad y Contenido (Precargados con los banners por defecto)
+  // 3. Estado de Publicidad y Contenido
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
   const [heroForm, setHeroForm] = useState({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
@@ -147,12 +147,16 @@ export default function AdminPage() {
     }
   };
 
-  // 5. Utilidades Multimedia (Con Compresor Automático Integrado)
+  // 5. Utilidades Multimedia (Con Compresor Automático Integrado a Full HD)
+  const isVideoSource = (url: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Si es video, pasa directo (solo advertimos si es muy pesado)
     if (file.type.startsWith('video/')) {
       if (file.size > 4 * 1024 * 1024) alert('⚠️ Advertencia: El video pesa más de 4MB. Vercel podría bloquear el guardado. Sube un clip más corto de ser posible.');
       const reader = new FileReader();
@@ -161,7 +165,6 @@ export default function AdminPage() {
       return;
     }
 
-    // Si es imagen, la comprimimos a formato WebP ultraligero
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -171,7 +174,7 @@ export default function AdminPage() {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        const MAX_SIZE = 800; // Máximo 800px de ancho o alto
+        const MAX_SIZE = 1920; 
         
         if (width > height && width > MAX_SIZE) {
           height *= MAX_SIZE / width;
@@ -186,15 +189,9 @@ export default function AdminPage() {
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
         
-        // Exportamos comprimido a calidad 60%
-        callback(canvas.toDataURL('image/webp', 0.6));
+        callback(canvas.toDataURL('image/webp', 0.9));
       };
     };
-  };
-
-  const isVideoSource = (url: string) => {
-    if (!url) return false;
-    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
   useEffect(() => {
@@ -242,7 +239,6 @@ export default function AdminPage() {
 
     // 3. Cargar Banners Hero, Ofertas, Categorías y Configuración Marketing desde la Nube
     const loadMarketingData = async () => {
-      // Hero
       try {
         const resHero = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
         if (resHero.ok) {
@@ -254,7 +250,6 @@ export default function AdminPage() {
         }
       } catch (e) {}
 
-      // Ofertas
       try {
         const resOff = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
         if (resOff.ok) {
@@ -266,7 +261,6 @@ export default function AdminPage() {
         }
       } catch (e) {}
 
-      // Banners Catálogo
       try {
         const resCat = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
         if (resCat.ok) {
@@ -278,7 +272,6 @@ export default function AdminPage() {
         }
       } catch (e) {}
 
-      // Configuración de Ads y Pixel
       try {
         const resMkt = await fetch(`/api/store?key=store_marketing_config&t=${Date.now()}`, { cache: 'no-store' });
         if (resMkt.ok) {
@@ -336,7 +329,6 @@ export default function AdminPage() {
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
-    // Descuento automático y permanente de stock en la nube al aprobar el pago
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = products.map(p => {
         const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
@@ -544,7 +536,7 @@ export default function AdminPage() {
     localStorage.setItem('store_ad_spend', String(adSpendInput));
     localStorage.setItem('todomax_meta_pixel', metaPixelId.trim());
     await syncStoreKey('store_marketing_config', configData);
-    notify('Configuración de Meta Pixel y Gasto Publicitario guardada en la nube');
+    notify('Configuración guardada en la nube');
   };
 
   // ==========================================
@@ -793,7 +785,7 @@ export default function AdminPage() {
         {notification && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center justify-between shadow-xs">
             <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" /> {notification}</span>
-            <button onClick={() => setNotification('')}><X className="w-4 h-4" /></button>
+            <button onClick={() => setNotification('')} className="cursor-pointer"><X className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -830,7 +822,7 @@ export default function AdminPage() {
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full text-xs font-semibold outline-none bg-transparent"
               />
-              {searchTerm && <button onClick={() => setSearchTerm('')}><X className="w-4 h-4 text-slate-400" /></button>}
+              {searchTerm && <button onClick={() => setSearchTerm('')} className="cursor-pointer"><X className="w-4 h-4 text-slate-400" /></button>}
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
@@ -1429,8 +1421,9 @@ export default function AdminPage() {
                 <Sliders className="w-5 h-5 text-orange-500"/>
                 <h3 className="text-lg font-black text-slate-900">Banners Principales (Hero)</h3>
               </div>
+              <p className="text-xs text-slate-500">Nota: Si tu imagen ya tiene textos, deja el Título Grande en blanco para que el botón no tape tu foto.</p>
               <form onSubmit={handleSaveHero} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional si usas banner con texto)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu foto ya tiene textos" /></div>
                 <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-3 gap-2">
                   <div><label className="block font-bold uppercase mb-1">Etiqueta</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="OFERTA" /></div>
@@ -1438,7 +1431,7 @@ export default function AdminPage() {
                   <div><label className="block font-bold uppercase mb-1">Enlace Botón</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC (Recomendado Full HD)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
                   <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
@@ -1476,9 +1469,10 @@ export default function AdminPage() {
                 <Zap className="w-5 h-5 text-orange-500"/>
                 <h3 className="text-lg font-black text-slate-900">Promociones y Combos</h3>
               </div>
+              <p className="text-xs text-slate-500">Nota: Si tu imagen ya tiene textos, deja el Título en blanco para que el botón no tape tu foto.</p>
               <form onSubmit={handleSaveOffer} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título de la Oferta</label><input type="text" required value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                <div><label className="block font-bold uppercase mb-1">Descripción corta</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título de la Oferta (Opcional)</label><input type="text" value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu foto ya tiene textos" /></div>
+                <div><label className="block font-bold uppercase mb-1">Descripción corta (Opcional)</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className="block font-bold uppercase mb-1">Tag Superior</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. COMBO AHORRO" /></div>
                   <div><label className="block font-bold uppercase mb-1">Descuento/Aviso</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. 30% OFF" /></div>
@@ -1541,7 +1535,7 @@ export default function AdminPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
-                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil (Cuadrada 1:1 recomendada)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
                   {editingCatBannerId ? 'Actualizar Banner de Catálogo en Nube' : 'Agregar Banner de Catálogo'}

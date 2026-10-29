@@ -103,7 +103,7 @@ export function OffersCarousel() {
                   key={offer.id}
                   className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
                 >
-                  {/* Imágenes de Fondo Panorámicas */}
+                  {/* Imágenes de Fondo Panorámicas SIN VELO OSCURO */}
                   {dImg && (
                     <img
                       src={dImg}
@@ -119,45 +119,40 @@ export function OffersCarousel() {
                     />
                   )}
 
-                  {/* Capa Oscura para lectura limpia */}
-                  {(dImg || mImg) && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-transparent z-0" />
-                  )}
-
                   {/* Enlace clickeable en toda la tarjeta */}
                   <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
 
-                  {/* Textos de la oferta */}
-                  <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none">
-                    <div className="flex items-center gap-3">
-                      {offer.tag && (
-                        <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
-                          {offer.tag}
-                        </span>
-                      )}
-                      {offer.discount && (
-                        <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
-                          {offer.discount}
-                        </span>
-                      )}
-                    </div>
-                    {offer.title && (
+                  {/* Renderizar textos SOLO si se escribió un título explícito en el Admin */}
+                  {offer.title && (
+                    <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none">
+                      <div className="flex items-center gap-3">
+                        {offer.tag && (
+                          <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
+                            {offer.tag}
+                          </span>
+                        )}
+                        {offer.discount && (
+                          <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
+                            {offer.discount}
+                          </span>
+                        )}
+                      </div>
                       <h3 className="text-2xl md:text-5xl font-black drop-shadow-md">{offer.title}</h3>
-                    )}
-                    {offer.desc && (
-                      <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-sm max-w-xl">{offer.desc}</p>
-                    )}
-                    
-                    <div className="pt-2 pointer-events-auto">
-                      <Link
-                        href={offer.link || '/catalogo'}
-                        className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-3 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
-                      >
-                        <span>Aprovechar Oferta</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-orange-500 group-hover/btn:translate-x-1 transition-transform" />
-                      </Link>
+                      {offer.desc && (
+                        <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">{offer.desc}</p>
+                      )}
+                      
+                      <div className="pt-2 pointer-events-auto">
+                        <Link
+                          href={offer.link || '/catalogo'}
+                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-3 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
+                        >
+                          <span>Aprovechar Oferta</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-white group-hover/btn:translate-x-1 transition-transform" />
+                        </Link>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}

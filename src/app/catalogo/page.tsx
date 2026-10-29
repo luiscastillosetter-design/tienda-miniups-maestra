@@ -7,7 +7,7 @@ import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { Truck, ShieldCheck, Sparkles } from 'lucide-react';
+import { Truck, ShieldCheck, Sparkles, ShoppingBag } from 'lucide-react';
 
 const availableCategories = [
   'Todos',
@@ -35,7 +35,6 @@ function CatalogoContent() {
       const data = await productService.getProducts();
       setProducts(data);
 
-      // Cargar banners de catálogo desde localStorage y nube
       if (typeof window !== 'undefined') {
         const localSlides = localStorage.getItem('store_cat_slides');
         if (localSlides) {
@@ -76,7 +75,6 @@ function CatalogoContent() {
     }
   }, [searchParams, products]);
 
-  // Filtrar slides para la categoría activa
   const activeCategorySlides = (() => {
     const byCat = catSlides.filter((s: any) => s.category === activeCategory);
     if (byCat.length > 0) return byCat;
@@ -118,7 +116,6 @@ function CatalogoContent() {
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
         
-        {/* Cabecera Panorámica */}
         <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-3xl">
             <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
@@ -149,9 +146,9 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {/* BANNERS DE CATEGORÍAS (Conectado al Admin en Vivo o Banner Corporativo Limpio por defecto) */}
+        {/* BANNERS DE CATEGORÍAS (1:1 en móvil, panorámico en PC) */}
         {activeCategorySlides.length > 0 ? (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-[3/1] md:aspect-[6/1] relative border border-gray-200/80 group">
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-square md:aspect-[21/9] lg:aspect-[4/1] relative border border-gray-200/80 group">
             {activeCategorySlides.map((slide: any, i: number) => {
               const dImg = slide.desktopImg || slide.mobileImg;
               const mImg = slide.mobileImg || slide.desktopImg;
@@ -237,9 +234,9 @@ function CatalogoContent() {
                     </span>
                     <button
                       onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm"
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
                     >
-                      Comprar
+                      <ShoppingBag className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>

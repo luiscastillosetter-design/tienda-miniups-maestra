@@ -89,7 +89,6 @@ export function HeroCarousel() {
           {slides.map((slide) => {
             const dImg = slide.desktopImg || '';
             const mImg = slide.mobileImg || dImg;
-            const hasText = Boolean(slide.title || slide.subtitle || slide.badge);
 
             return (
               <div
@@ -114,45 +113,41 @@ export function HeroCarousel() {
                   />
                 )}
 
-                {/* Velo oscuro para legibilidad si hay texto e imagen */}
-                {(dImg || mImg) && hasText && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/50 to-transparent z-0" />
-                )}
-
                 {/* Enlace global si el banner es solo imagen */}
                 <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
 
-                <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none">
-                  {slide.badge && (
-                    <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
-                      <ShieldCheck className="w-4 h-4 text-white" />
-                      {slide.badge}
-                    </span>
-                  )}
+                {/* Renderizar textos y botón SOLO si escribes un Título explícito en el Admin */}
+                {slide.title && (
+                  <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none">
+                    {slide.badge && (
+                      <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
+                        <ShieldCheck className="w-4 h-4 text-white" />
+                        {slide.badge}
+                      </span>
+                    )}
 
-                  {slide.title && (
                     <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
                       {slide.title}
                     </h1>
-                  )}
 
-                  {slide.subtitle && (
-                    <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-xs">
-                      {slide.subtitle}
-                    </p>
-                  )}
+                    {slide.subtitle && (
+                      <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
+                        {slide.subtitle}
+                      </p>
+                    )}
 
-                  <div className="pt-2 pointer-events-auto">
-                    <Link
-                      href={slide.btnLink || '/catalogo'}
-                      className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-7 py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
-                    >
-                      <ShoppingBag className="w-4 h-4 text-orange-500 group-hover/btn:scale-110 transition-transform" />
-                      <span>{slide.btnText || 'Comprar Ahora'}</span>
-                      <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                    </Link>
+                    <div className="pt-2 pointer-events-auto">
+                      <Link
+                        href={slide.btnLink || '/catalogo'}
+                        className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-7 py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-white group-hover/btn:scale-110 transition-transform" />
+                        <span>{slide.btnText || 'Comprar Ahora'}</span>
+                        <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
