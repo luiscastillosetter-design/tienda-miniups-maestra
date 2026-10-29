@@ -16,7 +16,7 @@ type AffiliateUser = {
   joinedAt: string;
 };
 
-const DEFAULT_BASE_URL = 'https://tienda-miniups-maestra.vercel.app';
+const DEFAULT_BASE_URL = 'https://www.importadoratodomax.com';
 
 export default function AfiliadosPage() {
   const [user, setUser] = useState<AffiliateUser | null>(null);

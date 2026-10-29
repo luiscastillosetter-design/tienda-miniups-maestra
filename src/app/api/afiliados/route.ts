@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { products as defaultProducts, Product } from '@/data/products';
 import { dbService } from '@/services/dbService';
 
-const BASE_STORE_URL = 'https://tienda-miniups-maestra.vercel.app';
+const BASE_STORE_URL = 'https://www.importadoratodomax.com';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
