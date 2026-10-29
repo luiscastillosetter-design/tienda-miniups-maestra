@@ -467,13 +467,11 @@ export default function AdminPage() {
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
   };
 
-  // CORRECCIÓN QUIRÚRGICA: Evita colisiones por ID numérico usando la categoría como clave única indiscutible
-  // CORRECCIÓN DEFINITIVA DE BANNERS DE CATÁLOGO: Normalización de clave por ID único de categoría
+  // CORRECCIÓN BLINDADA DE BANNERS DE CATÁLOGO: Normalización robusta y sin colisiones por tildes o mayúsculas
   const handleSaveCatBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catBannerForm.category) return;
 
-    // Normalizar la categoría para que las tildes y espacios no rompan la clave única
     const rawCategory = catBannerForm.category.trim();
     const normalizedKey = rawCategory
       .toLowerCase()
@@ -481,7 +479,7 @@ export default function AdminPage() {
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/\s+/g, "-");
 
-    // Filtrar cualquier registro previo de esta misma categoría para reemplazarlo limpiamente
+    // Filtrar cualquier registro previo que coincida exactamente con la misma categoría normalizada
     const filteredSlides = catBanners.filter((c: any) => {
       const existingKey = (c.category || '')
         .toLowerCase()
@@ -1592,7 +1590,7 @@ export default function AdminPage() {
         {activeTab === 'finanzas' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-black text-slate-900">Estado Financiero y Rentabilidad Real</h2>
+              <h2 className="text-2xl font-callout font-black text-slate-900">Estado Financiero y Rentabilidad Real</h2>
               <p className="text-xs text-slate-500">Cruza ingresos brutos, costos de importación, gasto publicitario y comisiones.</p>
             </div>
 

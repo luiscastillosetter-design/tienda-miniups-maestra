@@ -44,36 +44,6 @@ The content is organized as follows:
   settings.json
   settings.local.json
 public/
-  categories/
-    gadgets.png
-    gaming.png
-    phone.png
-    smarthome.png
-    sonido.png
-    todos.png
-  hero/
-    hero1catalogo-mobile.png
-    hero1catalogo.png
-    hero2afiliados-mobile.png
-    hero2afiliados.png
-    hero3registro-mobile.png
-    hero3registro.png
-  ofertas/
-    oferta1-mobile.png
-    oferta1.png
-    oferta2-mobile.png
-    oferta2.png
-    oferta3-mobile.png
-    oferta3.png
-  products/
-    airpodspro2dageneracion-audio.jpg
-    applewatchultra2titanio-gadgets.jpg
-    iphone15promaxtitanio256gb-phones.jpg
-    miniupsdelitiodealtacapacidadconsalidausb-smarthome.jpg
-    minupssmart12vpararouterymodem-smarthome.jpg
-    playstation5ediciondedisco1tb-gaming.jpg
-    protectordevoltajeinteligenteconbateria-smarthome.jpg
-    respaldodeenergiadcparacamaras-gadgets.jpg
   file.svg
   globe.svg
   logo-todomax.png
@@ -223,37 +193,6 @@ This section contains the contents of the repository's files.
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
 </file>
 
-<file path="src/app/api/products/route.ts">
-import { NextRequest, NextResponse } from 'next/server';
-import { dbService } from '@/services/dbService';
-import { products as defaultProducts } from '@/data/products';
-
-export async function GET() {
-  try {
-    const products = await dbService.get('store_products');
-    if (!products || !Array.isArray(products) || products.length === 0) {
-      await dbService.set('store_products', defaultProducts);
-      return NextResponse.json(defaultProducts);
-    }
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error('Error fetching products from Redis:', error);
-    return NextResponse.json(defaultProducts);
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    await dbService.set('store_products', body);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error saving products to Redis:', error);
-    return NextResponse.json({ success: false, error: 'Failed to save' }, { status: 500 });
-  }
-}
-</file>
-
 <file path="src/app/api/sellibri/route.ts">
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -303,40 +242,6 @@ export async function GET() {
     service: 'TodoMax Logistics Sync Gateway',
     version: '1.0.0',
   }, { status: 200 });
-}
-</file>
-
-<file path="src/app/api/store/route.ts">
-import { NextRequest, NextResponse } from 'next/server';
-import { dbService } from '@/services/dbService';
-
-export async function GET(request: NextRequest) {
-  try {
-    const key = request.nextUrl.searchParams.get('key');
-    if (!key) {
-      return NextResponse.json({ error: 'Falta parámetro key' }, { status: 400 });
-    }
-    const data = await dbService.get(key);
-    return NextResponse.json({ success: true, data });
-  } catch (error) {
-    console.error('Error en GET /api/store:', error);
-    return NextResponse.json({ error: 'Error leyendo datos' }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { key, value } = body;
-    if (!key) {
-      return NextResponse.json({ error: 'Falta parámetro key' }, { status: 400 });
-    }
-    await dbService.set(key, value);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error en POST /api/store:', error);
-    return NextResponse.json({ error: 'Error guardando datos' }, { status: 500 });
-  }
 }
 </file>
 
@@ -682,6 +587,99 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
+<file path="src/app/api/products/route.ts">
+import { NextRequest, NextResponse } from 'next/server';
+import { dbService } from '@/services/dbService';
+import { products as defaultProducts } from '@/data/products';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export async function GET() {
+  try {
+    const products = await dbService.get('store_products');
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      await dbService.set('store_products', defaultProducts);
+      return NextResponse.json(defaultProducts, {
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+      });
+    }
+    return NextResponse.json(products, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return NextResponse.json(defaultProducts);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!Array.isArray(body)) {
+      return NextResponse.json({ success: false, error: 'Formato inválido' }, { status: 400 });
+    }
+    const saved = await dbService.set('store_products', body);
+    if (!saved) {
+      return NextResponse.json(
+        { success: false, error: 'No se pudo guardar en la base de datos' },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error saving products:', error);
+    return NextResponse.json({ success: false, error: 'Failed to save' }, { status: 500 });
+  }
+}
+</file>
+
+<file path="src/app/api/store/route.ts">
+import { NextRequest, NextResponse } from 'next/server';
+import { dbService } from '@/services/dbService';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export async function GET(request: NextRequest) {
+  try {
+    const key = request.nextUrl.searchParams.get('key');
+    if (!key) {
+      return NextResponse.json({ error: 'Falta parámetro key' }, { status: 400 });
+    }
+    const data = await dbService.get(key);
+    return NextResponse.json(
+      { success: true, data },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
+  } catch (error) {
+    console.error('Error en GET /api/store:', error);
+    return NextResponse.json({ error: 'Error leyendo datos' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { key, value } = body;
+    if (!key) {
+      return NextResponse.json({ error: 'Falta parámetro key' }, { status: 400 });
+    }
+    const saved = await dbService.set(key, value);
+    if (!saved) {
+      return NextResponse.json(
+        { success: false, error: 'No se pudo escribir en la base de datos' },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error en POST /api/store:', error);
+    return NextResponse.json({ error: 'Error guardando datos' }, { status: 500 });
+  }
+}
+</file>
+
 <file path="src/components/CartDrawer.tsx">
 'use client';
 
@@ -838,69 +836,6 @@ export default function CartDrawer() {
     </>
   );
 }
-</file>
-
-<file path="src/services/dbService.ts">
-import { createClient } from 'redis';
-
-let redisClient: any = null;
-let redisFailed = false;
-
-async function getClient() {
-  if (redisFailed || !process.env.REDIS_URL) {
-    return null;
-  }
-
-  if (!redisClient) {
-    try {
-      const client = createClient({
-        url: process.env.REDIS_URL,
-        socket: {
-          connectTimeout: 3000,
-          reconnectStrategy: false,
-        },
-      });
-      client.on('error', (err: any) => {
-        console.error('Error en cliente Redis:', err);
-        redisFailed = true;
-      });
-      await client.connect();
-      redisClient = client;
-    } catch (error) {
-      console.error('No se pudo conectar a Redis, usando respaldo local:', error);
-      redisFailed = true;
-      redisClient = null;
-      return null;
-    }
-  }
-  return redisClient;
-}
-
-export const dbService = {
-  async get(key: string) {
-    try {
-      const client = await getClient();
-      if (!client) return null;
-      const data = await client.get(key);
-      return data ? JSON.parse(data) : null;
-    } catch (error) {
-      console.error(`Error leyendo ${key} de Redis:`, error);
-      return null;
-    }
-  },
-
-  async set(key: string, value: any) {
-    try {
-      const client = await getClient();
-      if (!client) return false;
-      await client.set(key, JSON.stringify(value));
-      return true;
-    } catch (error) {
-      console.error(`Error guardando ${key} en Redis:`, error);
-      return false;
-    }
-  }
-};
 </file>
 
 <file path="src/store/cartStore.ts">
@@ -1443,6 +1378,118 @@ export function getAllProductIds(): string[] {
 }
 </file>
 
+<file path="src/services/dbService.ts">
+import { createClient } from 'redis';
+import fs from 'fs';
+import path from 'path';
+
+const LOCAL_DB_PATH = path.join(process.cwd(), '.todomax-db.json');
+
+function readLocalFileDb(): Record<string, any> {
+  try {
+    if (fs.existsSync(LOCAL_DB_PATH)) {
+      const content = fs.readFileSync(LOCAL_DB_PATH, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (e) {
+    console.error('Error leyendo respaldo local .todomax-db.json:', e);
+  }
+  return {};
+}
+
+function writeLocalFileDb(data: Record<string, any>) {
+  try {
+    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (e) {
+    // Entornos serverless de solo lectura
+  }
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __redisClient: any;
+}
+
+async function getClient() {
+  if (!process.env.REDIS_URL) {
+    return null;
+  }
+
+  try {
+    if (global.__redisClient && global.__redisClient.isOpen) {
+      return global.__redisClient;
+    }
+
+    const client = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        connectTimeout: 8000,
+        reconnectStrategy: (retries) => {
+          if (retries > 5) return false;
+          return Math.min(retries * 200, 1000);
+        },
+      },
+    });
+
+    client.on('error', (err: any) => {
+      console.error('Aviso de socket Redis:', err?.message || err);
+    });
+
+    await client.connect();
+    global.__redisClient = client;
+    return client;
+  } catch (error) {
+    console.error('No se pudo conectar a Redis en este intento:', error);
+    global.__redisClient = null;
+    return null;
+  }
+}
+
+export const dbService = {
+  async get(key: string) {
+    try {
+      const client = await getClient();
+      if (client) {
+        const data = await client.get(key);
+        if (data) {
+          return JSON.parse(data);
+        }
+      }
+    } catch (error) {
+      console.error(`Error leyendo ${key} de Redis:`, error);
+    }
+
+    const localDb = readLocalFileDb();
+    return localDb[key] !== undefined ? localDb[key] : null;
+  },
+
+  async set(key: string, value: any): Promise<boolean> {
+    let savedInCloud = false;
+
+    try {
+      const client = await getClient();
+      if (client) {
+        await client.set(key, JSON.stringify(value));
+        savedInCloud = true;
+      }
+    } catch (error) {
+      console.error(`Error guardando ${key} en Redis:`, error);
+    }
+
+    try {
+      const localDb = readLocalFileDb();
+      localDb[key] = value;
+      writeLocalFileDb(localDb);
+      if (!process.env.REDIS_URL) {
+        savedInCloud = true;
+      }
+    } catch (e) {}
+
+    return savedInCloud;
+  }
+};
+</file>
+
 <file path="next.config.ts">
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -1812,64 +1859,6 @@ export const siteConfig = {
   },
   roles: ["Super Admin", "Logística y Pagos", "Marketing y Afiliados"],
   metaPixelId: "TU_PIXEL_ID_AQUI",
-};
-</file>
-
-<file path="src/services/productService.ts">
-import { Product, products as defaultProducts } from '@/data/products';
-
-export const productService = {
-  async getProducts(): Promise<Product[]> {
-    if (typeof window !== 'undefined') {
-      const localData = localStorage.getItem('store_products');
-      if (localData) {
-        try {
-          const parsed = JSON.parse(localData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        } catch (e) {}
-      }
-    }
-
-    try {
-      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('store_products', JSON.stringify(data));
-          }
-          return data;
-        }
-      }
-    } catch (e) {
-      console.error('Error fetching products from API:', e);
-    }
-    return defaultProducts;
-  },
-
-  async saveProducts(products: Product[]): Promise<boolean> {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('store_products', JSON.stringify(products));
-    }
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(products),
-      });
-      return res.ok;
-    } catch (e) {
-      console.error('Error saving products:', e);
-      return false;
-    }
-  },
-
-  async getProductById(id: string): Promise<Product | undefined> {
-    const allProducts = await this.getProducts();
-    return allProducts.find((product) => String(product.id) === String(id));
-  },
 };
 </file>
 
@@ -3195,6 +3184,72 @@ export default function Header() {
 }
 </file>
 
+<file path="src/services/productService.ts">
+import { Product, products as defaultProducts } from '@/data/products';
+
+function safeSetLocalStorage(key: string, value: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+}
+
+export const productService = {
+  async getProducts(): Promise<Product[]> {
+    try {
+      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          safeSetLocalStorage('store_products', data);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.error('Error consultando /api/products en la nube:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const localData = localStorage.getItem('store_products');
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    return defaultProducts;
+  },
+
+  async saveProducts(products: Product[]): Promise<boolean> {
+    safeSetLocalStorage('store_products', products);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(products),
+      });
+      return res.ok;
+    } catch (e) {
+      console.error('Error guardando productos en la nube:', e);
+      return false;
+    }
+  },
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    const allProducts = await this.getProducts();
+    return allProducts.find((product) => String(product.id) === String(id));
+  },
+};
+</file>
+
 <file path="src/app/product/[id]/page.tsx">
 'use client';
 
@@ -3571,6 +3626,17 @@ export function HeroCarousel() {
 
   useEffect(() => {
     const loadSlides = async () => {
+      try {
+        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setSlides(json.data);
+            return;
+          }
+        }
+      } catch (e) {}
+
       if (typeof window !== 'undefined') {
         const local = localStorage.getItem('store_hero_slides');
         if (local) {
@@ -3582,17 +3648,6 @@ export function HeroCarousel() {
           } catch (e) {}
         }
       }
-
-      try {
-        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setSlides(json.data);
-            localStorage.setItem('store_hero_slides', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
     };
 
     loadSlides();
@@ -3616,7 +3671,6 @@ export function HeroCarousel() {
                 key={slide.id}
                 className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient || 'from-slate-900 via-slate-800 to-orange-950'} flex flex-col justify-center items-start overflow-hidden group`}
               >
-                {/* Imagen PC */}
                 {dImg && (
                   <img
                     src={dImg}
@@ -3625,7 +3679,6 @@ export function HeroCarousel() {
                   />
                 )}
 
-                {/* Imagen Móvil */}
                 {mImg && (
                   <img
                     src={mImg}
@@ -3634,10 +3687,8 @@ export function HeroCarousel() {
                   />
                 )}
 
-                {/* Enlace global si el banner es solo imagen */}
                 <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
 
-                {/* Renderizar textos y botón SOLO si escribes un Título explícito en el Admin */}
                 {slide.title && (
                   <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none mt-40 md:mt-56">
                     {slide.badge && (
@@ -3675,7 +3726,6 @@ export function HeroCarousel() {
         </div>
       </div>
 
-      {/* Puntos de navegación */}
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
         {slides.map((_, i) => (
           <button
@@ -3687,268 +3737,6 @@ export function HeroCarousel() {
         ))}
       </div>
     </div>
-  );
-}
-</file>
-
-<file path="src/app/catalogo/page.tsx">
-'use client';
-
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { siteConfig } from '@/config/site';
-import { productService } from '@/services/productService';
-import type { Product } from '@/data/products';
-import { useCartStore } from '@/store/cartStore';
-import { Truck, ShieldCheck, Sparkles, ShoppingBag } from 'lucide-react';
-
-const availableCategories = [
-  'Todos',
-  'Hogar',
-  'Tecnología',
-  'Cocina',
-  'Automóvil',
-  'Belleza',
-  'Productos Virales'
-];
-
-function CatalogoContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { addItem } = useCartStore();
-  
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('Todos');
-  const [catSlides, setCatSlides] = useState<any[]>([]);
-  const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
-
-  useEffect(() => {
-    const loadData = async () => {
-      const data = await productService.getProducts();
-      setProducts(data);
-
-      if (typeof window !== 'undefined') {
-        const localSlides = localStorage.getItem('store_cat_slides');
-        if (localSlides) {
-          try {
-            const parsed = JSON.parse(localSlides);
-            if (Array.isArray(parsed)) setCatSlides(parsed);
-          } catch (e) {}
-        }
-      }
-
-      try {
-        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setCatSlides(json.data);
-            localStorage.setItem('store_cat_slides', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
-    };
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    const categoryParam = searchParams.get('category');
-    if (products.length > 0) {
-      if (!categoryParam || categoryParam.toLowerCase() === 'todos') {
-        setActiveCategory('Todos');
-        setFilteredProducts(products);
-      } else {
-        setActiveCategory(categoryParam);
-        const filtered = products.filter(
-          p => p.category?.toLowerCase() === categoryParam.toLowerCase()
-        );
-        setFilteredProducts(filtered);
-      }
-    }
-  }, [searchParams, products]);
-
-  const activeCategorySlides = (() => {
-    const byCat = catSlides.filter((s: any) => s.category === activeCategory);
-    if (byCat.length > 0) return byCat;
-    return catSlides.filter((s: any) => s.category === 'Todos');
-  })();
-
-  useEffect(() => {
-    setCurrentSlideIdx(0);
-    if (activeCategorySlides.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentSlideIdx((prev) => (prev + 1) % activeCategorySlides.length);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [activeCategory, activeCategorySlides.length]);
-
-  const handleCategorySelect = (cat: string) => {
-    if (cat === 'Todos') {
-      router.push('/catalogo');
-    } else {
-      router.push(`/catalogo?category=${encodeURIComponent(cat)}`);
-    }
-  };
-
-  const handleBuyNow = (product: Product, e: React.MouseEvent) => {
-    e.preventDefault();
-    addItem(
-      {
-        id: product.id,
-        title: product.title,
-        price: product.price,
-        image: product.images[0],
-      },
-      1
-    );
-    router.push('/checkout');
-  };
-
-  return (
-    <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
-      <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
-        
-        <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="max-w-3xl">
-            <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
-              {siteConfig.storeName}
-            </span>
-            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-3">
-              Catálogo Completo
-            </h1>
-            <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed">
-              Descubre oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
-            </p>
-          </div>
-
-          <div className="flex overflow-x-auto md:flex-wrap gap-2 pb-2 md:pb-0 scrollbar-hide">
-            {availableCategories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => handleCategorySelect(cat)}
-                className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
-                  activeCategory.toLowerCase() === cat.toLowerCase()
-                    ? 'bg-slate-900 text-white shadow-lg'
-                    : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-600'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* BANNERS DE CATEGORÍAS (1:1 en móvil, panorámico en PC) */}
-        {activeCategorySlides.length > 0 ? (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-square md:aspect-[21/9] lg:aspect-[4/1] relative border border-gray-200/80 group">
-            {activeCategorySlides.map((slide: any, i: number) => {
-              const dImg = slide.desktopImg || slide.mobileImg;
-              const mImg = slide.mobileImg || slide.desktopImg;
-              const isVisible = i === currentSlideIdx;
-              return (
-                <Link
-                  key={slide.id || i}
-                  href={slide.link || '/catalogo'}
-                  className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
-                    isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-                  }`}
-                >
-                  {dImg && <img src={dImg} alt="Banner Catálogo PC" className="hidden md:block w-full h-full object-cover" />}
-                  {mImg && <img src={mImg} alt="Banner Catálogo Móvil" className="block md:hidden w-full h-full object-cover" />}
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 md:px-12 md:py-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
-            <div className="space-y-1.5">
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-orange-400 bg-white/10 px-3 py-1 rounded-full">
-                <Sparkles className="w-3.5 h-3.5" /> Departamento: {activeCategory}
-              </span>
-              <h2 className="text-xl md:text-2xl font-black">
-                Envío Gratis en compras desde {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold}
-              </h2>
-              <p className="text-xs text-slate-300 font-medium">
-                Despachos rápidos por {siteConfig.shipping.companies.slice(0, 3).join(', ')} con garantía directa de importadora.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-bold bg-white/10 backdrop-blur-xs px-4 py-3 rounded-2xl border border-white/10">
-              <Truck className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <span>Stock verificado y entrega inmediata</span>
-            </div>
-          </div>
-        )}
-
-        {/* Grilla de Productos */}
-        {filteredProducts.length === 0 ? (
-          <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
-            <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
-            <button
-              onClick={() => handleCategorySelect('Todos')}
-              className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs cursor-pointer"
-            >
-              Ver Todos los Productos
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
-
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                        {product.title}
-                      </h3>
-                    </Link>
-                  </div>
-
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-base md:text-lg font-black text-slate-900">
-                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
-}
-
-export default function CatalogoPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando Catálogo...</div>}>
-      <CatalogoContent />
-    </Suspense>
   );
 }
 </file>
@@ -4006,6 +3794,17 @@ export function OffersCarousel() {
 
   useEffect(() => {
     const loadOffers = async () => {
+      try {
+        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setOffers(json.data);
+            return;
+          }
+        }
+      } catch (e) {}
+
       if (typeof window !== 'undefined') {
         const saved = localStorage.getItem('store_offers');
         if (saved) {
@@ -4015,17 +3814,6 @@ export function OffersCarousel() {
           } catch (error) {}
         }
       }
-
-      try {
-        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setOffers(json.data);
-            localStorage.setItem('store_offers', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
     };
 
     loadOffers();
@@ -4059,7 +3847,6 @@ export function OffersCarousel() {
                   key={offer.id}
                   className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
                 >
-                  {/* Imágenes de Fondo Panorámicas SIN VELO OSCURO */}
                   {dImg && (
                     <img
                       src={dImg}
@@ -4075,10 +3862,8 @@ export function OffersCarousel() {
                     />
                   )}
 
-                  {/* Enlace clickeable en toda la tarjeta */}
                   <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
 
-                  {/* Renderizar textos SOLO si se escribió un título explícito en el Admin */}
                   {offer.title && (
                     <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none mt-32 md:mt-48">
                       <div className="flex items-center gap-3">
@@ -4115,7 +3900,6 @@ export function OffersCarousel() {
           </div>
         </div>
 
-        {/* Puntos de Navegación */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
           {offers.map((_, i) => (
             <button
@@ -4437,6 +4221,295 @@ export default function Home() {
 }
 </file>
 
+<file path="src/app/catalogo/page.tsx">
+'use client';
+
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import type { Product } from '@/data/products';
+import { useCartStore } from '@/store/cartStore';
+import { Truck, Sparkles, ShoppingBag } from 'lucide-react';
+
+const availableCategories = [
+  'Todos',
+  'Hogar',
+  'Tecnología',
+  'Cocina',
+  'Automóvil',
+  'Belleza',
+  'Productos Virales'
+];
+
+function CatalogoContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { addItem } = useCartStore();
+  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>('Todos');
+  const [catSlides, setCatSlides] = useState<any[]>([]);
+  const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const data = await productService.getProducts();
+      setProducts(data);
+
+      try {
+        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setCatSlides(json.data);
+            return;
+          }
+        }
+      } catch (e) {}
+
+      if (typeof window !== 'undefined') {
+        const localSlides = localStorage.getItem('store_cat_slides');
+        if (localSlides) {
+          try {
+            const parsed = JSON.parse(localSlides);
+            if (Array.isArray(parsed)) setCatSlides(parsed);
+          } catch (e) {}
+        }
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    if (products.length > 0) {
+      if (!categoryParam || categoryParam.toLowerCase() === 'todos') {
+        setActiveCategory('Todos');
+        setFilteredProducts(products);
+      } else {
+        setActiveCategory(categoryParam);
+        const filtered = products.filter(
+          p => p.category?.toLowerCase() === categoryParam.toLowerCase()
+        );
+        setFilteredProducts(filtered);
+      }
+    }
+  }, [searchParams, products]);
+
+  // Coincidencia flexible y robusta para reconocer los banners ya subidos por el Admin
+  const activeCategorySlides = (() => {
+    const normalizedActive = activeCategory
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+    
+    // Buscar coincidencia exacta con la categoría activa normalizada
+    const byCat = catSlides.filter((s: any) => {
+      const slideCat = (s.category || 'Todos')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+      return slideCat === normalizedActive;
+    });
+
+    if (byCat.length > 0) return byCat;
+
+    // Si no hay banner específico para esa categoría, buscar el general o de "Todos"
+    const generalSlides = catSlides.filter((s: any) => {
+      const slideCat = (s.category || 'Todos')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+      return slideCat === 'todos' || slideCat === 'general';
+    });
+
+    if (generalSlides.length > 0) return generalSlides;
+
+    return catSlides;
+  })();
+
+  useEffect(() => {
+    setCurrentSlideIdx(0);
+    if (activeCategorySlides.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlideIdx((prev) => (prev + 1) % activeCategorySlides.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [activeCategory, activeCategorySlides.length]);
+
+  const handleCategorySelect = (cat: string) => {
+    if (cat === 'Todos') {
+      router.push('/catalogo');
+    } else {
+      router.push(`/catalogo?category=${encodeURIComponent(cat)}`);
+    }
+  };
+
+  const handleBuyNow = (product: Product, e: React.MouseEvent) => {
+    e.preventDefault();
+    addItem(
+      {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        image: product.images[0],
+      },
+      1
+    );
+    router.push('/checkout');
+  };
+
+  return (
+    <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
+      <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
+        
+        <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="max-w-3xl">
+            <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
+              {siteConfig.storeName}
+            </span>
+            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-3">
+              Catálogo Completo
+            </h1>
+            <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed">
+              Descubre oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
+            </p>
+          </div>
+
+          <div className="flex overflow-x-auto md:flex-wrap gap-2 pb-2 md:pb-0 scrollbar-hide">
+            {availableCategories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => handleCategorySelect(cat)}
+                className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
+                  activeCategory.toLowerCase() === cat.toLowerCase()
+                    ? 'bg-slate-900 text-white shadow-lg'
+                    : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-600'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {activeCategorySlides.length > 0 ? (
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-square md:aspect-[21/9] lg:aspect-[4/1] relative border border-gray-200/80 group">
+            {activeCategorySlides.map((slide: any, i: number) => {
+              const dImg = slide.desktopImg || slide.mobileImg;
+              const mImg = slide.mobileImg || slide.desktopImg;
+              const isVisible = i === currentSlideIdx;
+              return (
+                <Link
+                  key={slide.id || i}
+                  href={slide.link || '/catalogo'}
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
+                    isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                  }`}
+                >
+                  {dImg && <img src={dImg} alt="Banner Catálogo PC" className="hidden md:block w-full h-full object-cover" />}
+                  {mImg && <img src={mImg} alt="Banner Catálogo Móvil" className="block md:hidden w-full h-full object-cover" />}
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 md:px-12 md:py-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-orange-400 bg-white/10 px-3 py-1 rounded-full">
+                <Sparkles className="w-3.5 h-3.5" /> Departamento: {activeCategory}
+              </span>
+              <h2 className="text-xl md:text-2xl font-black">
+                Envío Gratis en compras desde {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold}
+              </h2>
+              <p className="text-xs text-slate-300 font-medium">
+                Despachos rápidos por {siteConfig.shipping.companies.slice(0, 3).join(', ')} con garantía directa de importadora.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-xs font-bold bg-white/10 backdrop-blur-xs px-4 py-3 rounded-2xl border border-white/10">
+              <Truck className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <span>Stock verificado y entrega inmediata</span>
+            </div>
+          </div>
+        )}
+
+        {filteredProducts.length === 0 ? (
+          <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
+            <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
+            <button
+              onClick={() => handleCategorySelect('Todos')}
+              className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs cursor-pointer"
+            >
+              Ver Todos los Productos
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+            {filteredProducts.map((product) => (
+              <div
+                key={product.id}
+                className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+              >
+                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                  <img
+                    src={product.images[0]}
+                    alt={product.title}
+                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
+                  />
+                  {product.badge && (
+                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
+                      {product.badge}
+                    </span>
+                  )}
+                </Link>
+
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
+                    <Link href={`/product/${product.id}`}>
+                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
+                        {product.title}
+                      </h3>
+                    </Link>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-base md:text-lg font-black text-slate-900">
+                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                    </span>
+                    <button
+                      onClick={(e) => handleBuyNow(product, e)}
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+export default function CatalogoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando Catálogo...</div>}>
+      <CatalogoContent />
+    </Suspense>
+  );
+}
+</file>
+
 <file path="src/app/admin/page.tsx">
 'use client';
 
@@ -4501,21 +4574,29 @@ interface Order {
   };
 }
 
+function safeLocalStorageSet(key: string, value: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+}
+
 export default function AdminPage() {
-  // Autenticación y Roles
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [currentRole, setCurrentRole] = useState<UserRole>('Super Admin');
   const [activeTab, setActiveTab] = useState<'pedidos' | 'inventario' | 'afiliados' | 'publicidad' | 'crm' | 'finanzas'>('pedidos');
   const [notification, setNotification] = useState('');
 
-  // 1. Estado de Pedidos
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderFilter, setOrderFilter] = useState('Todos');
   const [trackingInput, setTrackingInput] = useState('');
 
-  // 2. Estado de Inventario y Productos
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState({
@@ -4535,7 +4616,6 @@ export default function AdminPage() {
     images: ['', '', '', ''],
   });
 
-  // 3. Estado de Publicidad y Contenido
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
   const [heroForm, setHeroForm] = useState({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
@@ -4550,15 +4630,10 @@ export default function AdminPage() {
 
   const [adSpendInput, setAdSpendInput] = useState<number>(0);
   const [metaPixelId, setMetaPixelId] = useState(siteConfig.metaPixelId || '');
-
-  // 4. Búsquedas
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Helper para guardar cualquier llave en Redis + LocalStorage
   const syncStoreKey = async (key: string, value: any) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
+    safeLocalStorageSet(key, value);
     try {
       await fetch('/api/store', {
         method: 'POST',
@@ -4570,12 +4645,9 @@ export default function AdminPage() {
     }
   };
 
-  // Helper para guardar productos en Redis + LocalStorage
   const syncProducts = async (updatedProducts: Product[]) => {
     setProducts(updatedProducts);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('store_products', JSON.stringify(updatedProducts));
-    }
+    safeLocalStorageSet('store_products', updatedProducts);
     try {
       await fetch('/api/products', {
         method: 'POST',
@@ -4587,7 +4659,6 @@ export default function AdminPage() {
     }
   };
 
-  // 5. Utilidades Multimedia (Calidad 100% Original - Sin Compresión)
   const isVideoSource = (url: string) => {
     if (!url) return false;
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
@@ -4596,9 +4667,6 @@ export default function AdminPage() {
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 4.5 * 1024 * 1024) {
-        alert('⚠️ Advertencia: El archivo pesa más de 4.5MB. Vercel podría bloquear el guardado en la nube.');
-      }
       const reader = new FileReader();
       reader.onloadend = () => callback(reader.result as string);
       reader.readAsDataURL(file);
@@ -4606,7 +4674,6 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // 0. Restaurar sesión del Admin al dar F5
     const savedAuth = localStorage.getItem('todomax_admin_auth');
     const savedRole = localStorage.getItem('todomax_admin_role') as UserRole | null;
     if (savedAuth === 'true' && savedRole) {
@@ -4615,18 +4682,16 @@ export default function AdminPage() {
       if (savedRole === 'Marketing y Afiliados') setActiveTab('afiliados');
     }
 
-    // 1. Cargar Inventario en vivo desde la Nube
     fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setProducts(data);
-          localStorage.setItem('store_products', JSON.stringify(data));
+          safeLocalStorageSet('store_products', data);
         }
       })
       .catch(e => console.error('Error cargando inventario:', e));
 
-    // 2. Cargar Pedidos en tiempo real (Nube + Local cada 4 segundos)
     const loadOrders = async () => {
       try {
         const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
@@ -4634,7 +4699,7 @@ export default function AdminPage() {
           const json = await res.json();
           if (Array.isArray(json.data)) {
             setOrders(json.data);
-            localStorage.setItem('store_orders', JSON.stringify(json.data));
+            safeLocalStorageSet('store_orders', json.data);
             return;
           }
         }
@@ -4648,7 +4713,6 @@ export default function AdminPage() {
     loadOrders();
     const orderInterval = setInterval(loadOrders, 4000);
 
-    // 3. Cargar Banners Hero, Ofertas, Categorías y Configuración Marketing desde la Nube
     const loadMarketingData = async () => {
       try {
         const resHero = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
@@ -4656,7 +4720,7 @@ export default function AdminPage() {
           const jHero = await resHero.json();
           if (Array.isArray(jHero.data) && jHero.data.length > 0) {
             setHeroSlides(jHero.data);
-            localStorage.setItem('store_hero_slides', JSON.stringify(jHero.data));
+            safeLocalStorageSet('store_hero_slides', jHero.data);
           }
         }
       } catch (e) {}
@@ -4667,7 +4731,7 @@ export default function AdminPage() {
           const jOff = await resOff.json();
           if (Array.isArray(jOff.data) && jOff.data.length > 0) {
             setOffers(jOff.data);
-            localStorage.setItem('store_offers', JSON.stringify(jOff.data));
+            safeLocalStorageSet('store_offers', jOff.data);
           }
         }
       } catch (e) {}
@@ -4676,9 +4740,9 @@ export default function AdminPage() {
         const resCat = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
         if (resCat.ok) {
           const jCat = await resCat.json();
-          if (Array.isArray(jCat.data)) {
+          if (Array.isArray(jCat.data) && jCat.data.length > 0) {
             setCatBanners(jCat.data);
-            localStorage.setItem('store_cat_slides', JSON.stringify(jCat.data));
+            safeLocalStorageSet('store_cat_slides', jCat.data);
           }
         }
       } catch (e) {}
@@ -4734,9 +4798,6 @@ export default function AdminPage() {
     setIsAuthenticated(false);
   };
 
-  // ==========================================
-  // OPERACIONES DE PEDIDOS (MÓDULO 1)
-  // ==========================================
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
@@ -4787,9 +4848,6 @@ export default function AdminPage() {
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
 
-  // ==========================================
-  // OPERACIONES DE INVENTARIO (MÓDULO 2)
-  // ==========================================
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productForm.title || !productForm.price) return;
@@ -4888,9 +4946,6 @@ export default function AdminPage() {
     }
   };
 
-  // ==========================================
-  // OPERACIONES DE MARKETING Y DISEÑO
-  // ==========================================
   const handleSaveHero = async (e: React.FormEvent) => {
     e.preventDefault();
     let updated: any[];
@@ -4925,34 +4980,55 @@ export default function AdminPage() {
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
   };
 
+  // CORRECCIÓN QUIRÚRGICA: Evita colisiones por ID numérico usando la categoría como clave única indiscutible
+  // CORRECCIÓN DEFINITIVA DE BANNERS DE CATÁLOGO: Normalización de clave por ID único de categoría
   const handleSaveCatBanner = async (e: React.FormEvent) => {
     e.preventDefault();
-    let updated: any[];
-    if (editingCatBannerId) {
-      updated = catBanners.map(c => c.id === editingCatBannerId ? { ...c, ...catBannerForm } : c);
-      setEditingCatBannerId(null);
-      notify('Banner de Catálogo actualizado en la nube');
-    } else {
-      const newItem = { id: Date.now(), ...catBannerForm };
-      updated = [...catBanners, newItem];
-      notify('Banner de Catálogo agregado en la nube');
-    }
+    if (!catBannerForm.category) return;
+
+    // Normalizar la categoría para que las tildes y espacios no rompan la clave única
+    const rawCategory = catBannerForm.category.trim();
+    const normalizedKey = rawCategory
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "-");
+
+    // Filtrar cualquier registro previo de esta misma categoría para reemplazarlo limpiamente
+    const filteredSlides = catBanners.filter((c: any) => {
+      const existingKey = (c.category || '')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-");
+      return existingKey !== normalizedKey;
+    });
+
+    const newItem = {
+      id: `cat-${normalizedKey}`,
+      category: rawCategory,
+      link: catBannerForm.link || '/catalogo',
+      desktopImg: catBannerForm.desktopImg || '',
+      mobileImg: catBannerForm.mobileImg || ''
+    };
+
+    const updated = [...filteredSlides, newItem];
     setCatBanners(updated);
     await syncStoreKey('store_cat_slides', updated);
+    
+    notify(`Banner de Catálogo para "${rawCategory}" guardado en la nube con éxito`);
     setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
+    setEditingCatBannerId(null);
   };
 
   const handleSaveMarketingConfig = async () => {
     const configData = { metaPixelId: metaPixelId.trim(), adSpend: adSpendInput };
-    localStorage.setItem('store_ad_spend', String(adSpendInput));
-    localStorage.setItem('todomax_meta_pixel', metaPixelId.trim());
+    safeLocalStorageSet('store_ad_spend', adSpendInput);
+    safeLocalStorageSet('todomax_meta_pixel', metaPixelId.trim());
     await syncStoreKey('store_marketing_config', configData);
     notify('Configuración guardada en la nube');
   };
 
-  // ==========================================
-  // FINANZAS Y MÉTRICAS REALES
-  // ==========================================
   const calcularComisionOrden = (order: Order) => {
     if (order.financials?.commission !== undefined) {
       return Number(order.financials.commission);
@@ -5025,9 +5101,6 @@ export default function AdminPage() {
       };
     });
 
-  // ==========================================
-  // PANTALLA DE LOGIN CON ROLES
-  // ==========================================
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -5084,13 +5157,8 @@ export default function AdminPage() {
     );
   }
 
-  // ==========================================
-  // PANEL PRINCIPAL (Navegación y Módulos)
-  // ==========================================
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-20">
-      
-      {/* BARRA SUPERIOR */}
       <header className="bg-slate-900 text-white px-6 md:px-12 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-4">
           <Link href="/" className="text-lg md:text-xl font-black tracking-tight flex items-center gap-2">
@@ -5114,7 +5182,6 @@ export default function AdminPage() {
         </div>
       </header>
 
-      {/* MENÚ DE PESTAÑAS */}
       <nav className="bg-white border-b border-slate-200 px-6 md:px-12 py-2 overflow-x-auto scrollbar-hide shadow-xs">
         <div className="flex items-center gap-2 min-w-max">
           {(currentRole === 'Super Admin' || currentRole === 'Logística y Pagos') && (
@@ -5192,7 +5259,6 @@ export default function AdminPage() {
       </nav>
 
       <main className="w-full px-4 md:px-12 lg:px-16 py-8">
-        
         {notification && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center justify-between shadow-xs">
             <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" /> {notification}</span>
@@ -5200,7 +5266,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* --- 1. PEDIDOS --- */}
         {activeTab === 'pedidos' && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -5316,7 +5381,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* MODAL DETALLES DEL PEDIDO */}
             {selectedOrder && (
               <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl border border-slate-100">
@@ -5454,10 +5518,8 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* --- 2. INVENTARIO Y PRODUCTOS --- */}
         {activeTab === 'inventario' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
             <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs h-fit space-y-4">
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                 {editingProductId ? <Pencil className="w-4 h-4 text-orange-500" /> : <Plus className="w-4 h-4 text-orange-500" />}
@@ -5579,7 +5641,7 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Características / Ficha Técnica (1 por línea)</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Características (1 por línea)</label>
                   <textarea
                     rows={3}
                     value={productForm.features}
@@ -5590,7 +5652,7 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Beneficios Comerciales (1 por línea)</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Beneficios (1 por línea)</label>
                   <textarea
                     rows={3}
                     value={productForm.benefits}
@@ -5601,36 +5663,34 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Texto Publicitario para Afiliados (AdCopy)</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Texto Afiliados (AdCopy)</label>
                   <textarea
                     rows={2}
                     value={productForm.adCopy}
                     onChange={e => setProductForm({ ...productForm, adCopy: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="¿Se fue la luz? ¡No te quedes sin internet! Pide tu Mini UPS hoy..."
+                    placeholder="¿Se fue la luz?..."
                   />
                 </div>
 
-                {/* 4 SLOTS MULTIMEDIA (FOTOS / VIDEOS) */}
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-2">Multimedia (Hasta 4 Fotos o Videos MP4)</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-2">Multimedia (Hasta 4)</label>
                   <div className="grid grid-cols-2 gap-3">
                     {[0, 1, 2, 3].map((index) => {
                       const media = productForm.images[index];
                       const isVideo = isVideoSource(media);
                       return (
-                        <div key={index} className="border border-dashed border-slate-300 p-2 rounded-xl text-center relative bg-slate-50 hover:bg-slate-100 transition-colors">
+                        <div key={index} className="border border-dashed border-slate-300 p-2 rounded-xl text-center relative bg-slate-50">
                           {media ? (
                             <div className="relative h-24 w-full rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
                               {isVideo ? <video src={media} className="h-full w-full object-cover" muted autoPlay loop /> : <img src={media} alt="Preview" className="h-full w-full object-cover" />}
-                              <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">{isVideo ? 'Video' : 'Foto'}</span>
                               <button type="button" onClick={() => { const updated = [...productForm.images]; updated[index] = ''; setProductForm({ ...productForm, images: updated }); }} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs z-10 cursor-pointer"><X className="w-3 h-3"/></button>
                             </div>
                           ) : (
                             <div className="flex flex-col items-center justify-center h-24 space-y-1">
                               <label className="cursor-pointer flex flex-col items-center">
                                 <div className="flex items-center gap-1 text-slate-400"><ImageIcon size={16} /><Video size={16} /></div>
-                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Subir Foto/MP4</span>
+                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Subir Foto</span>
                                 <input type="file" accept="image/*,video/mp4" className="hidden" onChange={(e) => handleMediaUpload(e, (url) => { const updated = [...productForm.images]; updated[index] = url; setProductForm({ ...productForm, images: updated }); })} />
                               </label>
                             </div>
@@ -5649,7 +5709,7 @@ export default function AdminPage() {
                     onChange={e => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
                   />
                   <label htmlFor="bestSeller" className="font-bold text-slate-700 cursor-pointer">
-                    Marcar como &quot;Más Vendido&quot; en Home
+                    Marcar como &quot;Más Vendido&quot;
                   </label>
                 </div>
 
@@ -5658,7 +5718,7 @@ export default function AdminPage() {
                     type="submit"
                     className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl transition-colors cursor-pointer"
                   >
-                    {editingProductId ? 'Actualizar en la Nube' : 'Guardar Producto'}
+                    {editingProductId ? 'Actualizar en Nube' : 'Guardar Producto'}
                   </button>
                   {editingProductId && (
                     <button
@@ -5747,11 +5807,9 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
-
           </div>
         )}
 
-        {/* --- MÓDULO 3: AFILIADOS --- */}
         {activeTab === 'afiliados' && (
           <div className="space-y-6">
             <div>
@@ -5784,7 +5842,7 @@ export default function AdminPage() {
                   <tr>
                     <th className="p-4">Código Afiliado</th>
                     <th className="p-4">Órdenes Totales</th>
-                    <th className="p-4">Entregadas (Confirmadas)</th>
+                    <th className="p-4">Entregadas</th>
                     <th className="p-4">Volumen Facturado</th>
                     <th className="p-4">Comisión Disponible</th>
                     <th className="p-4 text-right">Acción</th>
@@ -5822,50 +5880,46 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* --- MÓDULO 4: MARKETING, BANNERS Y PÍXELES --- */}
         {activeTab === 'publicidad' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
-            {/* Editor de Hero Banners */}
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center gap-2">
                 <Sliders className="w-5 h-5 text-orange-500"/>
                 <h3 className="text-lg font-black text-slate-900">Banners Principales (Hero)</h3>
               </div>
-              <p className="text-xs text-slate-500">Nota: Si tu imagen ya tiene textos, deja el Título Grande en blanco para que el botón no tape tu foto.</p>
               <form onSubmit={handleSaveHero} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu foto ya tiene textos" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu banner ya tiene textos" /></div>
                 <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-3 gap-2">
-                  <div><label className="block font-bold uppercase mb-1">Etiqueta</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="OFERTA" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Texto Botón</label><input type="text" value={heroForm.btnText} onChange={e => setHeroForm({...heroForm, btnText: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Comprar Ahora" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Enlace Botón</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Etiqueta</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Texto Botón</label><input type="text" value={heroForm.btnText} onChange={e => setHeroForm({...heroForm, btnText: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div><label className="block font-bold uppercase mb-1">Imagen PC (Recomendado Full HD)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
                   <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingHeroId ? 'Actualizar Banner Hero en Nube' : 'Agregar Banner Hero'}
+                  {editingHeroId ? 'Actualizar Banner Hero' : 'Agregar Banner Hero'}
                 </button>
               </form>
               <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
                 {heroSlides.map(s => (
-                  <div key={s.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 hover:border-orange-300 transition-colors">
+                  <div key={s.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
                     <div className="flex items-center gap-3">
-                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border flex-shrink-0">
                          {s.desktopImg ? <img src={s.desktopImg} alt="Hero" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
                       </div>
                       <div className="flex flex-col">
                         <span className="font-black text-slate-800 text-[11px]">{s.title || s.badge || 'Banner Hero'}</span>
-                        <span className="text-[9px] text-slate-500 max-w-[150px] truncate">{s.subtitle || s.btnLink}</span>
+                        <span className="text-[9px] text-slate-500">{s.btnLink}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingHeroId(s.id); setHeroForm({ title: s.title || '', subtitle: s.subtitle || '', badge: s.badge || '', btnText: s.btnText || 'Comprar Ahora', btnLink: s.btnLink || '/catalogo', desktopImg: s.desktopImg || '', mobileImg: s.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer" title="Editar Banner">
+                      <button type="button" onClick={() => { setEditingHeroId(s.id); setHeroForm({ title: s.title || '', subtitle: s.subtitle || '', badge: s.badge || '', btnText: s.btnText || 'Comprar Ahora', btnLink: s.btnLink || '/catalogo', desktopImg: s.desktopImg || '', mobileImg: s.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
                         <Pencil className="w-4 h-4"/>
                       </button>
-                      <button type="button" onClick={async () => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); await syncStoreKey('store_hero_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" title="Eliminar Banner">
+                      <button type="button" onClick={async () => { if(confirm('¿Eliminar banner?')){ const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); await syncStoreKey('store_hero_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
@@ -5874,46 +5928,44 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Editor de Promociones / Combos */}
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-orange-500"/>
                 <h3 className="text-lg font-black text-slate-900">Promociones y Combos</h3>
               </div>
-              <p className="text-xs text-slate-500">Nota: Si tu imagen ya tiene textos, deja el Título en blanco para que el botón no tape tu foto.</p>
               <form onSubmit={handleSaveOffer} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título de la Oferta (Opcional)</label><input type="text" value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu foto ya tiene textos" /></div>
-                <div><label className="block font-bold uppercase mb-1">Descripción corta (Opcional)</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título (Opcional)</label><input type="text" value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu imagen ya tiene textos" /></div>
+                <div><label className="block font-bold uppercase mb-1">Descripción</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><label className="block font-bold uppercase mb-1">Tag Superior</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. COMBO AHORRO" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Descuento/Aviso</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. 30% OFF" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Tag</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Descuento</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 </div>
-                <div><label className="block font-bold uppercase mb-1">Enlace del Producto</label><input type="text" value={offerForm.link} onChange={e => setOfferForm({...offerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={offerForm.link} onChange={e => setOfferForm({...offerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, desktopImg: url}))} /></div>
                   <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingOfferId ? 'Actualizar Oferta en Nube' : 'Agregar Oferta'}
+                  {editingOfferId ? 'Actualizar Oferta' : 'Agregar Oferta'}
                 </button>
               </form>
               <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
                 {offers.map(o => (
-                  <div key={o.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 hover:border-orange-300 transition-colors">
+                  <div key={o.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
                     <div className="flex items-center gap-3">
-                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border flex-shrink-0">
                          {o.desktopImg ? <img src={o.desktopImg} alt="Oferta" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
                       </div>
                       <div className="flex flex-col">
                         <span className="font-black text-slate-800 text-[11px]">{o.title || 'Oferta'}</span>
-                        <span className="text-[9px] text-orange-600 font-bold">{o.discount || 'Promoción'}</span>
+                        <span className="text-[9px] text-orange-600 font-bold">{o.discount || 'Promo'}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingOfferId(o.id); setOfferForm({ tag: o.tag || '', title: o.title || '', desc: o.desc || '', discount: o.discount || '', link: o.link || '/catalogo', gradient: o.gradient || 'from-slate-900 via-slate-800 to-orange-950', desktopImg: o.desktopImg || '', mobileImg: o.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer" title="Editar Oferta">
+                      <button type="button" onClick={() => { setEditingOfferId(o.id); setOfferForm({ tag: o.tag || '', title: o.title || '', desc: o.desc || '', discount: o.discount || '', link: o.link || '/catalogo', gradient: o.gradient || 'from-slate-900 via-slate-800 to-orange-950', desktopImg: o.desktopImg || '', mobileImg: o.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
                         <Pencil className="w-4 h-4"/>
                       </button>
-                      <button type="button" onClick={async () => { if(confirm('¿Seguro que deseas eliminar esta oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); await syncStoreKey('store_offers', u); notify('Oferta eliminada'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" title="Eliminar Oferta">
+                      <button type="button" onClick={async () => { if(confirm('¿Eliminar oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); await syncStoreKey('store_offers', u); notify('Oferta eliminada'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
@@ -5922,18 +5974,17 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Editor de Banners de Catálogo */}
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-orange-500" />
-                <h3 className="text-lg font-black text-slate-900">Banners del Catálogo (Carrusel por Categorías)</h3>
+                <h3 className="text-lg font-black text-slate-900">Banners del Catálogo</h3>
               </div>
               <form onSubmit={handleSaveCatBanner} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-bold uppercase mb-1">Categoría Asociada</label>
+                    <label className="block font-bold uppercase mb-1">Categoría</label>
                     <select required value={catBannerForm.category} onChange={e => setCatBannerForm({...catBannerForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white">
-                      <option value="Todos">Todos (General / Por Defecto)</option>
+                      <option value="Todos">Todos (General)</option>
                       <option value="Hogar">Hogar</option>
                       <option value="Tecnología">Tecnología</option>
                       <option value="Cocina">Cocina</option>
@@ -5942,21 +5993,21 @@ export default function AdminPage() {
                       <option value="Productos Virales">Productos Virales</option>
                     </select>
                   </div>
-                  <div><label className="block font-bold uppercase mb-1">Enlace al hacer clic</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="/catalogo" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
-                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil (Cuadrada 1:1 recomendada)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingCatBannerId ? 'Actualizar Banner de Catálogo en Nube' : 'Agregar Banner de Catálogo'}
+                  {editingCatBannerId ? 'Actualizar Banner Catálogo' : 'Agregar Banner Catálogo'}
                 </button>
               </form>
               <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
                 {catBanners.map(c => (
-                  <div key={c.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white hover:border-orange-300 transition-colors">
+                  <div key={c.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white">
                     <div className="flex items-center gap-3">
-                      <div className="w-16 h-10 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                      <div className="w-16 h-10 bg-slate-100 rounded-lg overflow-hidden border flex-shrink-0">
                          {c.desktopImg || c.mobileImg ? <img src={c.desktopImg || c.mobileImg} alt="CatBanner" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
                       </div>
                       <div className="flex flex-col">
@@ -5965,10 +6016,10 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer" title="Editar">
+                      <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
                         <Pencil className="w-4 h-4"/>
                       </button>
-                      <button type="button" onClick={async () => { if(confirm('¿Seguro que deseas eliminar este banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); await syncStoreKey('store_cat_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" title="Eliminar">
+                      <button type="button" onClick={async () => { if(confirm('¿Eliminar banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); await syncStoreKey('store_cat_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
@@ -5977,17 +6028,16 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Ads & Pixeles */}
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
               <h3 className="text-lg font-black text-slate-900">Píxeles y Gasto Publicitario</h3>
               <div className="flex flex-col md:flex-row gap-4 text-xs">
                 <div className="flex-1">
                   <label className="block font-bold uppercase text-slate-500 mb-1">Meta Pixel ID</label>
-                  <input type="text" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} placeholder="Ej: 123456789012345" className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
+                  <input type="text" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
                 </div>
                 <div className="w-full md:w-64">
                   <label className="block font-bold uppercase text-slate-500 mb-1">Inversión Mensual Ads ($)</label>
-                  <input type="number" value={adSpendInput} onChange={e => setAdSpendInput(Number(e.target.value))} placeholder="0" className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
+                  <input type="number" value={adSpendInput} onChange={e => setAdSpendInput(Number(e.target.value))} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
                 </div>
                 <div className="flex items-end">
                   <button onClick={handleSaveMarketingConfig} className="w-full md:w-auto px-8 py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
@@ -5999,7 +6049,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* --- MÓDULO 5: CRM DE CLIENTES --- */}
         {activeTab === 'crm' && (
           <div className="space-y-6">
             <div>
@@ -6053,7 +6102,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* --- MÓDULO 6: FINANZAS Y RENTABILIDAD --- */}
         {activeTab === 'finanzas' && (
           <div className="space-y-6">
             <div>
@@ -6090,7 +6138,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
