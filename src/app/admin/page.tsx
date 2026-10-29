@@ -147,14 +147,49 @@ export default function AdminPage() {
     }
   };
 
-  // 5. Utilidades Multimedia
+  // 5. Utilidades Multimedia (Con Compresor Automático Integrado)
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    // Si es video, pasa directo (solo advertimos si es muy pesado)
+    if (file.type.startsWith('video/')) {
+      if (file.size > 4 * 1024 * 1024) alert('⚠️ Advertencia: El video pesa más de 4MB. Vercel podría bloquear el guardado. Sube un clip más corto de ser posible.');
       const reader = new FileReader();
       reader.onloadend = () => callback(reader.result as string);
       reader.readAsDataURL(file);
+      return;
     }
+
+    // Si es imagen, la comprimimos a formato WebP ultraligero
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = 800; // Máximo 800px de ancho o alto
+        
+        if (width > height && width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        } else if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Exportamos comprimido a calidad 60%
+        callback(canvas.toDataURL('image/webp', 0.6));
+      };
+    };
   };
 
   const isVideoSource = (url: string) => {
