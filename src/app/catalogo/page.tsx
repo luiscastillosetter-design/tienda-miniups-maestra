@@ -7,7 +7,7 @@ import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { Truck, ShieldCheck, Sparkles, ShoppingBag } from 'lucide-react';
+import { Truck, Sparkles, ShoppingBag } from 'lucide-react';
 
 const availableCategories = [
   'Todos',
@@ -75,10 +75,27 @@ function CatalogoContent() {
     }
   }, [searchParams, products]);
 
+  // Coincidencia flexible y robusta para reconocer los banners ya subidos por el Admin
   const activeCategorySlides = (() => {
-    const byCat = catSlides.filter((s: any) => s.category === activeCategory);
+    const normalizedActive = activeCategory.toLowerCase().trim();
+    
+    // 1. Buscar coincidencia exacta con la categoría activa
+    const byCat = catSlides.filter((s: any) => {
+      const slideCat = (s.category || 'Todos').toLowerCase().trim();
+      return slideCat === normalizedActive;
+    });
+
     if (byCat.length > 0) return byCat;
-    return catSlides.filter((s: any) => s.category === 'Todos');
+
+    // 2. Si no hay banner específico, mostrar el de "Todos" o general
+    const generalSlides = catSlides.filter((s: any) => {
+      const slideCat = (s.category || 'Todos').toLowerCase().trim();
+      return slideCat === 'todos' || slideCat === 'general';
+    });
+
+    if (generalSlides.length > 0) return generalSlides;
+
+    return catSlides;
   })();
 
   useEffect(() => {

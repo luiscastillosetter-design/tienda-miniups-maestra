@@ -481,6 +481,7 @@ export default function AdminPage() {
     }
     setCatBanners(updated);
     await syncStoreKey('store_cat_slides', updated);
+    // Limpiar formulario y reiniciar imágenes para evitar arrastrar la foto anterior
     setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
   };
 
