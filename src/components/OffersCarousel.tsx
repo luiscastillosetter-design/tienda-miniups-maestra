@@ -60,10 +60,16 @@ export function OffersCarousel() {
       .catch(() => {});
   }, []);
 
+  // Recálculo y reactivación inmediata del carrusel en cuanto hay ofertas listas
   useEffect(() => {
     if (!emblaApi) return;
-    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
-  }, [emblaApi]);
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    emblaApi.reInit();
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, offers.length]);
 
   if (offers.length === 0) {
     return null;

@@ -867,78 +867,6 @@ export function getAllProductIds(): string[] {
 }
 </file>
 
-<file path="src/store/cartStore.ts">
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-export type CartItem = {
-  id: string;
-  title: string;
-  price: number;
-  image: string;
-  quantity: number;
-  stock?: number;
-};
-
-type CartState = {
-  items: CartItem[];
-  isCartOpen: boolean;
-  addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  toggleCart: () => void;
-  clearCart: () => void;
-};
-
-export const useCartStore = create<CartState>()(
-  persist(
-    (set) => ({
-      items: [],
-      isCartOpen: false,
-
-      addItem: (item, quantity) =>
-        set((state) => {
-          const existing = state.items.find((i) => i.id === item.id);
-          if (existing) {
-            const nextQuantity = existing.quantity + quantity;
-            const maxQuantity = item.stock ? Math.min(item.stock, nextQuantity) : nextQuantity;
-            return {
-              items: state.items.map((i) =>
-                i.id === item.id ? { ...i, quantity: maxQuantity, stock: item.stock ?? i.stock } : i
-              ),
-            };
-          }
-          return { items: [...state.items, { ...item, quantity }] };
-        }),
-
-      removeItem: (id) =>
-        set((state) => ({
-          items: state.items.filter((i) => i.id !== id),
-        })),
-
-      updateQuantity: (id, quantity) =>
-        set((state) => ({
-          items: state.items.map((i) => {
-            if (i.id === id) {
-              const maxQuantity = i.stock ? Math.min(i.stock, quantity) : quantity;
-              return { ...i, quantity: Math.max(1, maxQuantity) };
-            }
-            return i;
-          }),
-        })),
-
-      toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
-      
-      clearCart: () => set({ items: [] }),
-    }),
-    {
-      name: 'todomax_cart',
-      partialize: (state) => ({ items: state.items }),
-    }
-  )
-);
-</file>
-
 <file path="next.config.ts">
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -1434,100 +1362,77 @@ export default function CartDrawer() {
 }
 </file>
 
-<file path="src/components/Footer.tsx">
-import Link from 'next/link';
-import { Phone, Mail, MapPin, ShieldCheck, Truck } from 'lucide-react';
-import { siteConfig } from '@/config/site';
+<file path="src/store/cartStore.ts">
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-export default function Footer() {
-  return (
-    <footer className="w-full bg-white border-t border-gray-200 mt-auto px-4 md:px-12 py-12 md:py-16">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
-        {/* Columna 1: Marca */}
-        <div className="flex flex-col items-start text-left md:col-span-1">
-          <h3 className="text-xl font-black text-slate-900 mb-4">{siteConfig.storeName}</h3>
-          <p className="text-sm text-gray-500 font-medium leading-relaxed max-w-sm mb-4">
-            {siteConfig.description}
-          </p>
-          <div className="flex items-center gap-3 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
-            <ShieldCheck className="w-4 h-4" />
-            Compra 100% Segura
-          </div>
-        </div>
+export type CartItem = {
+  id: string;
+  title: string;
+  price: number;
+  image: string;
+  quantity: number;
+  stock?: number;
+};
 
-        {/* Columna 2: Tienda */}
-        <div className="flex flex-col items-start text-left">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Tienda</h3>
-          <ul className="space-y-3">
-            <li>
-              <Link href="/" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
-                Inicio
-              </Link>
-            </li>
-            <li>
-              <Link href="/catalogo" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
-                Catálogo Completo
-              </Link>
-            </li>
-            <li>
-              <Link href="/#ofertas" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
-                Promociones y Combos
-              </Link>
-            </li>
-          </ul>
-        </div>
+type CartState = {
+  items: CartItem[];
+  isCartOpen: boolean;
+  addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  toggleCart: () => void;
+  clearCart: () => void;
+};
 
-        {/* Columna 3: Afiliados y Envíos */}
-        <div className="flex flex-col items-start text-left">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Servicios</h3>
-          <ul className="space-y-3">
-            <li>
-              <Link href="/afiliados" className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1">
-                Gana dinero con {siteConfig.storeName}
-              </Link>
-            </li>
-            <li className="flex items-start gap-2 mt-4 text-sm text-gray-500 font-medium">
-              <Truck className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-              <span>Envíos seguros por: <br/><span className="font-bold text-slate-700">{siteConfig.shipping.companies.slice(0, 3).join(', ')}</span></span>
-            </li>
-          </ul>
-        </div>
+export const useCartStore = create<CartState>()(
+  persist(
+    (set) => ({
+      items: [],
+      isCartOpen: false,
 
-        {/* Columna 4: Contacto */}
-        <div className="flex flex-col items-start text-left">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Contacto</h3>
-          <ul className="space-y-4">
-            <li className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
-                <Phone className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-gray-600 font-medium">{siteConfig.whatsappNumber}</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
-                <Mail className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-gray-600 font-medium">{siteConfig.email}</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
-                <MapPin className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-gray-600 font-medium">{siteConfig.location}</span>
-            </li>
-          </ul>
-        </div>
-      </div>
+      addItem: (item, quantity) =>
+        set((state) => {
+          const existing = state.items.find((i) => i.id === item.id);
+          if (existing) {
+            const nextQuantity = existing.quantity + quantity;
+            const maxQuantity = item.stock !== undefined ? Math.min(item.stock, nextQuantity) : nextQuantity;
+            return {
+              items: state.items.map((i) =>
+                i.id === item.id ? { ...i, quantity: maxQuantity, stock: item.stock ?? i.stock } : i
+              ),
+            };
+          }
+          const initialQuantity = item.stock !== undefined ? Math.min(item.stock, Math.max(1, quantity)) : quantity;
+          return { items: [...state.items, { ...item, quantity: initialQuantity }] };
+        }),
+
+      removeItem: (id) =>
+        set((state) => ({
+          items: state.items.filter((i) => i.id !== id),
+        })),
+
+      updateQuantity: (id, quantity) =>
+        set((state) => ({
+          items: state.items.map((i) => {
+            if (i.id === id) {
+              const maxQuantity = i.stock ? Math.min(i.stock, quantity) : quantity;
+              return { ...i, quantity: Math.max(1, maxQuantity) };
+            }
+            return i;
+          }),
+        })),
+
+      toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
       
-      {/* Copyright */}
-      <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
-        <p className="text-xs text-gray-400 font-medium">
-          © {new Date().getFullYear()} {siteConfig.storeName}. Todos los derechos reservados.
-        </p>
-      </div>
-    </footer>
-  );
-}
+      clearCart: () => set({ items: [] }),
+    }),
+    {
+      name: 'todomax_cart',
+      partialize: (state) => ({ items: state.items }),
+    }
+  )
+);
 </file>
 
 <file path="package.json">
@@ -1608,6 +1513,140 @@ button, a, input, select, textarea {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+</file>
+
+<file path="src/components/Footer.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Phone, Mail, MapPin, ShieldCheck, Truck } from 'lucide-react';
+import { siteConfig } from '@/config/site';
+
+export default function Footer() {
+  const [footerSettings, setFooterSettings] = useState({
+    storeName: siteConfig.storeName,
+    whatsappNumber: siteConfig.whatsappNumber,
+    email: siteConfig.email,
+    location: siteConfig.location,
+    shippingCompanies: siteConfig.shipping.companies,
+  });
+
+  useEffect(() => {
+    fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.data) {
+          const cfg = json.data;
+          const companies = typeof cfg.shippingCompanies === 'string'
+            ? cfg.shippingCompanies.split(',').map((c: string) => c.trim()).filter(Boolean)
+            : siteConfig.shipping.companies;
+
+          setFooterSettings({
+            storeName: cfg.storeName || siteConfig.storeName,
+            whatsappNumber: cfg.whatsappNumber || siteConfig.whatsappNumber,
+            email: cfg.email || siteConfig.email,
+            location: cfg.location || siteConfig.location,
+            shippingCompanies: companies.length > 0 ? companies : siteConfig.shipping.companies,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <footer className="w-full bg-white border-t border-gray-200 mt-auto px-4 md:px-12 py-12 md:py-16">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
+        {/* Columna 1: Marca */}
+        <div className="flex flex-col items-start text-left md:col-span-1">
+          <h3 className="text-xl font-black text-slate-900 mb-4">{footerSettings.storeName}</h3>
+          <p className="text-sm text-gray-500 font-medium leading-relaxed max-w-sm mb-4">
+            {siteConfig.description}
+          </p>
+          <div className="flex items-center gap-3 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
+            <ShieldCheck className="w-4 h-4" />
+            Compra 100% Segura
+          </div>
+        </div>
+
+        {/* Columna 2: Tienda */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Tienda</h3>
+          <ul className="space-y-3">
+            <li>
+              <Link href="/" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Inicio
+              </Link>
+            </li>
+            <li>
+              <Link href="/catalogo" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Catálogo Completo
+              </Link>
+            </li>
+            <li>
+              <Link href="/#ofertas" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Promociones y Combos
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Columna 3: Afiliados y Envíos */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Servicios</h3>
+          <ul className="space-y-3">
+            <li>
+              <Link href="/afiliados" className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1">
+                Gana dinero con {footerSettings.storeName}
+              </Link>
+            </li>
+            <li className="flex items-start gap-2 mt-4 text-sm text-gray-500 font-medium">
+              <Truck className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+              <span>
+                Envíos seguros por: <br />
+                <span className="font-bold text-slate-700">
+                  {footerSettings.shippingCompanies.slice(0, 3).join(', ')}
+                </span>
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Columna 4: Contacto */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Contacto</h3>
+          <ul className="space-y-4">
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <Phone className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">{footerSettings.whatsappNumber}</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <Mail className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">{footerSettings.email}</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">{footerSettings.location}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Copyright */}
+      <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+        <p className="text-xs text-gray-400 font-medium">
+          © {new Date().getFullYear()} {footerSettings.storeName}. Todos los derechos reservados.
+        </p>
+      </div>
+    </footer>
+  );
 }
 </file>
 
@@ -1708,6 +1747,72 @@ export const dbService = {
 };
 </file>
 
+<file path="src/services/productService.ts">
+import { Product, products as defaultProducts } from '@/data/products';
+
+function safeSetLocalStorage(key: string, value: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+}
+
+export const productService = {
+  async getProducts(): Promise<Product[]> {
+    try {
+      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          safeSetLocalStorage('store_products', data);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.error('Error consultando /api/products en la nube:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const localData = localStorage.getItem('store_products');
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    return defaultProducts;
+  },
+
+  async saveProducts(products: Product[]): Promise<boolean> {
+    safeSetLocalStorage('store_products', products);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(products),
+      });
+      return res.ok;
+    } catch (e) {
+      console.error('Error guardando productos en la nube:', e);
+      return false;
+    }
+  },
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    const allProducts = await this.getProducts();
+    return allProducts.find((product) => String(product.id) === String(id));
+  },
+};
+</file>
+
 <file path="src/app/api/afiliados/route.ts">
 import { NextRequest, NextResponse } from 'next/server';
 import { products as defaultProducts, Product } from '@/data/products';
@@ -1759,9 +1864,15 @@ export async function POST(request: NextRequest) {
         );
 
         if (foundProduct) {
+          const productLink = `${BASE_STORE_URL}/product/${foundProduct.id}?ref=TU_CODIGO`;
+          const rawCopy = foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis! [ENLACE]';
+          const formattedCopy = rawCopy.includes('[ENLACE]')
+            ? rawCopy.replace('[ENLACE]', productLink)
+            : `${rawCopy}\n\nCómpralo aquí: ${productLink}`;
+
           respuestaBot = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
-          `📝 *Texto sugerido:* ${foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis!'}\n\n` +
-          `🔗 Tu enlace base: ${BASE_STORE_URL}/product/${foundProduct.id}?ref=TU_CODIGO`;
+          `📝 *Texto sugerido:* ${formattedCopy}\n\n` +
+          `🔗 Tu enlace base: ${productLink}`;
         } else if (textoCliente.includes('comision') || textoCliente.includes('ganancia')) {
           respuestaBot = `Tus comisiones están seguras. Puedes revisar tu balance actualizado directamente en tu Panel Privado web en ${BASE_STORE_URL}/afiliados 💰`;
         } else if (textoCliente.includes('humano') || textoCliente.includes('ayuda')) {
@@ -1837,612 +1948,8 @@ export const siteConfig = {
     }
   },
   roles: ["Super Admin", "Logística y Pagos", "Marketing y Afiliados"],
-  metaPixelId: "TU_PIXEL_ID_AQUI",
+  metaPixelId: "",
 };
-</file>
-
-<file path="src/services/productService.ts">
-import { Product, products as defaultProducts } from '@/data/products';
-
-function safeSetLocalStorage(key: string, value: any) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    try {
-      localStorage.removeItem(key);
-    } catch (_) {}
-  }
-}
-
-export const productService = {
-  async getProducts(): Promise<Product[]> {
-    try {
-      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          safeSetLocalStorage('store_products', data);
-          return data;
-        }
-      }
-    } catch (e) {
-      console.error('Error consultando /api/products en la nube:', e);
-    }
-
-    if (typeof window !== 'undefined') {
-      try {
-        const localData = localStorage.getItem('store_products');
-        if (localData) {
-          const parsed = JSON.parse(localData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      } catch (e) {}
-    }
-
-    return defaultProducts;
-  },
-
-  async saveProducts(products: Product[]): Promise<boolean> {
-    safeSetLocalStorage('store_products', products);
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(products),
-      });
-      return res.ok;
-    } catch (e) {
-      console.error('Error guardando productos en la nube:', e);
-      return false;
-    }
-  },
-
-  async getProductById(id: string): Promise<Product | undefined> {
-    const allProducts = await this.getProducts();
-    return allProducts.find((product) => String(product.id) === String(id));
-  },
-};
-</file>
-
-<file path="src/app/checkout/page.tsx">
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useCartStore } from '@/store/cartStore';
-import { siteConfig } from '@/config/site';
-import { productService } from '@/services/productService';
-import { products as defaultProducts, Product } from '@/data/products';
-import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
-
-export default function CheckoutPage() {
-  const { items, clearCart } = useCartStore();
-  const router = useRouter();
-
-  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
-
-  // Estados del Formulario
-  const [nombre, setNombre] = useState('');
-  const [apellido, setApellido] = useState('');
-  const [cedula, setCedula] = useState('');
-  const [telefono, setTelefono] = useState('');
-
-  const [courier, setCourier] = useState(siteConfig.shipping.companies[0] || 'MRW');
-  const [estado, setEstado] = useState('');
-  const [ciudad, setCiudad] = useState('');
-  const [direccion, setDireccion] = useState('');
-
-  const [metodoPago, setMetodoPago] = useState('Pago Móvil');
-  const [referencia, setReferencia] = useState('');
-  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
-
-  // Estados UI y Atribución
-  const [refCode, setRefCode] = useState('DIRECTO');
-  const [adChannel, setAdChannel] = useState('Directo');
-  const [copied, setCopied] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  useEffect(() => {
-    productService.getProducts().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setLiveProducts(data);
-      }
-    });
-
-    const storedRef = localStorage.getItem('todomax_ref');
-    if (storedRef) {
-      setRefCode(storedRef);
-    }
-
-    const storedAttribution = localStorage.getItem('todomax_attribution');
-    if (storedAttribution) {
-      try {
-        const parsed = JSON.parse(storedAttribution);
-        if (parsed.affiliateRef && parsed.affiliateRef !== 'DIRECTO') {
-          setRefCode(parsed.affiliateRef);
-        }
-        if (parsed.channel) {
-          setAdChannel(parsed.channel);
-        }
-      } catch (e) {}
-    }
-  }, []);
-
-  const isVideo = (url?: string) => {
-    if (!url) return false;
-    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
-  };
-
-  // Cálculos Financieros Reales (Cruzados con el inventario vivo del Admin)
-  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
-  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
-  const isFreeShipping = total >= siteConfig.shipping.freeShippingThreshold;
-
-  const totalCost = items.reduce((acc, item) => {
-    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
-    const itemCost = dbProduct ? Number(dbProduct.cost || 0) : 0;
-    return acc + (itemCost * item.quantity);
-  }, 0);
-
-  const totalAffiliateCommission = items.reduce((acc, item) => {
-    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
-    const commPercent = dbProduct ? Number(dbProduct.affiliateCommission || 10) : 10;
-    return acc + ((item.price * item.quantity) * (commPercent / 100));
-  }, 0);
-
-  const expectedUtility = total - totalCost - (refCode !== 'DIRECTO' ? totalAffiliateCommission : 0);
-
-  const handleCopyBankData = () => {
-    let data = '';
-    if (metodoPago === 'Pago Móvil') {
-      const pm = siteConfig.paymentMethods.pagoMovil;
-      data = `Pago Móvil TodoMax\nBanco: ${pm.banco}\nTeléfono: ${pm.telefono}\nCédula/RIF: ${pm.cedula}`;
-    } else if (metodoPago === 'Transferencia') {
-      const tr = siteConfig.paymentMethods.transferencia;
-      data = `Transferencia TodoMax\nBanco: ${tr.banco}\nCuenta: ${tr.cuenta}\nTitular: ${tr.titular}\nRIF: ${tr.rif}`;
-    } else if (metodoPago === 'Zelle') {
-      const zl = siteConfig.paymentMethods.zelle;
-      data = `Zelle TodoMax\nCorreo: ${zl.email}\nTitular: ${zl.titular}`;
-    } else if (metodoPago === 'Binance Pay') {
-      const bn = siteConfig.paymentMethods.binance;
-      data = `Binance TodoMax\nPay ID: ${bn.payId}\nUSDT (TRC20): ${bn.usdtAddress}`;
-    }
-
-    navigator.clipboard.writeText(data);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 600;
-        let w = img.width, h = img.height;
-        if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
-        setComprobantePreview(canvas.toDataURL('image/webp', 0.6));
-      };
-    };
-  };
-
-  const safeSaveLocalOrders = (ordersToSave: any[]) => {
-    try {
-      localStorage.setItem('store_orders', JSON.stringify(ordersToSave));
-    } catch (e) {
-      try {
-        // En caso de alcanzar el límite de cuota en localStorage, se respalda sin la foto pesada del comprobante
-        const lightOrders = ordersToSave.map(o => ({
-          ...o,
-          payment: { ...o.payment, receiptImage: undefined }
-        }));
-        localStorage.setItem('store_orders', JSON.stringify(lightOrders));
-      } catch (_) {}
-    }
-  };
-
-  const procesarYEnviarPedido = async () => {
-    if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
-      alert('Por favor completa todos los datos personales y de envío.');
-      return;
-    }
-    if (metodoPago !== 'Efectivo' && !referencia.trim()) {
-      alert('Debes ingresar el número de referencia de tu pago.');
-      return;
-    }
-    if (metodoPago !== 'Efectivo' && !comprobantePreview) {
-      alert('Por favor adjunta la captura o foto del comprobante de pago.');
-      return;
-    }
-
-    setIsProcessing(true);
-    const orderId = `TMX-${Date.now().toString().slice(-6)}`;
-
-    // 1. Crear Objeto del Pedido para el ERP Admin
-    const newOrder = {
-      id: orderId,
-      date: new Date().toISOString(),
-      status: 'Pendiente de verificación',
-      customer: { nombre, apellido, cedula, telefono },
-      shipping: { courier, estado, ciudad, direccion, isFreeShipping },
-      payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview, receiptImage: comprobantePreview },
-      items: items,
-      financials: {
-        total,
-        cost: totalCost,
-        commission: refCode !== 'DIRECTO' ? totalAffiliateCommission : 0,
-        utility: expectedUtility,
-      },
-      attribution: {
-        affiliateCode: refCode,
-        channel: refCode !== 'DIRECTO' ? 'Afiliado' : adChannel,
-      }
-    };
-
-    // 2. Sincronizar con la Nube (Redis) y con localStorage protegido
-    try {
-      let currentCloudOrders: any[] = [];
-      const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
-      if (resGet.ok) {
-        const json = await resGet.json();
-        if (Array.isArray(json.data)) {
-          currentCloudOrders = json.data;
-        }
-      }
-
-      if (currentCloudOrders.length === 0) {
-        const existingLocal = localStorage.getItem('store_orders');
-        if (existingLocal) {
-          try {
-            currentCloudOrders = JSON.parse(existingLocal);
-          } catch (e) {}
-        }
-      }
-
-      const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
-      safeSaveLocalOrders(updatedOrders);
-
-      await fetch('/api/store', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'store_orders', value: updatedOrders }),
-      });
-    } catch (error) {
-      console.error('Error guardando pedido en la nube, respaldado en local:', error);
-      const existingOrdersStr = localStorage.getItem('store_orders');
-      const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
-      safeSaveLocalOrders([newOrder, ...existingOrders]);
-    }
-
-    // 3. Disparo de Evento Purchase en Meta Pixel (si existe)
-    if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
-    }
-
-    // 4. Armar Mensaje de WhatsApp
-    const listaProductos = items
-      .map(item => `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`)
-      .join('%0A');
-
-    const mensajeWhatsApp = 
-      `*NUEVO PEDIDO: ${orderId}*%0A%0A` +
-      `*CLIENTE:* ${nombre} ${apellido}%0A` +
-      `*CÉDULA:* ${cedula}%0A` +
-      `*TELÉFONO:* ${telefono}%0A%0A` +
-      `*📦 PRODUCTOS:*%0A${listaProductos}%0A%0A` +
-      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}%0A` +
-      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
-      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
-      `*💳 PAGO:* ${metodoPago}%0A` +
-      (metodoPago !== 'Efectivo' ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en el sistema y en esta conversación)*%0A` : '') +
-      (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
-
-    const rawWhatsApp = siteConfig.whatsappNumber;
-    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
-
-    // 5. Limpiar Carrito y Redirigir
-    clearCart();
-    
-    setTimeout(() => {
-      window.open(`https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`, '_blank');
-      router.push('/');
-    }, 1000);
-  };
-
-  if (items.length === 0 && !isProcessing) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
-        <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-6">
-          <ShoppingBag className="w-12 h-12" />
-        </div>
-        <h2 className="text-3xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
-        <p className="text-gray-500 mb-8 font-medium">Aún no has agregado productos a tu compra.</p>
-        <Link href="/catalogo" className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1">
-          Ir al Catálogo
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-slate-50 min-h-screen pt-24 md:pt-32 pb-20">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12">
-        
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs mb-8 transition-transform hover:-translate-x-1 cursor-pointer"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Modificar Carrito</span>
-        </button>
-
-        {isProcessing ? (
-          <div className="bg-white rounded-3xl p-12 text-center shadow-xl border border-gray-100 max-w-2xl mx-auto mt-10">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
-            <p className="text-slate-600 font-medium leading-relaxed">
-              Estamos registrando tu orden en la nube de TodoMax. En un momento se abrirá WhatsApp para finalizar tu atención.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-            
-            {/* LADO IZQUIERDO: FORMULARIOS (7 de 12 columnas) */}
-            <div className="lg:col-span-7 space-y-8">
-              
-              {/* 1. Datos Personales */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">1</div>
-                  <h2 className="text-xl font-black text-slate-900">Tus Datos</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nombre</label>
-                    <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required placeholder="Ej. Carlos" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Apellido</label>
-                    <input type="text" value={apellido} onChange={e => setApellido(e.target.value)} required placeholder="Ej. Pérez" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Cédula o RIF</label>
-                    <input type="text" value={cedula} onChange={e => setCedula(e.target.value)} required placeholder="V-12345678" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">WhatsApp / Teléfono</label>
-                    <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} required placeholder="0412-1234567" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Datos de Envío */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">2</div>
-                  <h2 className="text-xl font-black text-slate-900">Datos de Envío</h2>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Empresa de Envío</label>
-                    <select value={courier} onChange={e => setCourier(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer">
-                      {siteConfig.shipping.companies.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Estado</label>
-                      <input type="text" value={estado} onChange={e => setEstado(e.target.value)} required placeholder="Ej. Distrito Capital" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Ciudad</label>
-                      <input type="text" value={ciudad} onChange={e => setCiudad(e.target.value)} required placeholder="Ej. Caracas" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Dirección Detallada (Agencia o Dirección Exacta)</label>
-                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} required placeholder="Agencia MRW / Av. Principal, Edificio..." className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Pago y Comprobante */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-orange-200 shadow-md">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">3</div>
-                  <h2 className="text-xl font-black text-slate-900">Validación de Pago</h2>
-                </div>
-                
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">Selecciona cómo deseas pagar</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
-                        <button
-                          key={metodo}
-                          type="button"
-                          onClick={() => setMetodoPago(metodo)}
-                          className={`p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
-                            metodoPago === metodo ? 'bg-orange-50 border-orange-500 text-orange-600 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
-                          }`}
-                        >
-                          {metodo}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Datos Bancarios Copiables */}
-                  <div className="bg-slate-900 rounded-2xl p-5 text-white relative group">
-                    <h3 className="text-xs font-black uppercase text-orange-400 mb-3 tracking-wider">Datos para {metodoPago}</h3>
-                    <div className="space-y-2 text-sm font-medium">
-                      {metodoPago === 'Pago Móvil' && (
-                        <>
-                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.pagoMovil.banco}</p>
-                          <p><span className="text-slate-400">Teléfono:</span> {siteConfig.paymentMethods.pagoMovil.telefono}</p>
-                          <p><span className="text-slate-400">Cédula/RIF:</span> {siteConfig.paymentMethods.pagoMovil.cedula}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Transferencia' && (
-                        <>
-                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.transferencia.banco}</p>
-                          <p><span className="text-slate-400">Cuenta:</span> {siteConfig.paymentMethods.transferencia.cuenta}</p>
-                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.transferencia.titular}</p>
-                          <p><span className="text-slate-400">RIF:</span> {siteConfig.paymentMethods.transferencia.rif}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Zelle' && (
-                        <>
-                          <p><span className="text-slate-400">Correo:</span> {siteConfig.paymentMethods.zelle.email}</p>
-                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.zelle.titular}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Binance Pay' && (
-                        <>
-                          <p><span className="text-slate-400">Pay ID:</span> {siteConfig.paymentMethods.binance.payId}</p>
-                          <p className="break-all"><span className="text-slate-400">USDT (TRC20):</span> {siteConfig.paymentMethods.binance.usdtAddress}</p>
-                        </>
-                      )}
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={handleCopyBankData}
-                      className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                    >
-                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      {copied ? '¡Datos copiados!' : 'Copiar Datos de Pago'}
-                    </button>
-                  </div>
-
-                  {/* Carga de Comprobante */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Número de Referencia</label>
-                      <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} required placeholder="Ej. 123456" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Adjuntar Comprobante (Captura)</label>
-                      <div className="relative">
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="comprobante-upload" />
-                        <label htmlFor="comprobante-upload" className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-sm font-semibold text-slate-600 hover:border-orange-500 hover:text-orange-500 cursor-pointer transition-colors">
-                          <Upload className="w-4 h-4" />
-                          {comprobantePreview ? 'Cambiar imagen' : 'Subir foto o captura'}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {comprobantePreview && (
-                    <div className="mt-4 p-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
-                      <img src={comprobantePreview} alt="Comprobante" className="h-32 object-contain rounded-xl mb-2" />
-                      <p className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Comprobante adjuntado con éxito</p>
-                    </div>
-                  )}
-
-                </div>
-              </div>
-
-            </div>
-
-            {/* LADO DERECHO: RESUMEN DE ORDEN (5 de 12 columnas) */}
-            <div className="lg:col-span-5 relative">
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-lg sticky top-32 space-y-6">
-                
-                <h2 className="text-xl font-black text-slate-900 border-b border-gray-100 pb-4 flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-orange-500" />
-                  Resumen de tu Compra
-                </h2>
-
-                <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-4 py-2">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100 flex items-center justify-center overflow-hidden">
-                          {isVideo(item.image) ? (
-                            <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
-                          ) : (
-                            <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">{item.title}</span>
-                          <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Cant: {item.quantity}</span>
-                        </div>
-                      </div>
-                      <span className="font-black text-sm text-slate-900 flex-shrink-0">
-                        {siteConfig.currencySymbol}{subtotalPorItem(item.price, item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-sm text-gray-600 font-medium">
-                    <span>Subtotal de productos</span>
-                    <span>{siteConfig.currencySymbol}{total.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600 font-medium">Envío ({courier})</span>
-                    <span className={`font-black ${isFreeShipping ? 'text-emerald-600' : 'text-slate-900'}`}>
-                      {isFreeShipping ? '¡GRATIS!' : 'Cobro en Destino'}
-                    </span>
-                  </div>
-                </div>
-
-                {!isFreeShipping && (
-                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl">
-                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed text-center">
-                      ¡Agrega {siteConfig.currencySymbol}{(siteConfig.shipping.freeShippingThreshold - total).toFixed(2)} más en productos y tu envío sale GRATIS!
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <span className="text-base font-black text-slate-900">Total a Pagar</span>
-                  <span className="text-3xl font-black text-orange-500">
-                    {siteConfig.currencySymbol}{total.toFixed(2)}
-                  </span>
-                </div>
-
-                <button
-                  onClick={procesarYEnviarPedido}
-                  disabled={isProcessing}
-                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <ShieldCheck className="w-5 h-5" />
-                  Registrar Pago y Enviar Pedido
-                </button>
-                
-                <p className="text-[10px] text-gray-400 text-center font-medium px-4">
-                  Al confirmar, tu orden quedará registrada en TodoMax y se abrirá WhatsApp para atención inmediata.
-                </p>
-
-              </div>
-            </div>
-
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 </file>
 
 <file path="src/app/afiliados/page.tsx">
@@ -3013,6 +2520,727 @@ export default function AfiliadosPage() {
 }
 </file>
 
+<file path="src/app/checkout/page.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useCartStore } from '@/store/cartStore';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import { products as defaultProducts, Product } from '@/data/products';
+import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
+
+export default function CheckoutPage() {
+  const { items, clearCart } = useCartStore();
+  const router = useRouter();
+
+  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
+
+  const [liveSettings, setLiveSettings] = useState({
+    whatsappNumber: siteConfig.whatsappNumber,
+    freeShippingThreshold: siteConfig.shipping.freeShippingThreshold,
+    shippingCompanies: siteConfig.shipping.companies,
+    pagoMovil: siteConfig.paymentMethods.pagoMovil,
+    transferencia: siteConfig.paymentMethods.transferencia,
+    zelle: siteConfig.paymentMethods.zelle,
+    binance: {
+      payId: siteConfig.paymentMethods.binance.payId,
+      email: '',
+    },
+  });
+
+  // Estados del Formulario
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
+  const [cedula, setCedula] = useState('');
+  const [telefono, setTelefono] = useState('');
+
+  const [courier, setCourier] = useState(siteConfig.shipping.companies[0] || 'MRW');
+  const [estado, setEstado] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [direccion, setDireccion] = useState('');
+
+  const [metodoPago, setMetodoPago] = useState('Pago Móvil');
+  const [referencia, setReferencia] = useState('');
+  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
+
+  // Estados UI y Atribución
+  const [refCode, setRefCode] = useState('DIRECTO');
+  const [adChannel, setAdChannel] = useState('Directo');
+  const [copied, setCopied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    productService.getProducts().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveProducts(data);
+      }
+    });
+
+    // Cargar configuración de tienda en vivo desde Redis
+    fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.data) {
+          const cfg = json.data;
+          const companies = typeof cfg.shippingCompanies === 'string'
+            ? cfg.shippingCompanies.split(',').map((c: string) => c.trim()).filter(Boolean)
+            : siteConfig.shipping.companies;
+
+          setLiveSettings({
+            whatsappNumber: cfg.whatsappNumber || siteConfig.whatsappNumber,
+            freeShippingThreshold: Number(cfg.freeShippingThreshold) || siteConfig.shipping.freeShippingThreshold,
+            shippingCompanies: companies.length > 0 ? companies : siteConfig.shipping.companies,
+            pagoMovil: {
+              banco: cfg.pagoMovilBanco || siteConfig.paymentMethods.pagoMovil.banco,
+              telefono: cfg.pagoMovilTelefono || siteConfig.paymentMethods.pagoMovil.telefono,
+              cedula: cfg.pagoMovilCedula || siteConfig.paymentMethods.pagoMovil.cedula,
+            },
+            transferencia: {
+              banco: cfg.transfBanco || siteConfig.paymentMethods.transferencia.banco,
+              cuenta: cfg.transfCuenta || siteConfig.paymentMethods.transferencia.cuenta,
+              titular: cfg.transfTitular || siteConfig.paymentMethods.transferencia.titular,
+              rif: cfg.transfRif || siteConfig.paymentMethods.transferencia.rif,
+            },
+            zelle: {
+              email: cfg.zelleEmail || siteConfig.paymentMethods.zelle.email,
+              titular: cfg.zelleTitular || siteConfig.paymentMethods.zelle.titular,
+            },
+            binance: {
+              payId: cfg.binancePayId || siteConfig.paymentMethods.binance.payId,
+              email: cfg.binanceEmail || '',
+            },
+          });
+
+          if (companies.length > 0) {
+            setCourier(companies[0]);
+          }
+        }
+      })
+      .catch(() => {});
+
+    const storedRef = localStorage.getItem('todomax_ref');
+    if (storedRef) {
+      setRefCode(storedRef);
+    }
+
+    const storedAttribution = localStorage.getItem('todomax_attribution');
+    if (storedAttribution) {
+      try {
+        const parsed = JSON.parse(storedAttribution);
+        if (parsed.affiliateRef && parsed.affiliateRef !== 'DIRECTO') {
+          setRefCode(parsed.affiliateRef);
+        }
+        if (parsed.channel) {
+          setAdChannel(parsed.channel);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
+  // Cálculos Financieros Reales sincronizados
+  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
+  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
+  const isFreeShipping = total >= liveSettings.freeShippingThreshold;
+
+  const totalCost = items.reduce((acc, item) => {
+    const dbProduct = liveProducts.find((p) => String(p.id) === String(item.id));
+    const itemCost = dbProduct ? Number(dbProduct.cost || 0) : 0;
+    return acc + itemCost * item.quantity;
+  }, 0);
+
+  const totalAffiliateCommission = items.reduce((acc, item) => {
+    const dbProduct = liveProducts.find((p) => String(p.id) === String(item.id));
+    const commPercent = dbProduct ? Number(dbProduct.affiliateCommission ?? 10) : 10;
+    return acc + item.price * item.quantity * (commPercent / 100);
+  }, 0);
+
+  const expectedUtility = total - totalCost - (refCode !== 'DIRECTO' ? totalAffiliateCommission : 0);
+
+  const handleCopyBankData = () => {
+    let data = '';
+    if (metodoPago === 'Pago Móvil') {
+      const pm = liveSettings.pagoMovil;
+      data = `Pago Móvil TodoMax\nBanco: ${pm.banco}\nTeléfono: ${pm.telefono}\nCédula/RIF: ${pm.cedula}`;
+    } else if (metodoPago === 'Transferencia') {
+      const tr = liveSettings.transferencia;
+      data = `Transferencia TodoMax\nBanco: ${tr.banco}\nCuenta: ${tr.cuenta}\nTitular: ${tr.titular}\nRIF: ${tr.rif}`;
+    } else if (metodoPago === 'Zelle') {
+      const zl = liveSettings.zelle;
+      data = `Zelle TodoMax\nCorreo: ${zl.email}\nTitular: ${zl.titular}`;
+    } else if (metodoPago === 'Binance Pay') {
+      const bn = liveSettings.binance;
+      data = `Binance Pay TodoMax\nPay ID: ${bn.payId}` + (bn.email ? `\nCorreo Binance: ${bn.email}` : '');
+    }
+
+    navigator.clipboard.writeText(data);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 600;
+        let w = img.width,
+          h = img.height;
+        if (w > MAX_WIDTH) {
+          h *= MAX_WIDTH / w;
+          w = MAX_WIDTH;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+        setComprobantePreview(canvas.toDataURL('image/webp', 0.6));
+      };
+    };
+  };
+
+  const safeSaveLocalOrders = (ordersToSave: any[]) => {
+    try {
+      localStorage.setItem('store_orders', JSON.stringify(ordersToSave));
+    } catch (e) {
+      try {
+        const lightOrders = ordersToSave.map((o) => ({
+          ...o,
+          payment: { ...o.payment, receiptImage: undefined },
+        }));
+        localStorage.setItem('store_orders', JSON.stringify(lightOrders));
+      } catch (_) {}
+    }
+  };
+
+  const procesarYEnviarPedido = async () => {
+    if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
+      alert('Por favor completa todos los datos personales y de envío.');
+      return;
+    }
+    if (metodoPago !== 'Efectivo' && !referencia.trim()) {
+      alert('Debes ingresar el número de referencia de tu pago.');
+      return;
+    }
+    if (metodoPago !== 'Efectivo' && !comprobantePreview) {
+      alert('Por favor adjunta la captura o foto del comprobante de pago.');
+      return;
+    }
+
+    setIsProcessing(true);
+    const orderId = `TMX-${Date.now().toString().slice(-6)}`;
+
+    const newOrder = {
+      id: orderId,
+      date: new Date().toISOString(),
+      status: 'Pendiente de verificación',
+      customer: { nombre, apellido, cedula, telefono },
+      shipping: { courier, estado, ciudad, direccion, isFreeShipping },
+      payment: {
+        method: metodoPago,
+        reference: referencia,
+        hasReceipt: !!comprobantePreview,
+        receiptImage: comprobantePreview,
+      },
+      items: items,
+      financials: {
+        total,
+        cost: totalCost,
+        commission: refCode !== 'DIRECTO' ? totalAffiliateCommission : 0,
+        utility: expectedUtility,
+      },
+      attribution: {
+        affiliateCode: refCode,
+        channel: refCode !== 'DIRECTO' ? 'Afiliado' : adChannel,
+      },
+    };
+
+    try {
+      let currentCloudOrders: any[] = [];
+      const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+      if (resGet.ok) {
+        const json = await resGet.json();
+        if (Array.isArray(json.data)) {
+          currentCloudOrders = json.data;
+        }
+      }
+
+      if (currentCloudOrders.length === 0) {
+        const existingLocal = localStorage.getItem('store_orders');
+        if (existingLocal) {
+          try {
+            currentCloudOrders = JSON.parse(existingLocal);
+          } catch (e) {}
+        }
+      }
+
+      const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
+      safeSaveLocalOrders(updatedOrders);
+
+      await fetch('/api/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'store_orders', value: updatedOrders }),
+      });
+    } catch (error) {
+      console.error('Error guardando pedido en la nube, respaldado en local:', error);
+      const existingOrdersStr = localStorage.getItem('store_orders');
+      const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
+      safeSaveLocalOrders([newOrder, ...existingOrders]);
+    }
+
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
+    }
+
+    const listaProductos = items
+      .map(
+        (item) =>
+          `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`
+      )
+      .join('%0A');
+
+    const mensajeWhatsApp =
+      `*NUEVO PEDIDO: ${orderId}*%0A%0A` +
+      `*CLIENTE:* ${nombre} ${apellido}%0A` +
+      `*CÉDULA:* ${cedula}%0A` +
+      `*TELÉFONO:* ${telefono}%0A%0A` +
+      `*📦 PRODUCTOS:*%0A${listaProductos}%0A%0A` +
+      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}%0A` +
+      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
+      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
+      `*💳 PAGO:* ${metodoPago}%0A` +
+      (metodoPago !== 'Efectivo'
+        ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en el sistema y en esta conversación)*%0A`
+        : '') +
+      (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
+
+    const rawWhatsApp = liveSettings.whatsappNumber || siteConfig.whatsappNumber;
+    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
+
+    clearCart();
+
+    setTimeout(() => {
+      window.location.href = `https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`;
+    }, 600);
+  };
+
+  if (items.length === 0 && !isProcessing) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
+        <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-6">
+          <ShoppingBag className="w-12 h-12" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
+        <p className="text-gray-500 mb-8 font-medium">Aún no has agregado productos a tu compra.</p>
+        <Link
+          href="/catalogo"
+          className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1"
+        >
+          Ir al Catálogo
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-50 min-h-screen pt-24 md:pt-32 pb-20">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs mb-8 transition-transform hover:-translate-x-1 cursor-pointer"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Modificar Carrito</span>
+        </button>
+
+        {isProcessing ? (
+          <div className="bg-white rounded-3xl p-12 text-center shadow-xl border border-gray-100 max-w-2xl mx-auto mt-10">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
+            <p className="text-slate-600 font-medium leading-relaxed">
+              Estamos registrando tu orden en la nube de TodoMax. En un momento se abrirá WhatsApp para finalizar tu atención.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+            {/* LADO IZQUIERDO: FORMULARIOS */}
+            <div className="lg:col-span-7 space-y-8">
+              {/* 1. Datos Personales */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">
+                    1
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900">Tus Datos</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nombre</label>
+                    <input
+                      type="text"
+                      value={nombre}
+                      onChange={(e) => setNombre(e.target.value)}
+                      required
+                      placeholder="Ej. Carlos"
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Apellido</label>
+                    <input
+                      type="text"
+                      value={apellido}
+                      onChange={(e) => setApellido(e.target.value)}
+                      required
+                      placeholder="Ej. Pérez"
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Cédula o RIF</label>
+                    <input
+                      type="text"
+                      value={cedula}
+                      onChange={(e) => setCedula(e.target.value)}
+                      required
+                      placeholder="V-12345678"
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">WhatsApp / Teléfono</label>
+                    <input
+                      type="tel"
+                      value={telefono}
+                      onChange={(e) => setTelefono(e.target.value)}
+                      required
+                      placeholder="0412-1234567"
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Datos de Envío */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">
+                    2
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900">Datos de Envío</h2>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Empresa de Envío</label>
+                    <select
+                      value={courier}
+                      onChange={(e) => setCourier(e.target.value)}
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer"
+                    >
+                      {liveSettings.shippingCompanies.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Estado</label>
+                      <input
+                        type="text"
+                        value={estado}
+                        onChange={(e) => setEstado(e.target.value)}
+                        required
+                        placeholder="Ej. Distrito Capital"
+                        className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Ciudad</label>
+                      <input
+                        type="text"
+                        value={ciudad}
+                        onChange={(e) => setCiudad(e.target.value)}
+                        required
+                        placeholder="Ej. Caracas"
+                        className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                      Dirección Detallada (Agencia o Dirección Exacta)
+                    </label>
+                    <input
+                      type="text"
+                      value={direccion}
+                      onChange={(e) => setDireccion(e.target.value)}
+                      required
+                      placeholder="Agencia MRW / Av. Principal, Edificio..."
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Pago y Comprobante */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-orange-200 shadow-md">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">
+                    3
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900">Validación de Pago</h2>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">
+                      Selecciona cómo deseas pagar
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
+                        <button
+                          key={metodo}
+                          type="button"
+                          onClick={() => setMetodoPago(metodo)}
+                          className={`p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                            metodoPago === metodo
+                              ? 'bg-orange-50 border-orange-500 text-orange-600 shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
+                          }`}
+                        >
+                          {metodo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Datos Bancarios Copiables */}
+                  <div className="bg-slate-900 rounded-2xl p-5 text-white relative group">
+                    <h3 className="text-xs font-black uppercase text-orange-400 mb-3 tracking-wider">
+                      Datos para {metodoPago}
+                    </h3>
+                    <div className="space-y-2 text-sm font-medium">
+                      {metodoPago === 'Pago Móvil' && (
+                        <>
+                          <p>
+                            <span className="text-slate-400">Banco:</span> {liveSettings.pagoMovil.banco}
+                          </p>
+                          <p>
+                            <span className="text-slate-400">Teléfono:</span> {liveSettings.pagoMovil.telefono}
+                          </p>
+                          <p>
+                            <span className="text-slate-400">Cédula/RIF:</span> {liveSettings.pagoMovil.cedula}
+                          </p>
+                        </>
+                      )}
+                      {metodoPago === 'Transferencia' && (
+                        <>
+                          <p>
+                            <span className="text-slate-400">Banco:</span> {liveSettings.transferencia.banco}
+                          </p>
+                          <p>
+                            <span className="text-slate-400">Cuenta:</span> {liveSettings.transferencia.cuenta}
+                          </p>
+                          <p>
+                            <span className="text-slate-400">Titular:</span> {liveSettings.transferencia.titular}
+                          </p>
+                          <p>
+                            <span className="text-slate-400">RIF:</span> {liveSettings.transferencia.rif}
+                          </p>
+                        </>
+                      )}
+                      {metodoPago === 'Zelle' && (
+                        <>
+                          <p>
+                            <span className="text-slate-400">Correo:</span> {liveSettings.zelle.email}
+                          </p>
+                          <p>
+                            <span className="text-slate-400">Titular:</span> {liveSettings.zelle.titular}
+                          </p>
+                        </>
+                      )}
+                      {metodoPago === 'Binance Pay' && (
+                        <>
+                          <p>
+                            <span className="text-slate-400">Pay ID:</span> {liveSettings.binance.payId}
+                          </p>
+                          {liveSettings.binance.email && (
+                            <p>
+                              <span className="text-slate-400">Correo Binance:</span> {liveSettings.binance.email}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyBankData}
+                      className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                      {copied ? '¡Datos copiados!' : 'Copiar Datos de Pago'}
+                    </button>
+                  </div>
+
+                  {/* Carga de Comprobante */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                        Número de Referencia
+                      </label>
+                      <input
+                        type="text"
+                        value={referencia}
+                        onChange={(e) => setReferencia(e.target.value)}
+                        required
+                        placeholder="Ej. 123456"
+                        className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
+                        Adjuntar Comprobante (Captura)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="comprobante-upload"
+                        />
+                        <label
+                          htmlFor="comprobante-upload"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-sm font-semibold text-slate-600 hover:border-orange-500 hover:text-orange-500 cursor-pointer transition-colors"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {comprobantePreview ? 'Cambiar imagen' : 'Subir foto o captura'}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {comprobantePreview && (
+                    <div className="mt-4 p-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <img src={comprobantePreview} alt="Comprobante" className="h-32 object-contain rounded-xl mb-2" />
+                      <p className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Comprobante adjuntado con éxito
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* LADO DERECHO: RESUMEN DE ORDEN */}
+            <div className="lg:col-span-5 relative">
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-lg sticky top-32 space-y-6">
+                <h2 className="text-xl font-black text-slate-900 border-b border-gray-100 pb-4 flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-orange-500" />
+                  Resumen de tu Compra
+                </h2>
+
+                <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
+                  {items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-4 py-2">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100 flex items-center justify-center overflow-hidden">
+                          {isVideo(item.image) ? (
+                            <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
+                          ) : (
+                            <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-medium block mt-0.5">
+                            Cant: {item.quantity}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="font-black text-sm text-slate-900 flex-shrink-0">
+                        {siteConfig.currencySymbol}
+                        {subtotalPorItem(item.price, item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between text-sm text-gray-600 font-medium">
+                    <span>Subtotal de productos</span>
+                    <span>
+                      {siteConfig.currencySymbol}
+                      {total.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 font-medium">Envío ({courier})</span>
+                    <span className={`font-black ${isFreeShipping ? 'text-emerald-600' : 'text-slate-900'}`}>
+                      {isFreeShipping ? '¡GRATIS!' : 'Cobro en Destino'}
+                    </span>
+                  </div>
+                </div>
+
+                {!isFreeShipping && (
+                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl">
+                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed text-center">
+                      ¡Agrega {siteConfig.currencySymbol}
+                      {(liveSettings.freeShippingThreshold - total).toFixed(2)} más en productos y tu envío sale GRATIS!
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <span className="text-base font-black text-slate-900">Total a Pagar</span>
+                  <span className="text-3xl font-black text-orange-500">
+                    {siteConfig.currencySymbol}
+                    {total.toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  onClick={procesarYEnviarPedido}
+                  disabled={isProcessing}
+                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  Registrar Pago y Enviar Pedido
+                </button>
+
+                <p className="text-[10px] text-gray-400 text-center font-medium px-4">
+                  Al confirmar, tu orden quedará registrada en TodoMax y se abrirá WhatsApp para atención inmediata.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="src/app/product/[id]/page.tsx">
 'use client';
 
@@ -3385,6 +3613,12 @@ function HeaderContent() {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
 
+  const [headerSettings, setHeaderSettings] = useState({
+    storeName: siteConfig.storeName,
+    freeShippingThreshold: siteConfig.shipping.freeShippingThreshold,
+    shippingCompanies: siteConfig.shipping.companies,
+  });
+
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { items, toggleCart } = useCartStore();
@@ -3403,7 +3637,26 @@ function HeaderContent() {
         setLiveProducts(data);
       }
     });
-  }, [pathname]);
+
+    // Carga de configuración viva desde Redis
+    fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.data) {
+          const cfg = json.data;
+          const companies = typeof cfg.shippingCompanies === 'string'
+            ? cfg.shippingCompanies.split(',').map((c: string) => c.trim()).filter(Boolean)
+            : siteConfig.shipping.companies;
+
+          setHeaderSettings({
+            storeName: cfg.storeName || siteConfig.storeName,
+            freeShippingThreshold: Number(cfg.freeShippingThreshold) || siteConfig.shipping.freeShippingThreshold,
+            shippingCompanies: companies.length > 0 ? companies : siteConfig.shipping.companies,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (searchParams?.get('auth') === 'register') {
@@ -3458,7 +3711,7 @@ function HeaderContent() {
             <div className="flex items-center gap-2 font-medium">
               <Truck className="w-4 h-4 text-orange-400" />
               <span>
-                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por {siteConfig.shipping.companies.slice(0, 3).join(', ')}
+                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{headerSettings.freeShippingThreshold} por {headerSettings.shippingCompanies.slice(0, 3).join(', ')}
               </span>
             </div>
             <Link
@@ -3466,7 +3719,7 @@ function HeaderContent() {
               className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
             >
               <CircleDollarSign className="w-4 h-4" />
-              <span>Gana dinero con {siteConfig.storeName}</span>
+              <span>Gana dinero con {headerSettings.storeName}</span>
             </Link>
           </div>
         </div>
@@ -3488,7 +3741,7 @@ function HeaderContent() {
               <Link href="/" className="flex items-center transition-transform hover:scale-105">
                 <Image
                   src="/logo-todomax.png"
-                  alt={siteConfig.storeName}
+                  alt={headerSettings.storeName}
                   width={160}
                   height={45}
                   priority
@@ -3504,7 +3757,7 @@ function HeaderContent() {
                   <Search className="w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder={`Buscar en ${siteConfig.storeName}: freidoras, mini UPS, aspiradoras, belleza...`}
+                    placeholder={`Buscar en ${headerSettings.storeName}: freidoras, mini UPS, aspiradoras, belleza...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-transparent outline-none text-sm text-slate-800 placeholder-gray-400 font-medium"
@@ -3590,7 +3843,7 @@ function HeaderContent() {
               <Search className="w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder={`Buscar en ${siteConfig.storeName}...`}
+                placeholder={`Buscar en ${headerSettings.storeName}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent outline-none text-xs text-slate-800 placeholder-gray-400 font-medium"
@@ -3733,37 +3986,38 @@ export function HeroCarousel() {
   const autoplayOptions = { delay: 6500, stopOnInteraction: false };
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [slides, setSlides] = useState<any[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Inicialización síncrona inmediata con localStorage para carga en 0ms sin parpadeos
+  const [slides, setSlides] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_hero_slides');
+        if (local) {
+          const parsed = filterValidAdminSlides(JSON.parse(local));
+          if (parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [isLoaded, setIsLoaded] = useState(() => slides.length > 0);
 
   useEffect(() => {
     const loadSlides = async () => {
-      // 1. Lectura instantánea de caché local si existe
-      if (typeof window !== 'undefined') {
-        const local = localStorage.getItem('store_hero_slides');
-        if (local) {
-          try {
-            const parsed = filterValidAdminSlides(JSON.parse(local));
-            if (parsed.length > 0) {
-              setSlides(parsed);
-              setIsLoaded(true);
-            }
-          } catch (e) {}
-        }
-      }
-
-      // 2. Sincronización con la base de datos del Admin
       try {
         const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
             const cleanSlides = filterValidAdminSlides(json.data);
-            setSlides(cleanSlides);
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
-              } catch (e) {}
+            if (cleanSlides.length > 0) {
+              setSlides(cleanSlides);
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
+                } catch (e) {}
+              }
             }
           }
         }
@@ -3809,6 +4063,8 @@ export function HeroCarousel() {
                   <img
                     src={dImg}
                     alt={slide.title || 'Banner Principal'}
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={idx === 0 ? 'high' : 'auto'}
                     className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
                   />
                 )}
@@ -3817,7 +4073,9 @@ export function HeroCarousel() {
                   <img
                     src={mImg}
                     alt={slide.title || 'Banner Principal'}
-                    className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={idx === 0 ? 'high' : 'auto'}
+                    className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
                   />
                 )}
 
@@ -3937,7 +4195,9 @@ export function OffersCarousel() {
           if (cleanOffers.length > 0) {
             setOffers(cleanOffers);
             if (typeof window !== 'undefined') {
-              localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+              try {
+                localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+              } catch (e) {}
             }
           }
         }
@@ -3981,6 +4241,8 @@ export function OffersCarousel() {
                     <img
                       src={dImg}
                       alt={offer.title || 'Oferta'}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
                       className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
                     />
                   )}
@@ -3988,7 +4250,9 @@ export function OffersCarousel() {
                     <img
                       src={mImg}
                       alt={offer.title || 'Oferta'}
-                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
+                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
                     />
                   )}
 
@@ -4427,6 +4691,8 @@ import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
 import { ShoppingBag } from 'lucide-react';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
 
 const availableCategories = [
   'Todos',
@@ -4502,7 +4768,10 @@ function CatalogoContent() {
     return [];
   });
 
-  const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [
+    Autoplay({ delay: 6000, stopOnInteraction: false }),
+  ]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
     const categoryParam = searchParams.get('category');
@@ -4568,13 +4837,16 @@ function CatalogoContent() {
   })();
 
   useEffect(() => {
-    setCurrentSlideIdx(0);
-    if (activeCategorySlides.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentSlideIdx((prev) => (prev + 1) % activeCategorySlides.length);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [activeCategory, activeCategorySlides.length]);
+    if (!emblaApi) return;
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    emblaApi.reInit();
+    emblaApi.scrollTo(0);
+    setSelectedIndex(0);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, activeCategory, activeCategorySlides.length]);
 
   const handleCategorySelect = (cat: string) => {
     if (cat === 'Todos') {
@@ -4640,36 +4912,59 @@ function CatalogoContent() {
         </div>
 
         {activeCategorySlides.length > 0 && (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-950 aspect-[16/9] md:aspect-[21/8] lg:aspect-[4/1] relative border border-gray-200/80 group">
-            {activeCategorySlides.map((slide: any, i: number) => {
-              const dImg = slide.desktopImg || slide.mobileImg;
-              const mImg = slide.mobileImg || slide.desktopImg;
-              const isVisible = i === currentSlideIdx;
-              return (
-                <Link
-                  key={slide.id || i}
-                  href={slide.link || '/catalogo'}
-                  className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
-                    isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-                  }`}
-                >
-                  {dImg && (
-                    <img
-                      src={dImg}
-                      alt={`Banner ${slide.category || activeCategory}`}
-                      className="hidden md:block w-full h-full object-cover"
-                    />
-                  )}
-                  {mImg && (
-                    <img
-                      src={mImg}
-                      alt={`Banner ${slide.category || activeCategory}`}
-                      className="block md:hidden w-full h-full object-cover"
-                    />
-                  )}
-                </Link>
-              );
-            })}
+          <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
+            <div ref={emblaRef} className="overflow-hidden w-full">
+              <div className="flex w-full">
+                {activeCategorySlides.map((slide: any, idx: number) => {
+                  const dImg = slide.desktopImg || slide.mobileImg || '';
+                  const mImg = slide.mobileImg || slide.desktopImg || '';
+
+                  return (
+                    <div
+                      key={slide.id || idx}
+                      className="flex-[0_0_100%] min-w-0 relative h-[38vh] md:h-[48vh] min-h-[280px] md:min-h-[380px] py-10 pb-14 md:py-14 md:pb-16 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
+                    >
+                      {dImg && (
+                        <img
+                          src={dImg}
+                          alt={`Banner ${slide.category || activeCategory}`}
+                          className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                        />
+                      )}
+                      {mImg && (
+                        <img
+                          src={mImg}
+                          alt={`Banner ${slide.category || activeCategory}`}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          fetchPriority={idx === 0 ? 'high' : 'auto'}
+                          className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
+                        />
+                      )}
+                      <Link
+                        href={slide.link || '/catalogo'}
+                        className="absolute inset-0 z-10 cursor-pointer"
+                        aria-label={`Banner ${slide.category || activeCategory}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {activeCategorySlides.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
+                {activeCategorySlides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => emblaApi?.scrollTo(i)}
+                    className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'
+                    }`}
+                    aria-label={`Ir al banner ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -4787,7 +5082,7 @@ import {
   Lock, ArrowLeft, CheckCircle, CheckCircle2, 
   TrendingUp, Plus, Trash2, Pencil, 
   X, Search, MessageCircle, ExternalLink,
-  Image as ImageIcon, Video, Sliders, Zap
+  Image as ImageIcon, Video, Sliders, Zap, Settings
 } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { products as initialProducts, Product } from '@/data/products';
@@ -4863,7 +5158,7 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [currentRole, setCurrentRole] = useState<UserRole>('Super Admin');
-  const [activeTab, setActiveTab] = useState<'pedidos' | 'inventario' | 'afiliados' | 'publicidad' | 'crm' | 'finanzas'>('pedidos');
+  const [activeTab, setActiveTab] = useState<'pedidos' | 'inventario' | 'afiliados' | 'publicidad' | 'crm' | 'finanzas' | 'ajustes'>('pedidos');
   const [notification, setNotification] = useState('');
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -4909,6 +5204,27 @@ export default function AdminPage() {
   const [metaPixelId, setMetaPixelId] = useState(siteConfig.metaPixelId || '');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [storeSettings, setStoreSettings] = useState({
+    storeName: siteConfig.storeName,
+    whatsappNumber: siteConfig.whatsappNumber,
+    email: siteConfig.email,
+    location: siteConfig.location,
+    freeShippingThreshold: siteConfig.shipping.freeShippingThreshold,
+    shippingCompanies: siteConfig.shipping.companies.join(', '),
+    pagoMovilBanco: siteConfig.paymentMethods.pagoMovil.banco,
+    pagoMovilTelefono: siteConfig.paymentMethods.pagoMovil.telefono,
+    pagoMovilCedula: siteConfig.paymentMethods.pagoMovil.cedula,
+    transfBanco: siteConfig.paymentMethods.transferencia.banco,
+    transfCuenta: siteConfig.paymentMethods.transferencia.cuenta,
+    transfTitular: siteConfig.paymentMethods.transferencia.titular,
+    transfRif: siteConfig.paymentMethods.transferencia.rif,
+    zelleEmail: siteConfig.paymentMethods.zelle.email,
+    zelleTitular: siteConfig.paymentMethods.zelle.titular,
+    binancePayId: siteConfig.paymentMethods.binance.payId,
+    binanceEmail: '',
+    binanceUsdtAddress: siteConfig.paymentMethods.binance.usdtAddress,
+  });
+
   const syncStoreKey = async (key: string, value: any) => {
     safeLocalStorageSet(key, value);
     try {
@@ -4941,7 +5257,7 @@ export default function AdminPage() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  // Carga multimedia con preservación de nitidez absoluta en banners y textos
+  // Carga multimedia con preservación de nitidez Full HD y compresión segura
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -4957,15 +5273,6 @@ export default function AdminPage() {
       return;
     }
 
-    // Si ya viene optimizado desde Canva/editor (< 250KB), no se altera su resolución original
-    if (file.size < 250 * 1024 && (file.type === 'image/webp' || file.type === 'image/jpeg' || file.type === 'image/png')) {
-      const reader = new FileReader();
-      reader.onloadend = () => callback(reader.result as string);
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    // Si supera los 250KB, redimensionar solo si supera Full HD (1920px) manteniendo textos nítidos
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new window.Image();
@@ -4973,20 +5280,14 @@ export default function AdminPage() {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const MAX_WIDTH = 1920;
-        const MAX_HEIGHT = 1920;
+        const MAX_HEIGHT = 1080;
         let width = img.width;
         let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width = Math.round((width * MAX_HEIGHT) / height);
-            height = MAX_HEIGHT;
-          }
+        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+          const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
         }
 
         canvas.width = width;
@@ -4996,7 +5297,8 @@ export default function AdminPage() {
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
-          const optimizedUrl = canvas.toDataURL('image/webp', 0.90);
+          // 0.82 mantiene nitidez fotográfica y tipografías nítidas ocupando 70% menos memoria
+          const optimizedUrl = canvas.toDataURL('image/webp', 0.82);
           callback(optimizedUrl);
         } else {
           callback(event.target?.result as string);
@@ -5064,8 +5366,14 @@ export default function AdminPage() {
       } catch (e) {}
     };
 
-    loadOrdersAndAffiliates();
-    const interval = setInterval(loadOrdersAndAffiliates, 5000);
+    if (savedAuth === 'true') {
+      loadOrdersAndAffiliates();
+    }
+    const interval = setInterval(() => {
+      if (localStorage.getItem('todomax_admin_auth') === 'true') {
+        loadOrdersAndAffiliates();
+      }
+    }, 5000);
 
     const loadMarketingData = async () => {
       try {
@@ -5108,6 +5416,16 @@ export default function AdminPage() {
           if (jMkt.data) {
             if (jMkt.data.metaPixelId) setMetaPixelId(jMkt.data.metaPixelId);
             if (jMkt.data.adSpend !== undefined) setAdSpendInput(Number(jMkt.data.adSpend));
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const resCfg = await fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' });
+        if (resCfg.ok) {
+          const jCfg = await resCfg.json();
+          if (jCfg.data) {
+            setStoreSettings(prev => ({ ...prev, ...jCfg.data }));
           }
         }
       } catch (e) {}
@@ -5353,37 +5671,28 @@ export default function AdminPage() {
     e.preventDefault();
     if (!catBannerForm.category) return;
 
-    const rawCategory = catBannerForm.category.trim();
-    const normalizedKey = rawCategory
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, "-");
+    let updated: any[];
+    if (editingCatBannerId) {
+      updated = catBanners.map((c: any) =>
+        c.id === editingCatBannerId ? { ...c, ...catBannerForm } : c
+      );
+      setEditingCatBannerId(null);
+      notify('Banner de Catálogo actualizado en la nube');
+    } else {
+      const newItem = {
+        id: `cat-${Date.now()}`,
+        category: catBannerForm.category.trim(),
+        link: catBannerForm.link || '/catalogo',
+        desktopImg: catBannerForm.desktopImg || '',
+        mobileImg: catBannerForm.mobileImg || '',
+      };
+      updated = [...catBanners, newItem];
+      notify(`Banner de Catálogo para "${catBannerForm.category}" agregado con éxito`);
+    }
 
-    const filteredSlides = catBanners.filter((c: any) => {
-      const existingKey = (c.category || '')
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, "-");
-      return existingKey !== normalizedKey;
-    });
-
-    const newItem = {
-      id: `cat-${normalizedKey}`,
-      category: rawCategory,
-      link: catBannerForm.link || '/catalogo',
-      desktopImg: catBannerForm.desktopImg || '',
-      mobileImg: catBannerForm.mobileImg || ''
-    };
-
-    const updated = [...filteredSlides, newItem];
     setCatBanners(updated);
     await syncStoreKey('store_cat_slides', updated);
-    
-    notify(`Banner de Catálogo para "${rawCategory}" guardado en la nube con éxito`);
     setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
-    setEditingCatBannerId(null);
   };
 
   const handleSaveMarketingConfig = async () => {
@@ -5626,15 +5935,27 @@ export default function AdminPage() {
           )}
 
           {currentRole === 'Super Admin' && (
-            <button
-              onClick={() => setActiveTab('finanzas')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'finanzas' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span>6. Finanzas & Rentabilidad</span>
-            </button>
+            <>
+              <button
+                onClick={() => setActiveTab('finanzas')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'finanzas' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>6. Finanzas & Rentabilidad</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('ajustes')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeTab === 'ajustes' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>7. Ajustes de Tienda</span>
+              </button>
+            </>
           )}
         </div>
       </nav>
@@ -6531,6 +6852,242 @@ export default function AdminPage() {
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'ajustes' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">Ajustes Generales de la Tienda</h2>
+              <p className="text-xs text-slate-500">Modifica contactos, condiciones de envío y datos bancarios sin tocar código.</p>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await syncStoreKey('store_site_config', storeSettings);
+                notify('Ajustes de tienda guardados en la nube con éxito');
+              }}
+              className="space-y-8"
+            >
+              {/* Bloque 1: Contacto y Marca */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <h3 className="text-base font-black text-slate-900">1. Datos de Contacto y Tienda</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Nombre Comercial de la Tienda</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.storeName}
+                      onChange={e => setStoreSettings({ ...storeSettings, storeName: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Número de WhatsApp (con código de país, ej. +58 o +1)</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.whatsappNumber}
+                      onChange={e => setStoreSettings({ ...storeSettings, whatsappNumber: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Correo Electrónico de Contacto</label>
+                    <input
+                      type="email"
+                      required
+                      value={storeSettings.email}
+                      onChange={e => setStoreSettings({ ...storeSettings, email: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Ubicación / Ciudad</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.location}
+                      onChange={e => setStoreSettings({ ...storeSettings, location: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloque 2: Políticas de Envío */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <h3 className="text-base font-black text-slate-900">2. Envíos y Despacho</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Monto Mínimo para Envío Gratis ($)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      required
+                      value={storeSettings.freeShippingThreshold}
+                      onChange={e => setStoreSettings({ ...storeSettings, freeShippingThreshold: Number(e.target.value) })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Empresas de Envío (separadas por coma)</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.shippingCompanies}
+                      onChange={e => setStoreSettings({ ...storeSettings, shippingCompanies: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                      placeholder="MRW, Zoom, Tealca, Delivery Local"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloque 3: Datos Bancarios */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
+                <h3 className="text-base font-black text-slate-900">3. Datos Bancarios y Formas de Pago</h3>
+
+                {/* Pago Móvil */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                  <h4 className="text-xs font-black uppercase text-orange-600">Pago Móvil</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Banco y Código</label>
+                      <input
+                        type="text"
+                        value={storeSettings.pagoMovilBanco}
+                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilBanco: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Teléfono</label>
+                      <input
+                        type="text"
+                        value={storeSettings.pagoMovilTelefono}
+                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilTelefono: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Cédula / RIF</label>
+                      <input
+                        type="text"
+                        value={storeSettings.pagoMovilCedula}
+                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilCedula: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Transferencia */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                  <h4 className="text-xs font-black uppercase text-orange-600">Transferencia Bancaria</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Banco</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfBanco}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfBanco: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Número de Cuenta</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfCuenta}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfCuenta: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Titular</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfTitular}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfTitular: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">RIF</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfRif}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfRif: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Zelle y Binance */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                    <h4 className="text-xs font-black uppercase text-orange-600">Zelle</h4>
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Correo Zelle</label>
+                        <input
+                          type="email"
+                          value={storeSettings.zelleEmail}
+                          onChange={e => setStoreSettings({ ...storeSettings, zelleEmail: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Titular de Cuenta</label>
+                        <input
+                          type="text"
+                          value={storeSettings.zelleTitular}
+                          onChange={e => setStoreSettings({ ...storeSettings, zelleTitular: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                    <h4 className="text-xs font-black uppercase text-orange-600">Binance Pay</h4>
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Binance Pay ID (Números)</label>
+                        <input
+                          type="text"
+                          value={storeSettings.binancePayId}
+                          onChange={e => setStoreSettings({ ...storeSettings, binancePayId: e.target.value })}
+                          placeholder="Ej. 123456789"
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Correo de la Cuenta Binance</label>
+                        <input
+                          type="email"
+                          value={storeSettings.binanceEmail}
+                          onChange={e => setStoreSettings({ ...storeSettings, binanceEmail: e.target.value })}
+                          placeholder="tu-correo-binance@email.com"
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full md:w-auto px-10 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-sm rounded-2xl shadow-lg transition-all cursor-pointer hover:shadow-orange-500/40"
+              >
+                Guardar Todos los Ajustes
+              </button>
+            </form>
           </div>
         )}
       </main>

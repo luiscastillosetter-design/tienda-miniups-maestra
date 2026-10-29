@@ -47,7 +47,6 @@ function CatalogoContent() {
   const router = useRouter();
   const { addItem } = useCartStore();
 
-  // Inicialización limpia: lee caché de productos reales, NUNCA los cuadros naranjas por defecto
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -90,6 +89,7 @@ function CatalogoContent() {
   ]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  // Filtrado instantáneo en memoria al cambiar de categoría
   useEffect(() => {
     const categoryParam = searchParams.get('category');
     const currentCat = categoryParam || 'Todos';
@@ -103,37 +103,29 @@ function CatalogoContent() {
     }
   }, [searchParams, products]);
 
+  // Descarga en paralelo ultra rápida al entrar a la página (sin cascadas bloqueantes)
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const prods = await productService.getProducts();
-        if (Array.isArray(prods) && prods.length > 0) {
-          setProducts(prods);
-          const currentCat = searchParams.get('category') || 'Todos';
-          if (!currentCat || currentCat.toLowerCase() === 'todos') {
-            setFilteredProducts(prods);
-          } else {
-            const targetNorm = normalizeCatName(currentCat);
-            setFilteredProducts(prods.filter((p) => normalizeCatName(p.category) === targetNorm));
-          }
-        }
+    productService.getProducts().then((prods) => {
+      if (Array.isArray(prods) && prods.length > 0) {
+        setProducts(prods);
+      }
+    });
 
-        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (json && Array.isArray(json.data)) {
-            const cleanSlides = filterValidCatBanners(json.data);
-            setCatSlides(cleanSlides);
-            if (typeof window !== 'undefined') {
+    fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && Array.isArray(json.data)) {
+          const cleanSlides = filterValidCatBanners(json.data);
+          setCatSlides(cleanSlides);
+          if (typeof window !== 'undefined') {
+            try {
               localStorage.setItem('store_cat_slides', JSON.stringify(cleanSlides));
-            }
+            } catch (_) {}
           }
         }
-      } catch (e) {}
-    };
-
-    loadData();
-  }, [searchParams]);
+      })
+      .catch(() => {});
+  }, []);
 
   const activeCategorySlides = (() => {
     const normalizedActive = normalizeCatName(activeCategory);
@@ -245,6 +237,8 @@ function CatalogoContent() {
                         <img
                           src={dImg}
                           alt={`Banner ${slide.category || activeCategory}`}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          fetchPriority={idx === 0 ? 'high' : 'auto'}
                           className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
                         />
                       )}
