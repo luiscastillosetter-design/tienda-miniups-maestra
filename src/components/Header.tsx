@@ -19,6 +19,12 @@ function HeaderContent() {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
 
+  const [headerSettings, setHeaderSettings] = useState({
+    storeName: siteConfig.storeName,
+    freeShippingThreshold: siteConfig.shipping.freeShippingThreshold,
+    shippingCompanies: siteConfig.shipping.companies,
+  });
+
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { items, toggleCart } = useCartStore();
@@ -37,7 +43,26 @@ function HeaderContent() {
         setLiveProducts(data);
       }
     });
-  }, [pathname]);
+
+    // Carga de configuración viva desde Redis
+    fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.data) {
+          const cfg = json.data;
+          const companies = typeof cfg.shippingCompanies === 'string'
+            ? cfg.shippingCompanies.split(',').map((c: string) => c.trim()).filter(Boolean)
+            : siteConfig.shipping.companies;
+
+          setHeaderSettings({
+            storeName: cfg.storeName || siteConfig.storeName,
+            freeShippingThreshold: Number(cfg.freeShippingThreshold) || siteConfig.shipping.freeShippingThreshold,
+            shippingCompanies: companies.length > 0 ? companies : siteConfig.shipping.companies,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (searchParams?.get('auth') === 'register') {
@@ -92,7 +117,7 @@ function HeaderContent() {
             <div className="flex items-center gap-2 font-medium">
               <Truck className="w-4 h-4 text-orange-400" />
               <span>
-                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por {siteConfig.shipping.companies.slice(0, 3).join(', ')}
+                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{headerSettings.freeShippingThreshold} por {headerSettings.shippingCompanies.slice(0, 3).join(', ')}
               </span>
             </div>
             <Link
@@ -100,7 +125,7 @@ function HeaderContent() {
               className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
             >
               <CircleDollarSign className="w-4 h-4" />
-              <span>Gana dinero con {siteConfig.storeName}</span>
+              <span>Gana dinero con {headerSettings.storeName}</span>
             </Link>
           </div>
         </div>
@@ -122,7 +147,7 @@ function HeaderContent() {
               <Link href="/" className="flex items-center transition-transform hover:scale-105">
                 <Image
                   src="/logo-todomax.png"
-                  alt={siteConfig.storeName}
+                  alt={headerSettings.storeName}
                   width={160}
                   height={45}
                   priority
@@ -138,7 +163,7 @@ function HeaderContent() {
                   <Search className="w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder={`Buscar en ${siteConfig.storeName}: freidoras, mini UPS, aspiradoras, belleza...`}
+                    placeholder={`Buscar en ${headerSettings.storeName}: freidoras, mini UPS, aspiradoras, belleza...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-transparent outline-none text-sm text-slate-800 placeholder-gray-400 font-medium"
@@ -224,7 +249,7 @@ function HeaderContent() {
               <Search className="w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder={`Buscar en ${siteConfig.storeName}...`}
+                placeholder={`Buscar en ${headerSettings.storeName}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent outline-none text-xs text-slate-800 placeholder-gray-400 font-medium"

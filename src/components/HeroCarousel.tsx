@@ -27,37 +27,38 @@ export function HeroCarousel() {
   const autoplayOptions = { delay: 6500, stopOnInteraction: false };
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [slides, setSlides] = useState<any[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Inicialización síncrona inmediata con localStorage para carga en 0ms sin parpadeos
+  const [slides, setSlides] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_hero_slides');
+        if (local) {
+          const parsed = filterValidAdminSlides(JSON.parse(local));
+          if (parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [isLoaded, setIsLoaded] = useState(() => slides.length > 0);
 
   useEffect(() => {
     const loadSlides = async () => {
-      // 1. Lectura instantánea de caché local si existe
-      if (typeof window !== 'undefined') {
-        const local = localStorage.getItem('store_hero_slides');
-        if (local) {
-          try {
-            const parsed = filterValidAdminSlides(JSON.parse(local));
-            if (parsed.length > 0) {
-              setSlides(parsed);
-              setIsLoaded(true);
-            }
-          } catch (e) {}
-        }
-      }
-
-      // 2. Sincronización con la base de datos del Admin
       try {
         const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
             const cleanSlides = filterValidAdminSlides(json.data);
-            setSlides(cleanSlides);
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
-              } catch (e) {}
+            if (cleanSlides.length > 0) {
+              setSlides(cleanSlides);
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
+                } catch (e) {}
+              }
             }
           }
         }
@@ -103,6 +104,8 @@ export function HeroCarousel() {
                   <img
                     src={dImg}
                     alt={slide.title || 'Banner Principal'}
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={idx === 0 ? 'high' : 'auto'}
                     className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
                   />
                 )}
@@ -111,7 +114,9 @@ export function HeroCarousel() {
                   <img
                     src={mImg}
                     alt={slide.title || 'Banner Principal'}
-                    className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={idx === 0 ? 'high' : 'auto'}
+                    className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
                   />
                 )}
 

@@ -48,9 +48,15 @@ export async function POST(request: NextRequest) {
         );
 
         if (foundProduct) {
+          const productLink = `${BASE_STORE_URL}/product/${foundProduct.id}?ref=TU_CODIGO`;
+          const rawCopy = foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis! [ENLACE]';
+          const formattedCopy = rawCopy.includes('[ENLACE]')
+            ? rawCopy.replace('[ENLACE]', productLink)
+            : `${rawCopy}\n\nCómpralo aquí: ${productLink}`;
+
           respuestaBot = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
-          `📝 *Texto sugerido:* ${foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis!'}\n\n` +
-          `🔗 Tu enlace base: ${BASE_STORE_URL}/product/${foundProduct.id}?ref=TU_CODIGO`;
+          `📝 *Texto sugerido:* ${formattedCopy}\n\n` +
+          `🔗 Tu enlace base: ${productLink}`;
         } else if (textoCliente.includes('comision') || textoCliente.includes('ganancia')) {
           respuestaBot = `Tus comisiones están seguras. Puedes revisar tu balance actualizado directamente en tu Panel Privado web en ${BASE_STORE_URL}/afiliados 💰`;
         } else if (textoCliente.includes('humano') || textoCliente.includes('ayuda')) {

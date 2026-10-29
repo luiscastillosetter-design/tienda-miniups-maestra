@@ -8,6 +8,8 @@ import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
 import { ShoppingBag } from 'lucide-react';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
 
 const availableCategories = [
   'Todos',
@@ -83,7 +85,10 @@ function CatalogoContent() {
     return [];
   });
 
-  const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [
+    Autoplay({ delay: 6000, stopOnInteraction: false }),
+  ]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
     const categoryParam = searchParams.get('category');
@@ -149,13 +154,16 @@ function CatalogoContent() {
   })();
 
   useEffect(() => {
-    setCurrentSlideIdx(0);
-    if (activeCategorySlides.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentSlideIdx((prev) => (prev + 1) % activeCategorySlides.length);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [activeCategory, activeCategorySlides.length]);
+    if (!emblaApi) return;
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    emblaApi.reInit();
+    emblaApi.scrollTo(0);
+    setSelectedIndex(0);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, activeCategory, activeCategorySlides.length]);
 
   const handleCategorySelect = (cat: string) => {
     if (cat === 'Todos') {
@@ -221,36 +229,59 @@ function CatalogoContent() {
         </div>
 
         {activeCategorySlides.length > 0 && (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-950 aspect-[16/9] md:aspect-[21/8] lg:aspect-[4/1] relative border border-gray-200/80 group">
-            {activeCategorySlides.map((slide: any, i: number) => {
-              const dImg = slide.desktopImg || slide.mobileImg;
-              const mImg = slide.mobileImg || slide.desktopImg;
-              const isVisible = i === currentSlideIdx;
-              return (
-                <Link
-                  key={slide.id || i}
-                  href={slide.link || '/catalogo'}
-                  className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
-                    isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-                  }`}
-                >
-                  {dImg && (
-                    <img
-                      src={dImg}
-                      alt={`Banner ${slide.category || activeCategory}`}
-                      className="hidden md:block w-full h-full object-cover"
-                    />
-                  )}
-                  {mImg && (
-                    <img
-                      src={mImg}
-                      alt={`Banner ${slide.category || activeCategory}`}
-                      className="block md:hidden w-full h-full object-cover"
-                    />
-                  )}
-                </Link>
-              );
-            })}
+          <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
+            <div ref={emblaRef} className="overflow-hidden w-full">
+              <div className="flex w-full">
+                {activeCategorySlides.map((slide: any, idx: number) => {
+                  const dImg = slide.desktopImg || slide.mobileImg || '';
+                  const mImg = slide.mobileImg || slide.desktopImg || '';
+
+                  return (
+                    <div
+                      key={slide.id || idx}
+                      className="flex-[0_0_100%] min-w-0 relative h-[38vh] md:h-[48vh] min-h-[280px] md:min-h-[380px] py-10 pb-14 md:py-14 md:pb-16 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
+                    >
+                      {dImg && (
+                        <img
+                          src={dImg}
+                          alt={`Banner ${slide.category || activeCategory}`}
+                          className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                        />
+                      )}
+                      {mImg && (
+                        <img
+                          src={mImg}
+                          alt={`Banner ${slide.category || activeCategory}`}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          fetchPriority={idx === 0 ? 'high' : 'auto'}
+                          className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
+                        />
+                      )}
+                      <Link
+                        href={slide.link || '/catalogo'}
+                        className="absolute inset-0 z-10 cursor-pointer"
+                        aria-label={`Banner ${slide.category || activeCategory}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {activeCategorySlides.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
+                {activeCategorySlides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => emblaApi?.scrollTo(i)}
+                    className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'
+                    }`}
+                    aria-label={`Ir al banner ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 

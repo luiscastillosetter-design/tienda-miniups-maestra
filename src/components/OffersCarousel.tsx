@@ -50,7 +50,9 @@ export function OffersCarousel() {
           if (cleanOffers.length > 0) {
             setOffers(cleanOffers);
             if (typeof window !== 'undefined') {
-              localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+              try {
+                localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+              } catch (e) {}
             }
           }
         }
@@ -94,6 +96,8 @@ export function OffersCarousel() {
                     <img
                       src={dImg}
                       alt={offer.title || 'Oferta'}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
                       className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
                     />
                   )}
@@ -101,7 +105,9 @@ export function OffersCarousel() {
                     <img
                       src={mImg}
                       alt={offer.title || 'Oferta'}
-                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
+                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
                     />
                   )}
 

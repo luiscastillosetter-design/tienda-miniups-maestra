@@ -31,14 +31,15 @@ export const useCartStore = create<CartState>()(
           const existing = state.items.find((i) => i.id === item.id);
           if (existing) {
             const nextQuantity = existing.quantity + quantity;
-            const maxQuantity = item.stock ? Math.min(item.stock, nextQuantity) : nextQuantity;
+            const maxQuantity = item.stock !== undefined ? Math.min(item.stock, nextQuantity) : nextQuantity;
             return {
               items: state.items.map((i) =>
                 i.id === item.id ? { ...i, quantity: maxQuantity, stock: item.stock ?? i.stock } : i
               ),
             };
           }
-          return { items: [...state.items, { ...item, quantity }] };
+          const initialQuantity = item.stock !== undefined ? Math.min(item.stock, Math.max(1, quantity)) : quantity;
+          return { items: [...state.items, { ...item, quantity: initialQuantity }] };
         }),
 
       removeItem: (id) =>

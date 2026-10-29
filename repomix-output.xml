@@ -40,9 +40,6 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
-.claude/
-  settings.json
-  settings.local.json
 public/
   products/
     airpodspro2dageneracion-audio.jpg
@@ -105,11 +102,8 @@ src/
   store/
     cartStore.ts
   middleware.ts
-.clinerules
 .gitignore
-design.md
 eslint.config.mjs
-memory.md
 next.config.ts
 package.json
 pnpm-workspace.yaml
@@ -120,67 +114,6 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path=".claude/settings.local.json">
-{
-  "permissions": {
-    "allow": [
-      "Bash(cd \"c:\\\\\\\\Users\\\\\\\\Luis Castillo\\\\\\\\OneDrive\\\\\\\\Desktop\\\\\\\\carpeta de proyectos\\\\\\\\mi-tienda-maestra\")",
-      "Bash(npx tsc *)",
-      "Bash(npm run *)",
-      "Bash(rm \"C:\\\\Users\\\\Luis Castillo\\\\OneDrive\\\\Desktop\\\\carpeta de proyectos\\\\mi-tienda-maestra\\\\next.config.js\")"
-    ],
-    "additionalDirectories": [
-      "C:\\Users\\Luis Castillo\\OneDrive\\Desktop\\carpeta de proyectos\\mi-tienda-maestra"
-    ]
-  }
-}
-</file>
-
-<file path=".claude/settings.json">
-{
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "haiku",
-  "enabledMcpServers": {
-    "github": {
-      "enabled": true,
-      "config": {}
-    },
-    "context7": {
-      "enabled": true,
-      "config": {}
-    }
-  },
-  "disabledMcpServers": [
-    "azure",
-    "aws",
-    "gcp",
-    "slack",
-    "jira",
-    "linear",
-    "figma",
-    "playwright",
-    "docker",
-    "kubernetes",
-    "terraform"
-  ],
-  "permissions": {
-    "allowedTools": [
-      "Read",
-      "Write",
-      "Edit",
-      "Bash"
-    ],
-    "autoAcceptPattern": "^(Read|Edit).*\\.(ts|tsx|json)$"
-  },
-  "alwaysThinkingEnabled": false,
-  "contextBudget": "preserve-last-20-percent",
-  "tokenManagement": {
-    "compactAfter": 150000,
-    "strategy": "aggressive"
-  }
-}
-</file>
 
 <file path="public/file.svg">
 <svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
@@ -202,209 +135,6 @@ This section contains the contents of the repository's files.
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
 </file>
 
-<file path="src/app/api/sellibri/route.ts">
-import { NextRequest, NextResponse } from 'next/server';
-
-// Endpoint para comunicación con Sellibrí o ERP externo
-export async function POST(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization');
-    const SELLIBRI_SECRET = process.env.SELLIBRI_API_KEY || 'todomax_sellibri_secret_2024';
-
-    // Verificación de seguridad
-    if (authHeader !== `Bearer ${SELLIBRI_SECRET}`) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
-    const payload = await request.json();
-    const { action, orderId, trackingNumber, status } = payload;
-
-    // Acción 1: Sellibrí notifica que despachó un paquete y envía la guía
-    if (action === 'update_tracking' && orderId && trackingNumber) {
-      console.log(`[Sellibrí Webhook] Orden ${orderId} despachada con guía: ${trackingNumber}`);
-      
-      return NextResponse.json({
-        success: true,
-        message: `Orden ${orderId} actualizada con guía ${trackingNumber}`,
-      }, { status: 200 });
-    }
-
-    // Acción 2: Sincronización de inventario desde almacén
-    if (action === 'sync_stock' && payload.products) {
-      console.log('[Sellibrí Webhook] Sincronización de stock recibida');
-      return NextResponse.json({
-        success: true,
-        message: 'Inventario sincronizado',
-      }, { status: 200 });
-    }
-
-    return NextResponse.json({ success: true, received: payload }, { status: 200 });
-  } catch (error) {
-    console.error('Error en conector Sellibrí:', error);
-    return NextResponse.json({ error: 'Error procesando solicitud de Sellibrí' }, { status: 500 });
-  }
-}
-
-export async function GET() {
-  return NextResponse.json({
-    status: 'Conector Sellibrí activo',
-    service: 'TodoMax Logistics Sync Gateway',
-    version: '1.0.0',
-  }, { status: 200 });
-}
-</file>
-
-<file path="src/components/AuthModal.tsx">
-'use client';
-
-import { useState, useEffect } from 'react';
-import { X, User, Lock, Mail, LogOut } from 'lucide-react';
-
-interface AuthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [userSession, setUserSession] = useState<{ name: string; email: string } | null>(null);
-
-  useEffect(() => {
-    const session = localStorage.getItem('todomax_user_session');
-    if (session) {
-      setUserSession(JSON.parse(session));
-    }
-  }, []);
-
-  if (!isOpen) return null;
-
-  const handleAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    const userData = { name: name || email.split('@')[0], email };
-    localStorage.setItem('todomax_user_session', JSON.stringify(userData));
-    setUserSession(userData);
-    alert(isLogin ? '¡Sesión iniciada correctamente!' : '¡Cuenta creada y guardada con éxito!');
-    onClose();
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('todomax_user_session');
-    setUserSession(null);
-    alert('Sesión cerrada.');
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-100 p-6 relative animate-in fade-in zoom-in-95 duration-200">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-slate-600 cursor-pointer">
-          <X className="w-5 h-5" />
-        </button>
-
-        {userSession ? (
-          <div className="text-center py-6 space-y-4">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-              {userSession.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">¡Hola, {userSession.name}!</h3>
-              <p className="text-xs text-gray-500 mt-1">{userSession.email}</p>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-xl text-xs text-slate-600">
-              Tu sesión está guardada de forma segura en este navegador.
-            </div>
-            <button
-              onClick={handleLogout}
-              className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Cerrar Sesión
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="text-center mb-6">
-              <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <User className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900">
-                {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                {isLogin ? 'Tus datos se recordarán en este dispositivo' : 'Regístrate para una experiencia personalizada'}
-              </p>
-            </div>
-
-            <form onSubmit={handleAuth} className="space-y-4">
-              {!isLogin && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Nombre completo</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu nombre"
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-500"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Correo electrónico</label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@correo.com"
-                    className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Contraseña</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-500"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl text-sm transition-colors cursor-pointer mt-2"
-              >
-                {isLogin ? 'Entrar y Recordar Sesión' : 'Registrarse'}
-              </button>
-            </form>
-
-            <div className="text-center mt-4">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-xs text-orange-600 hover:underline font-medium cursor-pointer"
-              >
-                {isLogin ? '¿No tienes cuenta? Regístrate aquí' : '¿Ya tienes cuenta? Inicia sesión'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="src/components/BackButton.tsx">
 'use client';
 
@@ -424,64 +154,6 @@ export default function BackButton({ label = "Volver" }: { label?: string }) {
     </button>
   );
 }
-</file>
-
-<file path=".clinerules">
-# REGLAS DEL PROYECTO (CRÍTICO: AHORRO DE TOKENS)
-1. Eres un ejecutor táctico. NUNCA leas el repositorio completo ni uses herramientas de búsqueda global (Glob, Grep) a menos que se te pida explícitamente.
-2. Limítate a modificar ÚNICAMENTE el archivo o componente indicado en el prompt y detente.
-3. Esta es una tienda "Marca Blanca". NUNCA escribas textos fijos (hardcoded) en la UI (nombres de tienda, números de WhatsApp, monedas). 
-4. Todo el contenido dinámico de la tienda DEBE consumirse exportando `siteConfig` desde `src/config/site.ts`.
-5. Usa Tailwind CSS para todo el estilo. El diseño debe ser estrictamente minimalista, enfocado a conversión rápida y Mobile-First.
-</file>
-
-<file path=".gitignore">
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-.todomax-db.json
-</file>
-
-<file path="design.md">
-# Reglas de Diseño Todomax: Fondo general bg-white o bg-slate-50. Textos principales text-slate-900, textos secundarios text-slate-500. Bordes suaves border-gray-200 rounded-xl. Color primario naranja (bg-orange-500). Prohibidos los botones flotantes sin sentido. Prohibido el dark mode.
 </file>
 
 <file path="eslint.config.mjs">
@@ -597,50 +269,80 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="src/app/api/products/route.ts">
+<file path="src/app/api/sellibri/route.ts">
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
-import { products as defaultProducts } from '@/data/products';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export async function GET() {
-  try {
-    const products = await dbService.get('store_products');
-    if (!products || !Array.isArray(products) || products.length === 0) {
-      await dbService.set('store_products', defaultProducts);
-      return NextResponse.json(defaultProducts, {
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-      });
-    }
-    return NextResponse.json(products, {
-      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-    });
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    return NextResponse.json(defaultProducts);
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    if (!Array.isArray(body)) {
-      return NextResponse.json({ success: false, error: 'Formato inválido' }, { status: 400 });
+    const authHeader = request.headers.get('authorization');
+    const SELLIBRI_SECRET = process.env.SELLIBRI_API_KEY;
+
+    if (!SELLIBRI_SECRET) {
+      console.error('[Sellibrí Webhook] CLAVE API NO CONFIGURADA EN EL SERVIDOR');
+      return NextResponse.json({ error: 'Configuración de servidor incompleta' }, { status: 500 });
     }
-    const saved = await dbService.set('store_products', body);
-    if (!saved) {
-      return NextResponse.json(
-        { success: false, error: 'No se pudo guardar en la base de datos' },
-        { status: 500 }
-      );
+
+    if (authHeader !== `Bearer ${SELLIBRI_SECRET}`) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
-    return NextResponse.json({ success: true });
+
+    const payload = await request.json();
+    const { action, orderId, trackingNumber, products } = payload;
+
+    if (action === 'update_tracking' && orderId && trackingNumber) {
+      const orders = await dbService.get('store_orders') || [];
+      const updatedOrders = orders.map((o: any) => {
+        if (o.id === orderId) {
+          return {
+            ...o,
+            status: 'Despachado',
+            shipping: { ...o.shipping, trackingNumber }
+          };
+        }
+        return o;
+      });
+      
+      await dbService.set('store_orders', updatedOrders);
+      console.log(`[Sellibrí Webhook] Orden ${orderId} despachada con guía: ${trackingNumber}`);
+      
+      return NextResponse.json({
+        success: true,
+        message: `Orden ${orderId} actualizada con guía ${trackingNumber}`,
+      }, { status: 200 });
+    }
+
+    if (action === 'sync_stock' && products && Array.isArray(products)) {
+      const storeProducts = await dbService.get('store_products') || [];
+      const updatedProducts = storeProducts.map((p: any) => {
+        const updatedStock = products.find((newP: any) => String(newP.id) === String(p.id));
+        if (updatedStock && typeof updatedStock.stock === 'number') {
+          return { ...p, stock: updatedStock.stock };
+        }
+        return p;
+      });
+      
+      await dbService.set('store_products', updatedProducts);
+      console.log('[Sellibrí Webhook] Sincronización de stock recibida');
+      return NextResponse.json({
+        success: true,
+        message: 'Inventario sincronizado',
+      }, { status: 200 });
+    }
+
+    return NextResponse.json({ error: 'Acción no válida o parámetros faltantes' }, { status: 400 });
   } catch (error) {
-    console.error('Error saving products:', error);
-    return NextResponse.json({ success: false, error: 'Failed to save' }, { status: 500 });
+    console.error('Error en conector Sellibrí:', error);
+    return NextResponse.json({ error: 'Error procesando solicitud de Sellibrí' }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({
+    status: 'Conector Sellibrí activo',
+    service: 'TodoMax Logistics Sync Gateway',
+    version: '1.0.0',
+  }, { status: 200 });
 }
 </file>
 
@@ -690,60 +392,174 @@ export async function POST(request: NextRequest) {
 }
 </file>
 
-<file path="src/store/cartStore.ts">
-import { create } from 'zustand';
+<file path="src/components/AuthModal.tsx">
+'use client';
 
-export type CartItem = {
-  id: string;
-  title: string;
-  price: number;
-  image: string;
-  quantity: number;
-};
+import { useState, useEffect } from 'react';
+import { X, User, Lock, Mail, LogOut, CheckCircle2 } from 'lucide-react';
+import { siteConfig } from '@/config/site';
 
-type CartState = {
-  items: CartItem[];
-  isCartOpen: boolean;
-  addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  toggleCart: () => void;
-  clearCart: () => void;
-};
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-export const useCartStore = create<CartState>((set) => ({
-  items: [],
-  isCartOpen: false,
+export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [userSession, setUserSession] = useState<{ name: string; email: string } | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
-  addItem: (item, quantity) =>
-    set((state) => {
-      const existing = state.items.find((i) => i.id === item.id);
-      if (existing) {
-        return {
-          items: state.items.map((i) =>
-            i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
-          ),
-        };
+  useEffect(() => {
+    try {
+      const session = localStorage.getItem('todomax_user_session');
+      if (session) {
+        setUserSession(JSON.parse(session));
       }
-      return { items: [...state.items, { ...item, quantity }] };
-    }),
+    } catch (e) {
+      localStorage.removeItem('todomax_user_session');
+    }
+  }, []);
 
-  removeItem: (id) =>
-    set((state) => ({
-      items: state.items.filter((i) => i.id !== id),
-    })),
+  if (!isOpen) return null;
 
-  updateQuantity: (id, quantity) =>
-    set((state) => ({
-      items: state.items.map((i) =>
-        i.id === id ? { ...i, quantity: Math.max(1, quantity) } : i
-      ),
-    })),
+  const handleAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    const userData = { name: name || email.split('@')[0], email };
+    try {
+      localStorage.setItem('todomax_user_session', JSON.stringify(userData));
+    } catch (_) {}
+    setUserSession(userData);
+    setNotification(isLogin ? '¡Sesión iniciada correctamente!' : '¡Cuenta creada con éxito!');
+    setTimeout(() => {
+      setNotification(null);
+      onClose();
+    }, 1200);
+  };
 
-  toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
-  
-  clearCart: () => set({ items: [] }),
-}));
+  const handleLogout = () => {
+    localStorage.removeItem('todomax_user_session');
+    setUserSession(null);
+    setNotification('Sesión cerrada.');
+    setTimeout(() => setNotification(null), 1200);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-100 p-6 relative animate-in fade-in zoom-in-95 duration-200">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-slate-600 cursor-pointer">
+          <X className="w-5 h-5" />
+        </button>
+
+        {notification && (
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{notification}</span>
+          </div>
+        )}
+
+        {userSession ? (
+          <div className="text-center py-6 space-y-4">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+              {userSession.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">¡Hola, {userSession.name}!</h3>
+              <p className="text-xs text-gray-500 mt-1">{userSession.email}</p>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-xl text-xs text-slate-600">
+              Tu sesión está guardada de forma segura en este navegador.
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar Sesión
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <User className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">
+                {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {isLogin ? `Accede a tu cuenta de ${siteConfig.storeName}` : 'Regístrate para una experiencia personalizada'}
+              </p>
+            </div>
+
+            <form onSubmit={handleAuth} className="space-y-4">
+              {!isLogin && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Nombre completo</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Tu nombre"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-orange-500"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Correo electrónico</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Contraseña</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl text-sm transition-colors cursor-pointer mt-2"
+              >
+                {isLogin ? 'Entrar y Recordar Sesión' : 'Registrarse'}
+              </button>
+            </form>
+
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-xs text-orange-600 hover:underline font-medium cursor-pointer"
+              >
+                {isLogin ? '¿No tienes cuenta? Regístrate aquí' : '¿Ya tienes cuenta? Inicia sesión'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 </file>
 
 <file path="src/middleware.ts">
@@ -800,457 +616,102 @@ export const config = {
 };
 </file>
 
-<file path="memory.md">
-# ROADMAP TODOMAX E-COMMERCE & PLATAFORMA COMERCIAL AUTOMATIZADA
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-## Estado General del Proyecto
-- **Cliente:** Importadora TodoMax (Presupuesto: $1,000 USD | Anticipo: $500 USD | Restante: $500 USD al entregar).
-- **Arquitectura:** Next.js (App Router), React 19, Tailwind CSS, Zustand, Marca Blanca 100% parametrizada vía `src/config/site.ts`.
-- **Estatus Técnico de Código:** 100% COMPLETADO (Fases 1 a 6 cerradas con éxito).
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
----
+# testing
+/coverage
 
-## Checkpoints Técnicos Completados (GEMINI)
-- [x] **Fase 1: Base de Datos y Marca Blanca Multiproducto:**
-  - `src/config/site.ts`: Identidad de Importadora Multiproductos, cuentas bancarias para Pago Móvil/Transferencia/Zelle/Binance, empresas de envío (MRW, Zoom, Tealca), umbral de envío gratis ($50) y roles de empleados.
-  - `src/data/products.ts` y `src/services/productService.ts`: 6 categorías oficiales (Hogar, Tecnología, Cocina, Automóvil, Belleza, Productos Virales), costos unitarios, stock, comisiones de afiliados, textos publicitarios y placeholders SVG de marca que nunca fallan ni se cuelgan.
-  - `src/app/layout.tsx` y `src/components/Footer.tsx`: Cero textos quemados de Mini UPS; garantías, métodos de pago y contacto sincronizados.
+# next.js
+/.next/
+/out/
 
-- [x] **Fase 2: Rediseño Dual (Móvil y PC Panorámico) y Conversión:**
-  - `src/components/Header.tsx`: Cinta superior de envío gratis, acceso a «Gana dinero con TodoMax», buscador integrado y navegación de ancho panorámico.
-  - `src/components/BottomNav.tsx`: Barra táctil inferior para celulares con accesos rápidos.
-  - `src/components/HeroCarousel.tsx` y `src/components/OffersCarousel.tsx`: Carruseles amplios, sin encajonamiento estrecho en PC, con elevación de tarjetas independiente (`hover:-translate-y-2 hover:shadow-2xl`).
-  - `src/app/page.tsx`: Estructura exacta solicitada: Hero con botón "Comprar Ahora" → Productos Más Vendidos con compra directa a caja sin registro → Categorías Multiproducto → Combos/Ofertas → Catálogo General → Bloque de Confianza (Garantías, Pagos, Envíos, +1,500 Clientes).
-  - `src/app/catalogo/page.tsx`: Catálogo completo filtrable de borde a borde.
-  - `src/app/product/[id]/page.tsx`: Ficha estilo MercadoLibre con galería amplia a la izquierda, bloque de compra e inventario a la derecha y carrusel inferior de remarketing.
+# production
+/build
 
-- [x] **Fase 3: Checkout Automatizado sin Registro:**
-  - `src/store/cartStore.ts`: Incorporada acción `clearCart()`.
-  - `src/app/checkout/page.tsx`: Formulario directo sin forzar registro. Pide Cédula/RIF, Estado, Ciudad y Courier. Detección automática de envío gratis > $50. Selector interactivo de Pago Móvil, Zelle, Transferencia o USDT con botón "Copiar Datos". Carga obligatoria de número de referencia y comprobante. Guarda el pedido en `store_orders` con estado `Pendiente de verificación` y cálculo de utilidad real antes de abrir WhatsApp.
+# misc
+.DS_Store
+*.pem
 
-- [x] **Fase 4: Sistema de Afiliados y Asistente IA (Sofía):**
-  - `src/app/afiliados/page.tsx`: Landing de registro con aceptación de condiciones (TodoMax cobra y despacha). Panel Privado con métricas automáticas (ventas pendientes, confirmadas, balance de comisión), generador de enlaces con `?ref=CODIGO`, Biblioteca de material publicitario con fotos, videos y textos listos para copiar, y Chat IA integrado con Sofía para solicitar kits en vivo.
-  - `src/app/api/afiliados/route.ts`: Webhook estructurado para Meta / WhatsApp Business API con respuestas automáticas sobre el catálogo.
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-- [x] **Fase 5: Panel Administrativo Centralizado ERP/CRM (`/admin`):**
-  - `src/app/admin/page.tsx`: Control de acceso por 3 Roles (`Super Admin`, `Logística y Pagos`, `Marketing y Afiliados`).
-  - Módulo 1 (Pedidos): Validación de pago, descuento automático de stock en inventario, registro de guías de envío y botones de notificación por WhatsApp al cliente.
-  - Módulo 2 (Inventario): Existencias, alertas rojas de stock bajo (≤ 5), costo unitario, márgenes y edición en vivo.
-  - Módulo 3 (Afiliados): Estadísticas por embajador y liquidación de comisiones tras entrega.
-  - Módulo 4 (Publicidad): Configuración de Meta Pixel y control de inversión publicitaria.
-  - Módulo 5 (CRM): Directorio de clientes con historial de compra y botón de contacto.
-  - Módulo 6 (Finanzas): Cálculo en tiempo real de facturación, costos, gasto publicitario, comisiones y utilidad neta con porcentaje de margen.
+# env files (can opt-in for committing if needed)
+.env*
 
-- [x] **Fase 6: Atribución Anti-Duplicados, Píxeles y Conector Sellibrí:**
-  - `src/components/AffiliateTracker.tsx`: Detección limpia de Meta Ads, TikTok Ads, Google Ads vs. Afiliados (`ref`), inyección del Pixel de Meta y guardado de matriz de atribución.
-  - `src/middleware.ts`: Cookies duraderas de 30 días (`todomax_ref` y `todomax_ad_channel`).
-  - `src/app/api/sellibri/route.ts`: Endpoint Gateway listo para sincronizar despachos y stock con Sellibrí.
+# vercel
+.vercel
 
----
+# typescript
+*.tsbuildinfo
+next-env.d.ts
 
-## Tareas Pendientes de Diseño Gráfico (Responsabilidad de Luis y Esposa)
-*(El código ya está listo y usando los placeholders limpios de la marca; cuando estén los diseños solo se colocan los archivos con estos nombres exactos):*
-
-- [ ] **Banners de Categorías (`public/categories/`):**
-  - `hogar.png`, `tecnologia.png`, `cocina.png`, `automovil.png`, `belleza.png`, `virales.png`, `todos.png`.
-- [ ] **Banners Hero Principal (`public/hero/`):**
-  - `hero1catalogo.png` y `hero1catalogo-mobile.png` (Producto estrella y oferta).
-  - `hero2afiliados.png` y `hero2afiliados-mobile.png` (Gana dinero con TodoMax).
-  - `hero3registro.png` y `hero3registro-mobile.png` (Envío gratis > $50).
-- [ ] **Banners de Ofertas y Combos (`public/ofertas/`):**
-  - `oferta1.png`, `oferta2.png`, `oferta3.png` y sus versiones `-mobile.png`.
-- [ ] **Videos y Fotos de Productos (`public/products/`):**
-  - Fotografías reales y videos cortos en formato `.mp4` para cada producto del catálogo.
-
----
-
-## Protocolo de Clonación Express para el Cliente de Mañana:
-1. Duplicar la carpeta del proyecto.
-2. Modificar únicamente `src/config/site.ts`: cambiar `storeName`, teléfonos de WhatsApp, cuentas bancarias de Pago Móvil/Zelle y empresas de envío.
-3. Reemplazar `public/logo-todomax.png` por el logotipo del nuevo cliente.
-4. Ajustar los productos en `src/data/products.ts` según el rubro del cliente.
-5. ¡Listo para desplegar en Vercel en menos de 15 minutos!
+# Archivos de desarrollo, IA y temporales
+.todomax-db.json
+.claude/
+.clinerules
+design.md
+memory.md
 </file>
 
-<file path="src/components/AffiliateTracker.tsx">
-'use client';
+<file path="src/app/api/products/route.ts">
+import { NextRequest, NextResponse } from 'next/server';
+import { dbService } from '@/services/dbService';
+import { products as defaultProducts } from '@/data/products';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Script from 'next/script';
-import { siteConfig } from '@/config/site';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-function TrackerLogic() {
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    if (!searchParams) return;
-
-    // 1. Detección de Afiliado
-    const ref = searchParams.get('ref');
-    if (ref) {
-      localStorage.setItem('todomax_ref', ref.toUpperCase().trim());
+export async function GET() {
+  try {
+    const products = await dbService.get('store_products');
+    
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return NextResponse.json(defaultProducts, {
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+      });
     }
-
-    // 2. Detección de Campañas Publicitarias Pagadas
-    const fbclid = searchParams.get('fbclid');
-    const ttclid = searchParams.get('ttclid');
-    const gclid = searchParams.get('gclid');
-    const utmSource = searchParams.get('utm_source');
-    const utmCampaign = searchParams.get('utm_campaign');
-
-    let detectedChannel = 'Directo';
-
-    if (fbclid || utmSource?.toLowerCase().includes('facebook') || utmSource?.toLowerCase().includes('meta') || utmSource?.toLowerCase().includes('instagram')) {
-      detectedChannel = 'Meta Ads';
-    } else if (ttclid || utmSource?.toLowerCase().includes('tiktok')) {
-      detectedChannel = 'TikTok Ads';
-    } else if (gclid || utmSource?.toLowerCase().includes('google')) {
-      detectedChannel = 'Google Ads';
-    } else if (utmSource) {
-      detectedChannel = `Campaña: ${utmSource}`;
-    }
-
-    // 3. Matriz de Atribución Limpia Anti-Duplicados
-    const attributionData = {
-      channel: detectedChannel,
-      utmCampaign: utmCampaign || 'none',
-      affiliateRef: ref ? ref.toUpperCase().trim() : (localStorage.getItem('todomax_ref') || 'DIRECTO'),
-      timestamp: new Date().toISOString(),
-    };
-
-    localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
-
-    // 4. Disparo de Evento PageView en Meta Pixel (si está activo en window)
-    if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', 'PageView');
-    }
-  }, [searchParams]);
-
-  return null;
+    
+    return NextResponse.json(products, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return NextResponse.json(defaultProducts);
+  }
 }
 
-export default function AffiliateTracker() {
-  const [pixelId, setPixelId] = useState<string>(siteConfig.metaPixelId || '');
-
-  useEffect(() => {
-    const localPixel = localStorage.getItem('todomax_meta_pixel');
-    if (localPixel && localPixel !== 'TU_PIXEL_ID_AQUI') {
-      setPixelId(localPixel);
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!Array.isArray(body)) {
+      return NextResponse.json({ success: false, error: 'Formato inválido' }, { status: 400 });
     }
-
-    fetch('/api/store?key=store_marketing_config')
-      .then(res => res.json())
-      .then(json => {
-        if (json?.data?.metaPixelId && json.data.metaPixelId !== 'TU_PIXEL_ID_AQUI') {
-          setPixelId(json.data.metaPixelId);
-          localStorage.setItem('todomax_meta_pixel', json.data.metaPixelId);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  return (
-    <>
-      {/* Script Base Oficial de Meta Pixel (si el ID está configurado en siteConfig o Admin) */}
-      {pixelId && pixelId !== 'TU_PIXEL_ID_AQUI' && (
-        <Script
-          id="meta-pixel-init"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              !function(f,b,e,v,n,t,s)
-              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-              n.queue=[];t=b.createElement(e);t.async=!0;
-              t.src=v;s=b.getElementsByTagName(e)[0];
-              s.parentNode.insertBefore(t,s)}(window, document,'script',
-              'https://connect.facebook.net/en_US/fbevents.js');
-              fbq('init', '${pixelId}');
-              fbq('track', 'PageView');
-            `,
-          }}
-        />
-      )}
-
-      <Suspense fallback={null}>
-        <TrackerLogic />
-      </Suspense>
-    </>
-  );
-}
-</file>
-
-<file path="src/components/CartDrawer.tsx">
-'use client';
-
-import { useRouter } from 'next/navigation';
-import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
-import { useCartStore } from '@/store/cartStore';
-import { siteConfig } from '@/config/site';
-
-export default function CartDrawer() {
-  const router = useRouter();
-  const { items, isCartOpen, toggleCart, updateQuantity, removeItem } = useCartStore();
-
-  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const freeShippingThreshold = siteConfig.shipping.freeShippingThreshold;
-  const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-  const remaining = Math.max(0, freeShippingThreshold - subtotal);
-
-  const isVideo = (url?: string) => {
-    if (!url) return false;
-    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
-  };
-
-  const handleCheckout = () => {
-    toggleCart();
-    router.push('/checkout');
-  };
-
-  return (
-    <>
-      {/* Overlay por encima del Header (z-[100]) y BottomNav (z-40) */}
-      {isCartOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[150] transition-opacity"
-          onClick={toggleCart}
-        />
-      )}
-
-      {/* Drawer lateral con z-[160] para que nada tape el botón de cerrar */}
-      <div
-        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[160] transform transition-transform duration-300 ease-in-out flex flex-col ${
-          isCartOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        {/* Header del Carrito */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-orange-500" />
-            <h2 className="text-lg font-bold text-slate-900">
-              Tu Carrito ({items.reduce((acc, i) => acc + i.quantity, 0)})
-            </h2>
-          </div>
-          <button
-            onClick={toggleCart}
-            aria-label="Cerrar carrito"
-            className="p-2 text-gray-400 hover:text-slate-800 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Barra de incentivo de envío gratis sincronizada con siteConfig */}
-        <div className="bg-orange-50 px-6 py-3 border-b border-orange-100 text-xs text-orange-800 font-medium">
-          {remaining > 0 ? (
-            <p>
-              ¡Agrega <span className="font-bold">{siteConfig.currencySymbol}{remaining.toFixed(2)}</span> más para obtener envío gratis!
-            </p>
-          ) : (
-            <p className="font-bold text-emerald-700">¡Felicitaciones! Calificas para envío gratis.</p>
-          )}
-          <div className="w-full bg-orange-200 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div
-              className="bg-orange-500 h-full transition-all duration-300 rounded-full"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Lista de productos */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-12">
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4">
-                <ShoppingBag className="w-8 h-8" />
-              </div>
-              <p className="text-base font-medium text-slate-800">Tu carrito está vacío</p>
-              <p className="text-sm text-gray-500 mt-1">Explora nuestro catálogo y descubre productos increíbles.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {items.map((item) => (
-                <div key={item.id} className="flex gap-4 items-center border-b border-gray-100 pb-4">
-                  <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-50 border border-gray-100 flex-shrink-0 flex items-center justify-center p-1">
-                    {isVideo(item.image) ? (
-                      <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
-                    ) : (
-                      <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
-                    )}
-                  </div>
-                  <div className="flex-1 flex flex-col justify-between min-w-0">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800 line-clamp-1">{item.title}</p>
-                      <p className="text-sm font-extrabold text-orange-500 mt-0.5">
-                        {siteConfig.currencySymbol}{Number(item.price).toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
-                          aria-label="Disminuir cantidad"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="text-xs font-bold text-slate-900 w-7 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
-                          aria-label="Aumentar cantidad"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-gray-400 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
-                        aria-label="Eliminar producto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer: subtotal y checkout */}
-        <div className="p-6 bg-white border-t border-gray-100">
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
-              <span className="font-semibold text-slate-900">
-                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>Envío</span>
-              <span className="font-medium text-emerald-600">
-                {remaining === 0 && items.length > 0 ? '¡GRATIS!' : 'Calculado en el checkout'}
-              </span>
-            </div>
-            <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-base font-bold text-slate-900">
-              <span>Total Final</span>
-              <span className="text-orange-500 text-xl">
-                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={handleCheckout}
-            disabled={items.length === 0}
-            className="w-full py-4 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer text-base"
-          >
-            Proceder al Pago
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-</file>
-
-<file path="src/components/Footer.tsx">
-import Link from 'next/link';
-import { Phone, Mail, MapPin, ShieldCheck, Truck } from 'lucide-react';
-import { siteConfig } from '@/config/site';
-
-export default function Footer() {
-  return (
-    <footer className="w-full bg-white border-t border-gray-200 mt-auto px-4 md:px-12 py-12 md:py-16">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
-        {/* Columna 1: Marca */}
-        <div className="flex flex-col items-start text-left md:col-span-1">
-          <h3 className="text-xl font-black text-slate-900 mb-4">{siteConfig.storeName}</h3>
-          <p className="text-sm text-gray-500 font-medium leading-relaxed max-w-sm mb-4">
-            {siteConfig.description}
-          </p>
-          <div className="flex items-center gap-3 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
-            <ShieldCheck className="w-4 h-4" />
-            Compra 100% Segura
-          </div>
-        </div>
-
-        {/* Columna 2: Tienda */}
-        <div className="flex flex-col items-start text-left">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Tienda</h3>
-          <ul className="space-y-3">
-            <li>
-              <Link href="/" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
-                Inicio
-              </Link>
-            </li>
-            <li>
-              <Link href="/catalogo" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
-                Catálogo Completo
-              </Link>
-            </li>
-            <li>
-              <Link href="/#ofertas" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
-                Promociones y Combos
-              </Link>
-            </li>
-          </ul>
-        </div>
-
-        {/* Columna 3: Afiliados y Envíos */}
-        <div className="flex flex-col items-start text-left">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Servicios</h3>
-          <ul className="space-y-3">
-            <li>
-              <Link href="/afiliados" className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1">
-                Gana dinero con TodoMax
-              </Link>
-            </li>
-            <li className="flex items-start gap-2 mt-4 text-sm text-gray-500 font-medium">
-              <Truck className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-              <span>Envíos seguros por: <br/><span className="font-bold text-slate-700">{siteConfig.shipping.companies.join(', ')}</span></span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Columna 4: Contacto */}
-        <div className="flex flex-col items-start text-left">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Contacto</h3>
-          <ul className="space-y-4">
-            <li className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
-                <Phone className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-gray-600 font-medium">{siteConfig.whatsappNumber}</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
-                <Mail className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-gray-600 font-medium">ventas@todomax.com</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
-                <MapPin className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-gray-600 font-medium">Venezuela</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-      
-      {/* Copyright */}
-      <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
-        <p className="text-xs text-gray-400 font-medium">
-          © {new Date().getFullYear()} {siteConfig.storeName}. Todos los derechos reservados.
-        </p>
-      </div>
-    </footer>
-  );
+    const saved = await dbService.set('store_products', body);
+    if (!saved) {
+      return NextResponse.json(
+        { success: false, error: 'No se pudo guardar en la base de datos' },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error saving products:', error);
+    return NextResponse.json({ success: false, error: 'Failed to save' }, { status: 500 });
+  }
 }
 </file>
 
@@ -1406,6 +867,78 @@ export function getAllProductIds(): string[] {
 }
 </file>
 
+<file path="src/store/cartStore.ts">
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+export type CartItem = {
+  id: string;
+  title: string;
+  price: number;
+  image: string;
+  quantity: number;
+  stock?: number;
+};
+
+type CartState = {
+  items: CartItem[];
+  isCartOpen: boolean;
+  addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  toggleCart: () => void;
+  clearCart: () => void;
+};
+
+export const useCartStore = create<CartState>()(
+  persist(
+    (set) => ({
+      items: [],
+      isCartOpen: false,
+
+      addItem: (item, quantity) =>
+        set((state) => {
+          const existing = state.items.find((i) => i.id === item.id);
+          if (existing) {
+            const nextQuantity = existing.quantity + quantity;
+            const maxQuantity = item.stock ? Math.min(item.stock, nextQuantity) : nextQuantity;
+            return {
+              items: state.items.map((i) =>
+                i.id === item.id ? { ...i, quantity: maxQuantity, stock: item.stock ?? i.stock } : i
+              ),
+            };
+          }
+          return { items: [...state.items, { ...item, quantity }] };
+        }),
+
+      removeItem: (id) =>
+        set((state) => ({
+          items: state.items.filter((i) => i.id !== id),
+        })),
+
+      updateQuantity: (id, quantity) =>
+        set((state) => ({
+          items: state.items.map((i) => {
+            if (i.id === id) {
+              const maxQuantity = i.stock ? Math.min(i.stock, quantity) : quantity;
+              return { ...i, quantity: Math.max(1, maxQuantity) };
+            }
+            return i;
+          }),
+        })),
+
+      toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
+      
+      clearCart: () => set({ items: [] }),
+    }),
+    {
+      name: 'todomax_cart',
+      partialize: (state) => ({ items: state.items }),
+    }
+  )
+);
+</file>
+
 <file path="next.config.ts">
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -1476,6 +1009,158 @@ export default function RootLayout({
         <CartDrawer />
       </body>
     </html>
+  );
+}
+</file>
+
+<file path="src/components/AffiliateTracker.tsx">
+'use client';
+
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Script from 'next/script';
+import { siteConfig } from '@/config/site';
+
+function TrackerLogic() {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (!searchParams) return;
+
+    // 1. Detección de código de afiliado
+    const ref = searchParams.get('ref');
+    if (ref) {
+      localStorage.setItem('todomax_ref', ref.toUpperCase().trim());
+    }
+
+    // 2. Detección de parámetros de campañas publicitarias
+    const fbclid = searchParams.get('fbclid');
+    const ttclid = searchParams.get('ttclid');
+    const gclid = searchParams.get('gclid');
+    const utmSource = searchParams.get('utm_source');
+    const utmCampaign = searchParams.get('utm_campaign');
+
+    const hasAdParam = !!(fbclid || ttclid || gclid || utmSource);
+
+    // 3. Atribución inteligente: no sobrescribe canales pagados con 'Directo' en navegación interna
+    if (hasAdParam) {
+      let detectedChannel = 'Campaña';
+      if (fbclid || utmSource?.toLowerCase().includes('facebook') || utmSource?.toLowerCase().includes('meta') || utmSource?.toLowerCase().includes('instagram')) {
+        detectedChannel = 'Meta Ads';
+      } else if (ttclid || utmSource?.toLowerCase().includes('tiktok')) {
+        detectedChannel = 'TikTok Ads';
+      } else if (gclid || utmSource?.toLowerCase().includes('google')) {
+        detectedChannel = 'Google Ads';
+      } else if (utmSource) {
+        detectedChannel = `Campaña: ${utmSource}`;
+      }
+
+      const attributionData = {
+        channel: detectedChannel,
+        utmCampaign: utmCampaign || 'none',
+        affiliateRef: ref ? ref.toUpperCase().trim() : (localStorage.getItem('todomax_ref') || 'DIRECTO'),
+        timestamp: new Date().toISOString(),
+      };
+
+      localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
+    } else if (ref) {
+      const existingAttributionStr = localStorage.getItem('todomax_attribution');
+      let existingChannel = 'Afiliado';
+      try {
+        if (existingAttributionStr) {
+          const parsed = JSON.parse(existingAttributionStr);
+          if (parsed.channel && parsed.channel !== 'Directo') {
+            existingChannel = parsed.channel;
+          }
+        }
+      } catch (e) {}
+
+      const attributionData = {
+        channel: existingChannel,
+        utmCampaign: 'none',
+        affiliateRef: ref.toUpperCase().trim(),
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
+    } else {
+      // Solo registra "Directo" si no existía ninguna atribución publicitaria previa
+      const existing = localStorage.getItem('todomax_attribution');
+      if (!existing) {
+        const attributionData = {
+          channel: 'Directo',
+          utmCampaign: 'none',
+          affiliateRef: localStorage.getItem('todomax_ref') || 'DIRECTO',
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem('todomax_attribution', JSON.stringify(attributionData));
+      }
+    }
+
+    // 4. Disparo de evento PageView
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'PageView');
+    }
+  }, [searchParams]);
+
+  return null;
+}
+
+export default function AffiliateTracker() {
+  const [pixelId, setPixelId] = useState<string>('');
+
+  // Validación estricta: solo permite identificadores numéricos de Pixel para evitar inyecciones XSS
+  const isValidPixel = (id: string) => /^\d{5,25}$/.test(id.trim());
+
+  useEffect(() => {
+    const initialId = siteConfig.metaPixelId || '';
+    if (isValidPixel(initialId)) {
+      setPixelId(initialId.trim());
+    }
+
+    const localPixel = localStorage.getItem('todomax_meta_pixel');
+    if (localPixel && isValidPixel(localPixel)) {
+      setPixelId(localPixel.trim());
+    }
+
+    fetch('/api/store?key=store_marketing_config')
+      .then(res => res.json())
+      .then(json => {
+        const fetchedId = json?.data?.metaPixelId;
+        if (fetchedId && isValidPixel(fetchedId)) {
+          setPixelId(fetchedId.trim());
+          localStorage.setItem('todomax_meta_pixel', fetchedId.trim());
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <>
+      {pixelId && (
+        <Script
+          id="meta-pixel-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              !function(f,b,e,v,n,t,s)
+              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+              n.queue=[];t=b.createElement(e);t.async=!0;
+              t.src=v;s=b.getElementsByTagName(e)[0];
+              s.parentNode.insertBefore(t,s)}(window, document,'script',
+              'https://connect.facebook.net/en_US/fbevents.js');
+              fbq('init', '${pixelId}');
+              fbq('track', 'PageView');
+            `,
+          }}
+        />
+      )}
+
+      <Suspense fallback={null}>
+        <TrackerLogic />
+      </Suspense>
+    </>
   );
 }
 </file>
@@ -1568,131 +1253,281 @@ export default function BottomNav() {
 }
 </file>
 
-<file path="src/services/dbService.ts">
-import { createClient } from 'redis';
-import fs from 'fs';
-import path from 'path';
+<file path="src/components/CartDrawer.tsx">
+'use client';
 
-const LOCAL_DB_PATH = path.join(process.cwd(), '.todomax-db.json');
+import { useRouter } from 'next/navigation';
+import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore';
+import { siteConfig } from '@/config/site';
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __redisClient: any;
-  // eslint-disable-next-line no-var
-  var __redisUnavailableUntil: number | undefined;
-  // eslint-disable-next-line no-var
-  var __memoryDb: Record<string, any> | undefined;
+export default function CartDrawer() {
+  const router = useRouter();
+  const { items, isCartOpen, toggleCart, updateQuantity, removeItem } = useCartStore();
+
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const freeShippingThreshold = siteConfig.shipping.freeShippingThreshold;
+  const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
+  const remaining = Math.max(0, freeShippingThreshold - subtotal);
+
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
+  const handleCheckout = () => {
+    toggleCart();
+    router.push('/checkout');
+  };
+
+  return (
+    <>
+      {/* Overlay por encima del Header (z-[100]) y BottomNav (z-40) */}
+      {isCartOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[150] transition-opacity"
+          onClick={toggleCart}
+        />
+      )}
+
+      {/* Drawer lateral con z-[160] para que nada tape el botón de cerrar */}
+      <div
+        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[160] transform transition-transform duration-300 ease-in-out flex flex-col ${
+          isCartOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header del Carrito */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-orange-500" />
+            <h2 className="text-lg font-bold text-slate-900">
+              Tu Carrito ({items.reduce((acc, i) => acc + i.quantity, 0)})
+            </h2>
+          </div>
+          <button
+            onClick={toggleCart}
+            aria-label="Cerrar carrito"
+            className="p-2 text-gray-400 hover:text-slate-800 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Barra de incentivo de envío gratis sincronizada con siteConfig */}
+        <div className="bg-orange-50 px-6 py-3 border-b border-orange-100 text-xs text-orange-800 font-medium">
+          {remaining > 0 ? (
+            <p>
+              ¡Agrega <span className="font-bold">{siteConfig.currencySymbol}{remaining.toFixed(2)}</span> más para obtener envío gratis!
+            </p>
+          ) : (
+            <p className="font-bold text-emerald-700">¡Felicitaciones! Calificas para envío gratis.</p>
+          )}
+          <div className="w-full bg-orange-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div
+              className="bg-orange-500 h-full transition-all duration-300 rounded-full"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Lista de productos */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-12">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4">
+                <ShoppingBag className="w-8 h-8" />
+              </div>
+              <p className="text-base font-medium text-slate-800">Tu carrito está vacío</p>
+              <p className="text-sm text-gray-500 mt-1">Explora nuestro catálogo y descubre productos increíbles.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {items.map((item) => {
+                const isMaxStock = item.stock !== undefined && item.quantity >= item.stock;
+                return (
+                  <div key={item.id} className="flex gap-4 items-center border-b border-gray-100 pb-4">
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-50 border border-gray-100 flex-shrink-0 flex items-center justify-center p-1">
+                      {isVideo(item.image) ? (
+                        <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
+                      ) : (
+                        <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col justify-between min-w-0">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800 line-clamp-1">{item.title}</p>
+                        <p className="text-sm font-extrabold text-orange-500 mt-0.5">
+                          {siteConfig.currencySymbol}{Number(item.price).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
+                            aria-label="Disminuir cantidad"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-bold text-slate-900 w-7 text-center">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            disabled={isMaxStock}
+                            className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            aria-label="Aumentar cantidad"
+                            title={isMaxStock ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
+                          aria-label="Eliminar producto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer: subtotal y checkout */}
+        <div className="p-6 bg-white border-t border-gray-100">
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Subtotal</span>
+              <span className="font-semibold text-slate-900">
+                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>Envío</span>
+              <span className="font-medium text-emerald-600">
+                {remaining === 0 && items.length > 0 ? '¡GRATIS!' : 'Calculado en el checkout'}
+              </span>
+            </div>
+            <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-base font-bold text-slate-900">
+              <span>Total Final</span>
+              <span className="text-orange-500 text-xl">
+                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={items.length === 0}
+            className="w-full py-4 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer text-base"
+          >
+            Proceder al Pago
+          </button>
+        </div>
+      </div>
+    </>
+  );
 }
+</file>
 
-function readLocalFileDb(): Record<string, any> {
-  if (global.__memoryDb) {
-    return global.__memoryDb;
-  }
-  try {
-    if (fs.existsSync(LOCAL_DB_PATH)) {
-      const content = fs.readFileSync(LOCAL_DB_PATH, 'utf-8');
-      const parsed = JSON.parse(content);
-      global.__memoryDb = parsed;
-      return parsed;
-    }
-  } catch (e) {
-    console.error('Error leyendo respaldo local .todomax-db.json:', e);
-  }
-  global.__memoryDb = {};
-  return global.__memoryDb;
+<file path="src/components/Footer.tsx">
+import Link from 'next/link';
+import { Phone, Mail, MapPin, ShieldCheck, Truck } from 'lucide-react';
+import { siteConfig } from '@/config/site';
+
+export default function Footer() {
+  return (
+    <footer className="w-full bg-white border-t border-gray-200 mt-auto px-4 md:px-12 py-12 md:py-16">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
+        {/* Columna 1: Marca */}
+        <div className="flex flex-col items-start text-left md:col-span-1">
+          <h3 className="text-xl font-black text-slate-900 mb-4">{siteConfig.storeName}</h3>
+          <p className="text-sm text-gray-500 font-medium leading-relaxed max-w-sm mb-4">
+            {siteConfig.description}
+          </p>
+          <div className="flex items-center gap-3 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
+            <ShieldCheck className="w-4 h-4" />
+            Compra 100% Segura
+          </div>
+        </div>
+
+        {/* Columna 2: Tienda */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Tienda</h3>
+          <ul className="space-y-3">
+            <li>
+              <Link href="/" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Inicio
+              </Link>
+            </li>
+            <li>
+              <Link href="/catalogo" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Catálogo Completo
+              </Link>
+            </li>
+            <li>
+              <Link href="/#ofertas" className="text-sm text-gray-500 hover:text-orange-500 font-semibold transition-colors">
+                Promociones y Combos
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Columna 3: Afiliados y Envíos */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Servicios</h3>
+          <ul className="space-y-3">
+            <li>
+              <Link href="/afiliados" className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1">
+                Gana dinero con {siteConfig.storeName}
+              </Link>
+            </li>
+            <li className="flex items-start gap-2 mt-4 text-sm text-gray-500 font-medium">
+              <Truck className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+              <span>Envíos seguros por: <br/><span className="font-bold text-slate-700">{siteConfig.shipping.companies.slice(0, 3).join(', ')}</span></span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Columna 4: Contacto */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Contacto</h3>
+          <ul className="space-y-4">
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <Phone className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">{siteConfig.whatsappNumber}</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <Mail className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">{siteConfig.email}</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-gray-600 font-medium">{siteConfig.location}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+      {/* Copyright */}
+      <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+        <p className="text-xs text-gray-400 font-medium">
+          © {new Date().getFullYear()} {siteConfig.storeName}. Todos los derechos reservados.
+        </p>
+      </div>
+    </footer>
+  );
 }
-
-function writeLocalFileDb(data: Record<string, any>) {
-  global.__memoryDb = data;
-  try {
-    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (e) {
-    // Entornos serverless de solo lectura mantienen los datos en memoria global
-  }
-}
-
-async function getClient() {
-  if (!process.env.REDIS_URL) {
-    return null;
-  }
-
-  if (global.__redisUnavailableUntil && Date.now() < global.__redisUnavailableUntil) {
-    return null;
-  }
-
-  try {
-    if (global.__redisClient && global.__redisClient.isOpen) {
-      return global.__redisClient;
-    }
-
-    const client = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        connectTimeout: 1200,
-        reconnectStrategy: false,
-      },
-    });
-
-    client.on('error', () => {
-      global.__redisUnavailableUntil = Date.now() + 60000;
-    });
-
-    await client.connect();
-    global.__redisClient = client;
-    global.__redisUnavailableUntil = 0;
-    return client;
-  } catch (error) {
-    global.__redisUnavailableUntil = Date.now() + 60000;
-    global.__redisClient = null;
-    return null;
-  }
-}
-
-export const dbService = {
-  async get(key: string) {
-    const localDb = readLocalFileDb();
-
-    try {
-      const client = await getClient();
-      if (client) {
-        const data = await client.get(key);
-        if (data) {
-          const parsed = JSON.parse(data);
-          localDb[key] = parsed;
-          global.__memoryDb = localDb;
-          return parsed;
-        }
-      }
-    } catch (error) {
-      global.__redisUnavailableUntil = Date.now() + 60000;
-    }
-
-    return localDb[key] !== undefined ? localDb[key] : null;
-  },
-
-  async set(key: string, value: any): Promise<boolean> {
-    let saved = false;
-
-    try {
-      const localDb = readLocalFileDb();
-      localDb[key] = value;
-      writeLocalFileDb(localDb);
-      saved = true;
-    } catch (e) {}
-
-    try {
-      const client = await getClient();
-      if (client) {
-        await client.set(key, JSON.stringify(value));
-        saved = true;
-      }
-    } catch (error) {
-      global.__redisUnavailableUntil = Date.now() + 60000;
-    }
-
-    return saved;
-  },
-};
 </file>
 
 <file path="package.json">
@@ -1727,96 +1562,6 @@ export const dbService = {
     "typescript": "^5"
   },
   "packageManager": "pnpm@12.9.1"
-}
-</file>
-
-<file path="src/app/api/afiliados/route.ts">
-import { NextRequest, NextResponse } from 'next/server';
-import { products as defaultProducts, Product } from '@/data/products';
-import { dbService } from '@/services/dbService';
-
-const BASE_STORE_URL = 'https://www.importadoratodomax.com';
-
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const mode = searchParams.get('hub.mode');
-  const token = searchParams.get('hub.verify_token');
-  const challenge = searchParams.get('hub.challenge');
-
-  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'TODOMAX_SECURE_TOKEN_2024';
-
-  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    return new NextResponse(challenge, { status: 200 });
-  }
-
-  return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-
-    if (body.object === 'whatsapp_business_account') {
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-      const message = value?.messages?.[0];
-
-      if (message && message.type === 'text') {
-        const telefonoRemitente = message.from;
-        const textoCliente = message.text.body.toLowerCase();
-
-        // Leer catálogo actualizado desde Redis o respaldo local
-        const storedProducts = await dbService.get('store_products');
-        const activeProducts: Product[] = Array.isArray(storedProducts) && storedProducts.length > 0
-          ? storedProducts
-          : defaultProducts;
-
-        let respuestaBot = "¡Hola! Soy Sofía, la asistente IA de TodoMax 🤖.\n¿En qué producto estás interesado para enviarte tu Kit de Afiliado? (Ej: 'Quiero vender freidora')";
-
-        const foundProduct = activeProducts.find(p => 
-          textoCliente.includes(p.title.split(' ')[0].toLowerCase()) || 
-          textoCliente.includes(p.category.toLowerCase())
-        );
-
-        if (foundProduct) {
-          respuestaBot = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
-          `📝 *Texto sugerido:* ${foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis!'}\n\n` +
-          `🔗 Tu enlace base: ${BASE_STORE_URL}/product/${foundProduct.id}?ref=TU_CODIGO`;
-        } else if (textoCliente.includes('comision') || textoCliente.includes('ganancia')) {
-          respuestaBot = `Tus comisiones están seguras. Puedes revisar tu balance actualizado directamente en tu Panel Privado web en ${BASE_STORE_URL}/afiliados 💰`;
-        } else if (textoCliente.includes('humano') || textoCliente.includes('ayuda')) {
-          respuestaBot = "En un momento te transferiré con uno de nuestros asesores humanos. Por favor, aguarda en la línea. 👨‍💻";
-        }
-
-        const metaPhoneId = process.env.META_PHONE_ID;
-        const metaAccessToken = process.env.META_ACCESS_TOKEN;
-
-        if (metaPhoneId && metaAccessToken) {
-          await fetch(`https://graph.facebook.com/v17.0/${metaPhoneId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${metaAccessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              to: telefonoRemitente,
-              type: 'text',
-              text: { body: respuestaBot },
-            }),
-          });
-        }
-
-        return NextResponse.json({ status: 'Mensaje procesado y respondido' }, { status: 200 });
-      }
-    }
-
-    return NextResponse.json({ status: 'ok' }, { status: 200 });
-  } catch (error) {
-    console.error('Error en Webhook WhatsApp:', error);
-    return NextResponse.json({ error: 'Error procesando webhook' }, { status: 500 });
-  }
 }
 </file>
 
@@ -1866,6 +1611,194 @@ button, a, input, select, textarea {
 }
 </file>
 
+<file path="src/services/dbService.ts">
+import { createClient } from 'redis';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __redisClient: any;
+  // eslint-disable-next-line no-var
+  var __redisUnavailableUntil: number | undefined;
+  // eslint-disable-next-line no-var
+  var __memoryDb: Record<string, any> | undefined;
+}
+
+function getMemoryDb(): Record<string, any> {
+  if (!global.__memoryDb) {
+    global.__memoryDb = {};
+  }
+  return global.__memoryDb;
+}
+
+async function getClient() {
+  if (!process.env.REDIS_URL) {
+    return null;
+  }
+
+  if (global.__redisUnavailableUntil && Date.now() < global.__redisUnavailableUntil) {
+    return null;
+  }
+
+  try {
+    if (global.__redisClient && global.__redisClient.isOpen) {
+      return global.__redisClient;
+    }
+
+    const client = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        connectTimeout: 5000,
+        reconnectStrategy: false,
+      },
+    });
+
+    client.on('error', () => {
+      global.__redisUnavailableUntil = Date.now() + 60000;
+    });
+
+    await client.connect();
+    global.__redisClient = client;
+    global.__redisUnavailableUntil = 0;
+    return client;
+  } catch (error) {
+    global.__redisUnavailableUntil = Date.now() + 60000;
+    global.__redisClient = null;
+    return null;
+  }
+}
+
+export const dbService = {
+  async get(key: string) {
+    const memoryDb = getMemoryDb();
+
+    try {
+      const client = await getClient();
+      if (client) {
+        const data = await client.get(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          memoryDb[key] = parsed;
+          return parsed;
+        }
+      }
+    } catch (error) {
+      global.__redisUnavailableUntil = Date.now() + 60000;
+    }
+
+    return memoryDb[key] !== undefined ? memoryDb[key] : null;
+  },
+
+  async set(key: string, value: any): Promise<boolean> {
+    let saved = false;
+    const memoryDb = getMemoryDb();
+    memoryDb[key] = value;
+
+    try {
+      const client = await getClient();
+      if (client) {
+        await client.set(key, JSON.stringify(value));
+        saved = true;
+      }
+    } catch (error) {
+      global.__redisUnavailableUntil = Date.now() + 60000;
+    }
+
+    return saved || !!memoryDb[key];
+  },
+};
+</file>
+
+<file path="src/app/api/afiliados/route.ts">
+import { NextRequest, NextResponse } from 'next/server';
+import { products as defaultProducts, Product } from '@/data/products';
+import { dbService } from '@/services/dbService';
+import { siteConfig } from '@/config/site';
+
+const BASE_STORE_URL = siteConfig.storeUrl || 'https://www.importadoratodomax.com';
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'TODOMAX_SECURE_TOKEN_2024';
+
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    return new NextResponse(challenge, { status: 200 });
+  }
+
+  return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    if (body.object === 'whatsapp_business_account') {
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const message = value?.messages?.[0];
+
+      if (message && message.type === 'text') {
+        const telefonoRemitente = message.from;
+        const textoCliente = message.text.body.toLowerCase();
+
+        // Leer catálogo actualizado desde Redis o respaldo local
+        const storedProducts = await dbService.get('store_products');
+        const activeProducts: Product[] = Array.isArray(storedProducts) && storedProducts.length > 0
+          ? storedProducts
+          : defaultProducts;
+
+        let respuestaBot = `¡Hola! Soy Sofía, la asistente IA de ${siteConfig.storeName} 🤖.\n¿En qué producto estás interesado para enviarte tu Kit de Afiliado? (Ej: 'Quiero vender freidora')`;
+
+        const foundProduct = activeProducts.find(p => 
+          textoCliente.includes(p.title.split(' ')[0].toLowerCase()) || 
+          textoCliente.includes(p.category.toLowerCase())
+        );
+
+        if (foundProduct) {
+          respuestaBot = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
+          `📝 *Texto sugerido:* ${foundProduct.adCopy || '¡Compra este increíble producto hoy mismo con envío gratis!'}\n\n` +
+          `🔗 Tu enlace base: ${BASE_STORE_URL}/product/${foundProduct.id}?ref=TU_CODIGO`;
+        } else if (textoCliente.includes('comision') || textoCliente.includes('ganancia')) {
+          respuestaBot = `Tus comisiones están seguras. Puedes revisar tu balance actualizado directamente en tu Panel Privado web en ${BASE_STORE_URL}/afiliados 💰`;
+        } else if (textoCliente.includes('humano') || textoCliente.includes('ayuda')) {
+          respuestaBot = "En un momento te transferiré con uno de nuestros asesores humanos. Por favor, aguarda en la línea. 👨‍💻";
+        }
+
+        const metaPhoneId = process.env.META_PHONE_ID;
+        const metaAccessToken = process.env.META_ACCESS_TOKEN;
+
+        if (metaPhoneId && metaAccessToken) {
+          await fetch(`https://graph.facebook.com/v17.0/${metaPhoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${metaAccessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: telefonoRemitente,
+              type: 'text',
+              text: { body: respuestaBot },
+            }),
+          });
+        }
+
+        return NextResponse.json({ status: 'Mensaje procesado y respondido' }, { status: 200 });
+      }
+    }
+
+    return NextResponse.json({ status: 'ok' }, { status: 200 });
+  } catch (error) {
+    console.error('Error en Webhook WhatsApp:', error);
+    return NextResponse.json({ error: 'Error procesando webhook' }, { status: 500 });
+  }
+}
+</file>
+
 <file path="src/config/site.ts">
 export const siteConfig = {
   storeName: "Importadora TodoMax",
@@ -1875,6 +1808,9 @@ export const siteConfig = {
   whatsapp: {
     number: "+17543411559",
   },
+  email: "ventas@todomax.com",
+  location: "Venezuela",
+  storeUrl: "https://www.importadoratodomax.com",
   shipping: {
     freeShippingThreshold: 50,
     companies: ["MRW", "Zoom", "Tealca", "Delivery Local", "Retiro en Tienda"],
@@ -1905,6 +1841,72 @@ export const siteConfig = {
 };
 </file>
 
+<file path="src/services/productService.ts">
+import { Product, products as defaultProducts } from '@/data/products';
+
+function safeSetLocalStorage(key: string, value: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+}
+
+export const productService = {
+  async getProducts(): Promise<Product[]> {
+    try {
+      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          safeSetLocalStorage('store_products', data);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.error('Error consultando /api/products en la nube:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const localData = localStorage.getItem('store_products');
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    return defaultProducts;
+  },
+
+  async saveProducts(products: Product[]): Promise<boolean> {
+    safeSetLocalStorage('store_products', products);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(products),
+      });
+      return res.ok;
+    } catch (e) {
+      console.error('Error guardando productos en la nube:', e);
+      return false;
+    }
+  },
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    const allProducts = await this.getProducts();
+    return allProducts.find((product) => String(product.id) === String(id));
+  },
+};
+</file>
+
 <file path="src/app/checkout/page.tsx">
 'use client';
 
@@ -1929,7 +1931,7 @@ export default function CheckoutPage() {
   const [cedula, setCedula] = useState('');
   const [telefono, setTelefono] = useState('');
 
-  const [courier, setCourier] = useState('MRW');
+  const [courier, setCourier] = useState(siteConfig.shipping.companies[0] || 'MRW');
   const [estado, setEstado] = useState('');
   const [ciudad, setCiudad] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -1969,6 +1971,11 @@ export default function CheckoutPage() {
       } catch (e) {}
     }
   }, []);
+
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
 
   // Cálculos Financieros Reales (Cruzados con el inventario vivo del Admin)
   const subtotalPorItem = (price: number, quantity: number) => price * quantity;
@@ -2030,6 +2037,21 @@ export default function CheckoutPage() {
     };
   };
 
+  const safeSaveLocalOrders = (ordersToSave: any[]) => {
+    try {
+      localStorage.setItem('store_orders', JSON.stringify(ordersToSave));
+    } catch (e) {
+      try {
+        // En caso de alcanzar el límite de cuota en localStorage, se respalda sin la foto pesada del comprobante
+        const lightOrders = ordersToSave.map(o => ({
+          ...o,
+          payment: { ...o.payment, receiptImage: undefined }
+        }));
+        localStorage.setItem('store_orders', JSON.stringify(lightOrders));
+      } catch (_) {}
+    }
+  };
+
   const procesarYEnviarPedido = async () => {
     if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
       alert('Por favor completa todos los datos personales y de envío.');
@@ -2068,7 +2090,7 @@ export default function CheckoutPage() {
       }
     };
 
-    // 2. Sincronizar con la Nube (Redis) y con localStorage
+    // 2. Sincronizar con la Nube (Redis) y con localStorage protegido
     try {
       let currentCloudOrders: any[] = [];
       const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
@@ -2089,7 +2111,7 @@ export default function CheckoutPage() {
       }
 
       const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
-      localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
+      safeSaveLocalOrders(updatedOrders);
 
       await fetch('/api/store', {
         method: 'POST',
@@ -2100,7 +2122,7 @@ export default function CheckoutPage() {
       console.error('Error guardando pedido en la nube, respaldado en local:', error);
       const existingOrdersStr = localStorage.getItem('store_orders');
       const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
-      localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
+      safeSaveLocalOrders([newOrder, ...existingOrders]);
     }
 
     // 3. Disparo de Evento Purchase en Meta Pixel (si existe)
@@ -2352,8 +2374,12 @@ export default function CheckoutPage() {
                   {items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between gap-4 py-2">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100">
-                          <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100 flex items-center justify-center overflow-hidden">
+                          {isVideo(item.image) ? (
+                            <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
+                          ) : (
+                            <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">{item.title}</span>
@@ -2417,72 +2443,6 @@ export default function CheckoutPage() {
     </div>
   );
 }
-</file>
-
-<file path="src/services/productService.ts">
-import { Product, products as defaultProducts } from '@/data/products';
-
-function safeSetLocalStorage(key: string, value: any) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    try {
-      localStorage.removeItem(key);
-    } catch (_) {}
-  }
-}
-
-export const productService = {
-  async getProducts(): Promise<Product[]> {
-    try {
-      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          safeSetLocalStorage('store_products', data);
-          return data;
-        }
-      }
-    } catch (e) {
-      console.error('Error consultando /api/products en la nube:', e);
-    }
-
-    if (typeof window !== 'undefined') {
-      try {
-        const localData = localStorage.getItem('store_products');
-        if (localData) {
-          const parsed = JSON.parse(localData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      } catch (e) {}
-    }
-
-    return defaultProducts;
-  },
-
-  async saveProducts(products: Product[]): Promise<boolean> {
-    safeSetLocalStorage('store_products', products);
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(products),
-      });
-      return res.ok;
-    } catch (e) {
-      console.error('Error guardando productos en la nube:', e);
-      return false;
-    }
-  },
-
-  async getProductById(id: string): Promise<Product | undefined> {
-    const allProducts = await this.getProducts();
-    return allProducts.find((product) => String(product.id) === String(id));
-  },
-};
 </file>
 
 <file path="src/app/afiliados/page.tsx">
@@ -2563,7 +2523,9 @@ export default function AfiliadosPage() {
         const json = await res.json();
         if (Array.isArray(json.data)) {
           orders = json.data;
-          localStorage.setItem('store_orders', JSON.stringify(orders));
+          try {
+            localStorage.setItem('store_orders', JSON.stringify(orders));
+          } catch (_) {}
         }
       }
     } catch (e) {}
@@ -2576,6 +2538,22 @@ export default function AfiliadosPage() {
         } catch (e) {}
       }
     }
+
+    // Consulta de comisiones ya pagadas para descontarlas del saldo disponible
+    let paidAmount = 0;
+    try {
+      const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      if (resPaid.ok) {
+        const jPaid = await resPaid.json();
+        if (jPaid.data) {
+          if (typeof jPaid.data === 'object' && !Array.isArray(jPaid.data)) {
+            paidAmount = Number(jPaid.data[codigo] || 0);
+          } else if (Array.isArray(jPaid.data) && jPaid.data.includes(codigo)) {
+            paidAmount = 999999;
+          }
+        }
+      }
+    } catch (e) {}
 
     let pendientes = 0;
     let confirmadas = 0;
@@ -2602,10 +2580,12 @@ export default function AfiliadosPage() {
       }
     });
 
+    const comisionDisponibleReal = Math.max(0, comisiones - paidAmount);
+
     setMetrics({
       ventasPendientes: pendientes,
       ventasConfirmadas: confirmadas,
-      comisionesDisponibles: comisiones,
+      comisionesDisponibles: comisionDisponibleReal,
     });
   };
 
@@ -2616,22 +2596,34 @@ export default function AfiliadosPage() {
       return;
     }
     const cleanCode = formData.codigo.toUpperCase().replace(/\s+/g, '');
+
+    // Validación de código duplicado antes de registrar
+    let currentAffiliates: AffiliateUser[] = [];
+    try {
+      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) currentAffiliates = json.data;
+      }
+    } catch (e) {}
+
+    const isCodeTaken = currentAffiliates.some(a => a.codigo === cleanCode);
+    if (isCodeTaken) {
+      alert(`El código "${cleanCode}" ya pertenece a otro embajador. Por favor elige uno diferente.`);
+      return;
+    }
+
     const newUser: AffiliateUser = {
       nombre: formData.nombre,
       email: formData.email,
       codigo: cleanCode,
       joinedAt: new Date().toISOString()
     };
+
     localStorage.setItem('todomax_affiliate_user', JSON.stringify(newUser));
     setUser(newUser);
 
     try {
-      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
-      let currentAffiliates: AffiliateUser[] = [];
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data)) currentAffiliates = json.data;
-      }
       const updated = [newUser, ...currentAffiliates.filter(a => a.codigo !== cleanCode)];
       await fetch('/api/store', {
         method: 'POST',
@@ -2660,12 +2652,8 @@ export default function AfiliadosPage() {
     } catch (e) {}
 
     if (!foundUser) {
-      foundUser = {
-        nombre: 'Embajador TodoMax',
-        email: 'afiliado@todomax.com',
-        codigo: cleanCode,
-        joinedAt: new Date().toISOString()
-      };
+      alert(`El código "${cleanCode}" no está registrado. Por favor verifica o crea tu cuenta.`);
+      return;
     }
 
     localStorage.setItem('todomax_affiliate_user', JSON.stringify(foundUser));
@@ -3088,14 +3076,25 @@ export default function ProductPage() {
 
   const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0];
   const firstImageForCart = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
+  const isOutOfStock = product.stock <= 0;
+
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 2) {
+      router.back();
+    } else {
+      router.push('/catalogo');
+    }
+  };
 
   const handleAddToCart = () => {
+    if (isOutOfStock) return;
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
         image: firstImageForCart,
+        stock: product.stock,
       },
       quantity
     );
@@ -3103,12 +3102,14 @@ export default function ProductPage() {
   };
 
   const handleBuyNow = () => {
+    if (isOutOfStock) return;
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
         image: firstImageForCart,
+        stock: product.stock,
       },
       quantity
     );
@@ -3120,7 +3121,7 @@ export default function ProductPage() {
       <main className="w-full px-4 md:px-10 lg:px-16 space-y-12">
         
         <button
-          onClick={() => router.back()}
+          onClick={handleBack}
           className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs cursor-pointer hover:-translate-x-1 transition-transform"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -3180,8 +3181,10 @@ export default function ProductPage() {
                 <span className="bg-orange-50 text-orange-600 font-black text-xs px-3 py-1 rounded-lg uppercase">
                   {product.category}
                 </span>
-                <span className="bg-emerald-50 text-emerald-700 font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1">
-                  ✓ Stock: {product.stock} disponibles
+                <span className={`font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1 ${
+                  isOutOfStock ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                  {isOutOfStock ? '✕ Agotado' : `✓ Stock: ${product.stock} disponibles`}
                 </span>
               </div>
 
@@ -3234,7 +3237,7 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Características / Ficha Técnica (Sincronizada con el Admin) */}
+              {/* Características / Ficha Técnica */}
               {product.features && product.features.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <p className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
@@ -3259,14 +3262,17 @@ export default function ProductPage() {
                 <div className="flex items-center border border-gray-200 rounded-2xl bg-slate-50 p-1">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 cursor-pointer rounded-xl hover:bg-white"
+                    disabled={isOutOfStock}
+                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 disabled:opacity-30 cursor-pointer rounded-xl hover:bg-white"
                   >
                     -
                   </button>
-                  <span className="w-10 text-center text-sm font-black text-slate-900">{quantity}</span>
+                  <span className="w-10 text-center text-sm font-black text-slate-900">{isOutOfStock ? 0 : quantity}</span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 cursor-pointer rounded-xl hover:bg-white"
+                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                    disabled={isOutOfStock || quantity >= product.stock}
+                    className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 disabled:opacity-30 cursor-pointer rounded-xl hover:bg-white"
+                    title={quantity >= product.stock ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
                   >
                     +
                   </button>
@@ -3276,17 +3282,19 @@ export default function ProductPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer hover:shadow-md"
+                  disabled={isOutOfStock}
+                  className="w-full py-4 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer hover:shadow-md"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  <span>Agregar al Carrito</span>
+                  <span>{isOutOfStock ? 'Sin Existencias' : 'Agregar al Carrito'}</span>
                 </button>
 
                 <button
                   onClick={handleBuyNow}
-                  className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 transition-all cursor-pointer active:scale-95"
+                  disabled={isOutOfStock}
+                  className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 transition-all cursor-pointer active:scale-95"
                 >
-                  <span>Comprar Ahora</span>
+                  <span>{isOutOfStock ? 'Agotado' : 'Comprar Ahora'}</span>
                 </button>
               </div>
 
@@ -3294,7 +3302,7 @@ export default function ProductPage() {
               <div className="grid grid-cols-2 gap-3 pt-2 text-[11px] text-gray-500 font-medium">
                 <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <Truck className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                  <span>MRW, Zoom, Tealca</span>
+                  <span>{siteConfig.shipping.companies.slice(0, 3).join(', ')}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <CreditCard className="w-4 h-4 text-emerald-500 flex-shrink-0" />
@@ -3306,7 +3314,7 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* CARRUSEL INFERIOR DE REMARKETING */}
+        {/* CARRUSEL INFERIOR DE REMARKETING CON SOPORTE COMPLETO DE VIDEO */}
         {relatedProducts.length > 0 && (
           <section className="w-full pt-8">
             <div className="flex items-center justify-between mb-6">
@@ -3322,22 +3330,29 @@ export default function ProductPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
-              {relatedProducts.slice(0, 6).map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/product/${p.id}`}
-                  className="bg-white rounded-3xl border border-gray-200/80 p-4 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
-                >
-                  <div className="aspect-square bg-slate-50 rounded-2xl mb-3 p-3 overflow-hidden">
-                    <img src={p.images[0]} alt={p.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-orange-500 uppercase">{p.category}</span>
-                    <h4 className="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">{p.title}</h4>
-                    <p className="text-base font-black text-slate-900 pt-1">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                  </div>
-                </Link>
-              ))}
+              {relatedProducts.slice(0, 6).map((p) => {
+                const coverMedia = p.images?.[0] || '';
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/product/${p.id}`}
+                    className="bg-white rounded-3xl border border-gray-200/80 p-4 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
+                  >
+                    <div className="aspect-square bg-slate-50 rounded-2xl mb-3 p-3 overflow-hidden">
+                      {isVideo(coverMedia) ? (
+                        <video src={coverMedia} muted autoPlay loop playsInline className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <img src={coverMedia} alt={p.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-orange-500 uppercase">{p.category}</span>
+                      <h4 className="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">{p.title}</h4>
+                      <p className="text-base font-black text-slate-900 pt-1">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}
@@ -3376,6 +3391,11 @@ function HeaderContent() {
   const cartItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   const showSearch = pathname === '/' || pathname === '/catalogo';
+
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
 
   useEffect(() => {
     productService.getProducts().then((data) => {
@@ -3438,7 +3458,7 @@ function HeaderContent() {
             <div className="flex items-center gap-2 font-medium">
               <Truck className="w-4 h-4 text-orange-400" />
               <span>
-                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por MRW, Zoom y Tealca
+                <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold} por {siteConfig.shipping.companies.slice(0, 3).join(', ')}
               </span>
             </div>
             <Link
@@ -3446,7 +3466,7 @@ function HeaderContent() {
               className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
             >
               <CircleDollarSign className="w-4 h-4" />
-              <span>Gana dinero con TodoMax</span>
+              <span>Gana dinero con {siteConfig.storeName}</span>
             </Link>
           </div>
         </div>
@@ -3484,7 +3504,7 @@ function HeaderContent() {
                   <Search className="w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Buscar en TodoMax: freidoras, mini UPS, aspiradoras, belleza..."
+                    placeholder={`Buscar en ${siteConfig.storeName}: freidoras, mini UPS, aspiradoras, belleza...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-transparent outline-none text-sm text-slate-800 placeholder-gray-400 font-medium"
@@ -3501,20 +3521,29 @@ function HeaderContent() {
                     {filteredProducts.length === 0 ? (
                       <p className="text-xs text-gray-500 text-center py-4">No se encontraron productos.</p>
                     ) : (
-                      filteredProducts.map((p) => (
-                        <Link
-                          key={p.id}
-                          href={`/product/${p.id}`}
-                          onClick={() => setSearchQuery('')}
-                          className="flex items-center gap-4 p-2.5 hover:bg-slate-50 rounded-xl transition-all group"
-                        >
-                          <img src={p.images[0]} alt={p.title} className="w-12 h-12 object-contain rounded-lg bg-slate-50 p-1" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate group-hover:text-orange-500">{p.title}</p>
-                            <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                          </div>
-                        </Link>
-                      ))
+                      filteredProducts.map((p) => {
+                        const coverMedia = p.images?.[0] || '';
+                        return (
+                          <Link
+                            key={p.id}
+                            href={`/product/${p.id}`}
+                            onClick={() => setSearchQuery('')}
+                            className="flex items-center gap-4 p-2.5 hover:bg-slate-50 rounded-xl transition-all group"
+                          >
+                            <div className="w-12 h-12 bg-slate-50 rounded-lg p-1 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                              {isVideo(coverMedia) ? (
+                                <video src={coverMedia} muted className="w-full h-full object-cover rounded" />
+                              ) : (
+                                <img src={coverMedia} alt={p.title} className="w-full h-full object-contain rounded" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate group-hover:text-orange-500">{p.title}</p>
+                              <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                            </div>
+                          </Link>
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -3561,7 +3590,7 @@ function HeaderContent() {
               <Search className="w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar en TodoMax..."
+                placeholder={`Buscar en ${siteConfig.storeName}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent outline-none text-xs text-slate-800 placeholder-gray-400 font-medium"
@@ -3578,20 +3607,29 @@ function HeaderContent() {
                 {filteredProducts.length === 0 ? (
                   <p className="text-xs text-gray-500 text-center py-3">No hay productos.</p>
                 ) : (
-                  filteredProducts.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/product/${p.id}`}
-                      onClick={() => setSearchQuery('')}
-                      className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg text-left"
-                    >
-                      <img src={p.images[0]} alt={p.title} className="w-10 h-10 object-contain rounded bg-slate-50 p-1" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
-                        <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
-                      </div>
-                    </Link>
-                  ))
+                  filteredProducts.map((p) => {
+                    const coverMedia = p.images?.[0] || '';
+                    return (
+                      <Link
+                        key={p.id}
+                        href={`/product/${p.id}`}
+                        onClick={() => setSearchQuery('')}
+                        className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg text-left"
+                      >
+                        <div className="w-10 h-10 bg-slate-50 rounded p-1 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                          {isVideo(coverMedia) ? (
+                            <video src={coverMedia} muted className="w-full h-full object-cover rounded" />
+                          ) : (
+                            <img src={coverMedia} alt={p.title} className="w-full h-full object-contain rounded" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
+                          <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                        </div>
+                      </Link>
+                    );
+                  })
                 )}
               </div>
             )}
@@ -4050,7 +4088,21 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addItem } = useCartStore();
-  const [products, setProducts] = useState<Product[]>([]);
+
+  // Lectura síncrona inmediata de la memoria local para cargar en 0ms sin saltos
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_products');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
 
   useEffect(() => {
@@ -4083,6 +4135,7 @@ function HomeContent() {
         title: product.title,
         price: product.price,
         image: firstValidImg,
+        stock: product.stock,
       },
       1
     );
@@ -4163,60 +4216,66 @@ function HomeContent() {
           </div>
 
           <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
-            {bestSellers.map((product) => {
-              const outOfStock = product.stock <= 0;
-              const coverMedia = product.images?.[0] || '';
-              return (
-                <div
-                  key={product.id}
-                  className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-                >
-                  <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                    {isVideo(coverMedia) ? (
-                      <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
-                    ) : (
-                      <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
-                    )}
-                    {outOfStock ? (
-                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
-                        Agotado
-                      </span>
-                    ) : product.badge ? (
-                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
-                        {product.badge}
-                      </span>
-                    ) : null}
-                  </Link>
-
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
-                      <Link href={`/product/${product.id}`}>
-                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                          {product.title}
-                        </h3>
-                      </Link>
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                      <div>
-                        <span className="text-lg md:text-xl font-black text-slate-900">
-                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
+            {products.length === 0 ? (
+              [1, 2, 3, 4].map(idx => (
+                <div key={idx} className="flex-shrink-0 w-[240px] md:w-[260px] aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
+              ))
+            ) : (
+              bestSellers.map((product) => {
+                const outOfStock = product.stock <= 0;
+                const coverMedia = product.images?.[0] || '';
+                return (
+                  <div
+                    key={product.id}
+                    className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                  >
+                    <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                      {isVideo(coverMedia) ? (
+                        <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                      )}
+                      {outOfStock ? (
+                        <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
+                          Agotado
                         </span>
+                      ) : product.badge ? (
+                        <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
+                          {product.badge}
+                        </span>
+                      ) : null}
+                    </Link>
+
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
+                        <Link href={`/product/${product.id}`}>
+                          <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
+                            {product.title}
+                          </h3>
+                        </Link>
                       </div>
-                      <button
-                        onClick={(e) => handleBuyNow(product, e)}
-                        disabled={outOfStock}
-                        title={outOfStock ? 'Sin stock disponible' : 'Comprar ahora'}
-                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                      </button>
+
+                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                        <div>
+                          <span className="text-lg md:text-xl font-black text-slate-900">
+                            {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => handleBuyNow(product, e)}
+                          disabled={outOfStock}
+                          title={outOfStock ? 'Sin stock disponible' : 'Comprar ahora'}
+                          className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </section>
 
@@ -4240,58 +4299,64 @@ function HomeContent() {
           </div>
 
           <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
-            {filteredProducts.map((product) => {
-              const outOfStock = product.stock <= 0;
-              const coverMedia = product.images?.[0] || '';
-              return (
-                <div
-                  key={product.id}
-                  className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-                >
-                  <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                    {isVideo(coverMedia) ? (
-                      <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
-                    ) : (
-                      <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
-                    )}
-                    {outOfStock ? (
-                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
-                        Agotado
-                      </span>
-                    ) : product.badge ? (
-                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase">
-                        {product.badge}
-                      </span>
-                    ) : null}
-                  </Link>
+            {products.length === 0 ? (
+              [1, 2, 3, 4, 5, 6].map(idx => (
+                <div key={idx} className="flex-shrink-0 w-[240px] md:w-[260px] aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
+              ))
+            ) : (
+              filteredProducts.map((product) => {
+                const outOfStock = product.stock <= 0;
+                const coverMedia = product.images?.[0] || '';
+                return (
+                  <div
+                    key={product.id}
+                    className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                  >
+                    <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                      {isVideo(coverMedia) ? (
+                        <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                      )}
+                      {outOfStock ? (
+                        <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                          Agotado
+                        </span>
+                      ) : product.badge ? (
+                        <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase">
+                          {product.badge}
+                        </span>
+                      ) : null}
+                    </Link>
 
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
-                      <Link href={`/product/${product.id}`}>
-                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
-                          {product.title}
-                        </h3>
-                      </Link>
-                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
+                        <Link href={`/product/${product.id}`}>
+                          <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
+                            {product.title}
+                          </h3>
+                        </Link>
+                      </div>
 
-                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                      <span className="text-base md:text-lg font-black text-slate-900">
-                        {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={(e) => handleBuyNow(product, e)}
-                        disabled={outOfStock}
-                        title={outOfStock ? 'Sin stock disponible' : 'Comprar'}
-                        className="bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        {outOfStock ? 'Agotado' : 'Comprar'}
-                      </button>
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-base md:text-lg font-black text-slate-900">
+                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                        </span>
+                        <button
+                          onClick={(e) => handleBuyNow(product, e)}
+                          disabled={outOfStock}
+                          title={outOfStock ? 'Sin stock disponible' : 'Comprar'}
+                          className="bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          {outOfStock ? 'Agotado' : 'Comprar'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </section>
 
@@ -4304,7 +4369,7 @@ function HomeContent() {
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-900">Envíos Nacionales</h4>
-                <p className="text-xs text-gray-500">Por MRW, Zoom y Tealca.</p>
+                <p className="text-xs text-gray-500">Por {siteConfig.shipping.companies.slice(0, 3).join(', ')}.</p>
               </div>
             </div>
             <div className="flex items-center gap-4 group">
@@ -4360,7 +4425,6 @@ import Link from 'next/link';
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
-import { products as defaultProducts } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
 import { ShoppingBag } from 'lucide-react';
 
@@ -4400,6 +4464,7 @@ function CatalogoContent() {
   const router = useRouter();
   const { addItem } = useCartStore();
 
+  // Inicialización limpia: lee caché de productos reales, NUNCA los cuadros naranjas por defecto
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -4410,7 +4475,7 @@ function CatalogoContent() {
         }
       } catch (e) {}
     }
-    return defaultProducts;
+    return [];
   });
 
   const [activeCategory, setActiveCategory] = useState<string>(() => {
@@ -4484,7 +4549,6 @@ function CatalogoContent() {
     loadData();
   }, [searchParams]);
 
-  // FILTRO ESTRICTO DE BANNERS: Si la categoría no tiene banner propio, no muestra banner cruzado de otra categoría (evita contaminación)
   const activeCategorySlides = (() => {
     const normalizedActive = normalizeCatName(activeCategory);
 
@@ -4493,7 +4557,6 @@ function CatalogoContent() {
     );
     if (exactMatches.length > 0) return exactMatches;
 
-    // Si está en 'Todos', mostrar generales
     if (normalizedActive === 'todos') {
       return catSlides.filter((s: any) => {
         const slideCat = normalizeCatName(s.category);
@@ -4536,6 +4599,7 @@ function CatalogoContent() {
         title: product.title,
         price: product.price,
         image: firstValidImg,
+        stock: product.stock,
       },
       1
     );
@@ -4609,7 +4673,13 @@ function CatalogoContent() {
           </div>
         )}
 
-        {filteredProducts.length === 0 ? (
+        {products.length === 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+            {[1, 2, 3, 4, 5, 6].map((idx) => (
+              <div key={idx} className="bg-white rounded-3xl border border-gray-200/80 p-4 aspect-square bg-slate-200/60 animate-pulse" />
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
             <p className="text-sm text-gray-500 font-bold mb-4">
               No hay productos disponibles en esta categoría.
@@ -4821,7 +4891,7 @@ export default function AdminPage() {
   });
 
   const [registeredAffiliates, setRegisteredAffiliates] = useState<AffiliateUser[]>([]);
-  const [paidAffiliateCodes, setPaidAffiliateCodes] = useState<string[]>([]);
+  const [paidAffiliateMap, setPaidAffiliateMap] = useState<Record<string, number>>({});
 
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
@@ -4871,13 +4941,69 @@ export default function AdminPage() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
+  // Carga multimedia con preservación de nitidez absoluta en banners y textos
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    if (file.type.includes('video') || file.name.toLowerCase().endsWith('.mp4')) {
+      if (file.size > 8 * 1024 * 1024) {
+        alert('El video supera los 8MB. Te recomendamos usar un video corto y optimizado.');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => callback(reader.result as string);
       reader.readAsDataURL(file);
+      return;
     }
+
+    // Si ya viene optimizado desde Canva/editor (< 250KB), no se altera su resolución original
+    if (file.size < 250 * 1024 && (file.type === 'image/webp' || file.type === 'image/jpeg' || file.type === 'image/png')) {
+      const reader = new FileReader();
+      reader.onloadend = () => callback(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Si supera los 250KB, redimensionar solo si supera Full HD (1920px) manteniendo textos nítidos
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1920;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimizedUrl = canvas.toDataURL('image/webp', 0.90);
+          callback(optimizedUrl);
+        } else {
+          callback(event.target?.result as string);
+        }
+      };
+    };
+    reader.readAsDataURL(file);
   };
 
   useEffect(() => {
@@ -4925,8 +5051,14 @@ export default function AdminPage() {
         const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
         if (resPaid.ok) {
           const jsonPaid = await resPaid.json();
-          if (Array.isArray(jsonPaid.data)) {
-            setPaidAffiliateCodes(jsonPaid.data);
+          if (jsonPaid.data) {
+            if (Array.isArray(jsonPaid.data)) {
+              const map: Record<string, number> = {};
+              jsonPaid.data.forEach((c: string) => { map[c] = 999999; });
+              setPaidAffiliateMap(map);
+            } else if (typeof jsonPaid.data === 'object') {
+              setPaidAffiliateMap(jsonPaid.data);
+            }
           }
         }
       } catch (e) {}
@@ -5023,7 +5155,6 @@ export default function AdminPage() {
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
-    // Si pasa a Pago Aprobado y antes estaba pendiente, descontamos stock
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = products.map(p => {
         const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
@@ -5035,7 +5166,6 @@ export default function AdminPage() {
       await syncProducts(productosActualizados);
     }
 
-    // Si el pedido se Cancela y ya había descontado stock (estaba aprobado, en preparación o despachado), devolvemos el stock automáticamente
     if (
       nuevoEstado === 'Cancelado' &&
       ordenPrevia &&
@@ -5317,7 +5447,6 @@ export default function AdminPage() {
     };
   });
 
-  // Lista unificada de todos los afiliados registrados (incluso con 0 ventas) + códigos detectados en órdenes
   const allAffiliateCodesSet = new Set<string>();
   registeredAffiliates.forEach(a => {
     if (a.codigo) allAffiliateCodesSet.add(a.codigo);
@@ -5334,7 +5463,9 @@ export default function AdminPage() {
     const pendingOrders = afOrders.filter(o => o.status !== 'Cancelado' && o.status !== 'Entregado');
     const totalVendido = confirmedOrders.reduce((sum, o) => sum + o.financials.total, 0);
     const comisionAcumulada = confirmedOrders.reduce((sum, o) => sum + calcularComisionOrden(o), 0);
-    const isPaid = paidAffiliateCodes.includes(code);
+    const totalPagado = Number(paidAffiliateMap[code] || 0);
+    const comisionDisponible = Math.max(0, comisionAcumulada - totalPagado);
+    const isPaid = comisionAcumulada > 0 && comisionDisponible <= 0;
 
     return {
       codigo: code,
@@ -5345,15 +5476,17 @@ export default function AdminPage() {
       pendientes: pendingOrders.length,
       totalVendido,
       comisionAcumulada,
+      totalPagado,
+      comisionDisponible,
       isPaid,
     };
   });
 
-  const handleMarcarPagadoAfiliado = async (code: string) => {
-    const updatedPaid = Array.from(new Set([...paidAffiliateCodes, code]));
-    setPaidAffiliateCodes(updatedPaid);
-    await syncStoreKey('store_paid_affiliates', updatedPaid);
-    notify(`Comisiones del afiliado [${code}] marcadas como pagadas con éxito.`);
+  const handleMarcarPagadoAfiliado = async (code: string, montoTotal: number) => {
+    const updatedPaidMap = { ...paidAffiliateMap, [code]: montoTotal };
+    setPaidAffiliateMap(updatedPaidMap);
+    await syncStoreKey('store_paid_affiliates', updatedPaidMap);
+    notify(`Comisiones del afiliado [${code}] liquidadas con éxito ($${montoTotal.toFixed(2)} acumulado).`);
   };
 
   if (!isAuthenticated) {
@@ -5394,13 +5527,6 @@ export default function AdminPage() {
               Iniciar Sesión
             </button>
           </form>
-
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-[11px] text-slate-600 space-y-1">
-            <p className="font-bold text-slate-800">Contraseñas por Rol:</p>
-            <p>• Super Admin (Todo): <span className="font-mono font-bold text-orange-600">Admin1234.</span></p>
-            <p>• Logística y Pagos: <span className="font-mono font-bold text-slate-800">Logistica123.</span></p>
-            <p>• Marketing y Afiliados: <span className="font-mono font-bold text-slate-800">Marketing123.</span></p>
-          </div>
 
           <div className="text-center pt-2">
             <Link href="/" className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1">
@@ -5878,7 +6004,7 @@ export default function AdminPage() {
                       type="text"
                       value={productForm.badge}
                       onChange={e => setProductForm({ ...productForm, badge: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                      className="w-full px-3 py-2 border rounded-xl font-semibold"
                       placeholder="Oferta / Envío Gratis"
                     />
                   </div>
@@ -6086,7 +6212,7 @@ export default function AdminPage() {
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
                 <p className="text-xs font-bold text-slate-400 uppercase">Comisiones Pendientes de Pago</p>
                 <p className="text-3xl font-black text-emerald-600 mt-2">
-                  ${affiliateStats.filter(a => !a.isPaid).reduce((sum, a) => sum + a.comisionAcumulada, 0).toFixed(2)}
+                  ${affiliateStats.reduce((sum, a) => sum + a.comisionDisponible, 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -6099,15 +6225,16 @@ export default function AdminPage() {
                     <th className="p-4">Órdenes Totales</th>
                     <th className="p-4">Entregadas</th>
                     <th className="p-4">Volumen Facturado</th>
-                    <th className="p-4">Comisión Disponible</th>
-                    <th className="p-4">Estatus Pago</th>
+                    <th className="p-4">Comisión Pendiente</th>
+                    <th className="p-4">Total Ya Pagado</th>
+                    <th className="p-4">Estatus</th>
                     <th className="p-4 text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {affiliateStats.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">
+                      <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
                         Aún no hay afiliados registrados ni ventas con código.
                       </td>
                     </tr>
@@ -6121,21 +6248,22 @@ export default function AdminPage() {
                         <td className="p-4">{af.totalOrdenes} pedidos</td>
                         <td className="p-4 text-emerald-600 font-bold">{af.entregadas} entregados</td>
                         <td className="p-4 font-black">${af.totalVendido.toFixed(2)}</td>
-                        <td className="p-4 font-black text-emerald-600">${af.comisionAcumulada.toFixed(2)}</td>
+                        <td className="p-4 font-black text-emerald-600">${af.comisionDisponible.toFixed(2)}</td>
+                        <td className="p-4 text-slate-400">${af.totalPagado.toFixed(2)}</td>
                         <td className="p-4">
                           <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                            af.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            af.isPaid ? 'bg-emerald-100 text-emerald-700' : (af.comisionDisponible > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')
                           }`}>
-                            {af.isPaid ? 'Pagado' : 'Por Liquidar'}
+                            {af.isPaid ? 'Al Día' : (af.comisionDisponible > 0 ? 'Por Liquidar' : 'Sin Saldo')}
                           </span>
                         </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => handleMarcarPagadoAfiliado(af.codigo)}
-                            disabled={af.isPaid || af.comisionAcumulada <= 0}
+                            onClick={() => handleMarcarPagadoAfiliado(af.codigo, af.comisionAcumulada)}
+                            disabled={af.comisionDisponible <= 0}
                             className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
                           >
-                            {af.isPaid ? 'Liquidado' : 'Marcar Pagado'}
+                            {af.comisionDisponible <= 0 ? (af.totalPagado > 0 ? 'Liquidado' : 'Sin Saldo') : 'Liquidar Pago'}
                           </button>
                         </td>
                       </tr>
@@ -6395,7 +6523,7 @@ export default function AdminPage() {
                 <span className="text-[10px] text-slate-500 mt-1 block">Publicidad: ${adSpendInput} • Afiliados: ${totalComisionesAfiliados.toFixed(2)}</span>
               </div>
 
-              <div className="gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg bg-slate-900">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg">
                 <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">Utilidad Neta Estimada</span>
                 <p className="text-3xl font-black mt-2 text-emerald-400">${utilidadNetaEstimada.toFixed(2)}</p>
                 <span className="text-[10px] text-white/70 mt-1 block">

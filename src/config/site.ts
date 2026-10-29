@@ -35,5 +35,5 @@ export const siteConfig = {
     }
   },
   roles: ["Super Admin", "Logística y Pagos", "Marketing y Afiliados"],
-  metaPixelId: "TU_PIXEL_ID_AQUI",
+  metaPixelId: "",
 };
