@@ -50,6 +50,17 @@ export function OffersCarousel() {
 
   useEffect(() => {
     const loadOffers = async () => {
+      try {
+        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setOffers(json.data);
+            return;
+          }
+        }
+      } catch (e) {}
+
       if (typeof window !== 'undefined') {
         const saved = localStorage.getItem('store_offers');
         if (saved) {
@@ -59,17 +70,6 @@ export function OffersCarousel() {
           } catch (error) {}
         }
       }
-
-      try {
-        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setOffers(json.data);
-            localStorage.setItem('store_offers', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
     };
 
     loadOffers();
@@ -103,7 +103,6 @@ export function OffersCarousel() {
                   key={offer.id}
                   className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
                 >
-                  {/* Imágenes de Fondo Panorámicas SIN VELO OSCURO */}
                   {dImg && (
                     <img
                       src={dImg}
@@ -119,10 +118,8 @@ export function OffersCarousel() {
                     />
                   )}
 
-                  {/* Enlace clickeable en toda la tarjeta */}
                   <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
 
-                  {/* Renderizar textos SOLO si se escribió un título explícito en el Admin */}
                   {offer.title && (
                     <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none mt-32 md:mt-48">
                       <div className="flex items-center gap-3">
@@ -159,7 +156,6 @@ export function OffersCarousel() {
           </div>
         </div>
 
-        {/* Puntos de Navegación */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
           {offers.map((_, i) => (
             <button

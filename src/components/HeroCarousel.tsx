@@ -50,6 +50,17 @@ export function HeroCarousel() {
 
   useEffect(() => {
     const loadSlides = async () => {
+      try {
+        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setSlides(json.data);
+            return;
+          }
+        }
+      } catch (e) {}
+
       if (typeof window !== 'undefined') {
         const local = localStorage.getItem('store_hero_slides');
         if (local) {
@@ -61,17 +72,6 @@ export function HeroCarousel() {
           } catch (e) {}
         }
       }
-
-      try {
-        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setSlides(json.data);
-            localStorage.setItem('store_hero_slides', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
     };
 
     loadSlides();
@@ -95,7 +95,6 @@ export function HeroCarousel() {
                 key={slide.id}
                 className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient || 'from-slate-900 via-slate-800 to-orange-950'} flex flex-col justify-center items-start overflow-hidden group`}
               >
-                {/* Imagen PC */}
                 {dImg && (
                   <img
                     src={dImg}
@@ -104,7 +103,6 @@ export function HeroCarousel() {
                   />
                 )}
 
-                {/* Imagen Móvil */}
                 {mImg && (
                   <img
                     src={mImg}
@@ -113,10 +111,8 @@ export function HeroCarousel() {
                   />
                 )}
 
-                {/* Enlace global si el banner es solo imagen */}
                 <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
 
-                {/* Renderizar textos y botón SOLO si escribes un Título explícito en el Admin */}
                 {slide.title && (
                   <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none mt-40 md:mt-56">
                     {slide.badge && (
@@ -154,7 +150,6 @@ export function HeroCarousel() {
         </div>
       </div>
 
-      {/* Puntos de navegación */}
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
         {slides.map((_, i) => (
           <button

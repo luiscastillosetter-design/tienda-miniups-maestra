@@ -35,6 +35,17 @@ function CatalogoContent() {
       const data = await productService.getProducts();
       setProducts(data);
 
+      try {
+        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setCatSlides(json.data);
+            return;
+          }
+        }
+      } catch (e) {}
+
       if (typeof window !== 'undefined') {
         const localSlides = localStorage.getItem('store_cat_slides');
         if (localSlides) {
@@ -44,17 +55,6 @@ function CatalogoContent() {
           } catch (e) {}
         }
       }
-
-      try {
-        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setCatSlides(json.data);
-            localStorage.setItem('store_cat_slides', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
     };
     loadData();
   }, []);
@@ -146,7 +146,6 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {/* BANNERS DE CATEGORÍAS (1:1 en móvil, panorámico en PC) */}
         {activeCategorySlides.length > 0 ? (
           <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-square md:aspect-[21/9] lg:aspect-[4/1] relative border border-gray-200/80 group">
             {activeCategorySlides.map((slide: any, i: number) => {
@@ -187,7 +186,6 @@ function CatalogoContent() {
           </div>
         )}
 
-        {/* Grilla de Productos */}
         {filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
             <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>

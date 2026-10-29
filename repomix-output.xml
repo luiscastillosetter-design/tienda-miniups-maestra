@@ -1461,53 +1461,6 @@ const nextConfig = {
 module.exports = nextConfig;
 </file>
 
-<file path="src/app/globals.css">
-@import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #0f172a;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-/* Forzar respuesta táctil inmediata y eliminar retrasos en móviles */
-html, body {
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  color-scheme: light;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Asegurar que los botones e inputs reciban eventos táctiles sin interferencias y tengan texto visible */
-button, a, input, select, textarea {
-  touch-action: manipulation;
-  color: inherit;
-}
-
-/* Clase utilitaria scrollbar-hide para ocultar scrollbars horizontales en carruseles */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-</file>
-
 <file path="src/app/layout.tsx">
 import AffiliateTracker from '@/components/AffiliateTracker';
 import type { Metadata, Viewport } from "next";
@@ -1777,684 +1730,49 @@ export async function POST(request: NextRequest) {
 }
 </file>
 
-<file path="src/app/checkout/page.tsx">
-'use client';
+<file path="src/app/globals.css">
+@import "tailwindcss";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useCartStore } from '@/store/cartStore';
-import { siteConfig } from '@/config/site';
-import { productService } from '@/services/productService';
-import { products as defaultProducts, Product } from '@/data/products';
-import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
-
-export default function CheckoutPage() {
-  const { items, clearCart } = useCartStore();
-  const router = useRouter();
-
-  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
-
-  // Estados del Formulario
-  const [nombre, setNombre] = useState('');
-  const [apellido, setApellido] = useState('');
-  const [cedula, setCedula] = useState('');
-  const [telefono, setTelefono] = useState('');
-
-  const [courier, setCourier] = useState('MRW');
-  const [estado, setEstado] = useState('');
-  const [ciudad, setCiudad] = useState('');
-  const [direccion, setDireccion] = useState('');
-
-  const [metodoPago, setMetodoPago] = useState('Pago Móvil');
-  const [referencia, setReferencia] = useState('');
-  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
-
-  // Estados UI y Atribución
-  const [refCode, setRefCode] = useState('DIRECTO');
-  const [adChannel, setAdChannel] = useState('Directo');
-  const [copied, setCopied] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  useEffect(() => {
-    productService.getProducts().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setLiveProducts(data);
-      }
-    });
-
-    const storedRef = localStorage.getItem('todomax_ref');
-    if (storedRef) {
-      setRefCode(storedRef);
-    }
-
-    const storedAttribution = localStorage.getItem('todomax_attribution');
-    if (storedAttribution) {
-      try {
-        const parsed = JSON.parse(storedAttribution);
-        if (parsed.affiliateRef && parsed.affiliateRef !== 'DIRECTO') {
-          setRefCode(parsed.affiliateRef);
-        }
-        if (parsed.channel) {
-          setAdChannel(parsed.channel);
-        }
-      } catch (e) {}
-    }
-  }, []);
-
-  // Cálculos Financieros Reales (Cruzados con el inventario vivo del Admin)
-  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
-  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
-  const isFreeShipping = total >= siteConfig.shipping.freeShippingThreshold;
-
-  const totalCost = items.reduce((acc, item) => {
-    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
-    const itemCost = dbProduct ? Number(dbProduct.cost || 0) : 0;
-    return acc + (itemCost * item.quantity);
-  }, 0);
-
-  const totalAffiliateCommission = items.reduce((acc, item) => {
-    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
-    const commPercent = dbProduct ? Number(dbProduct.affiliateCommission || 10) : 10;
-    return acc + ((item.price * item.quantity) * (commPercent / 100));
-  }, 0);
-
-  const expectedUtility = total - totalCost - (refCode !== 'DIRECTO' ? totalAffiliateCommission : 0);
-
-  const handleCopyBankData = () => {
-    let data = '';
-    if (metodoPago === 'Pago Móvil') {
-      const pm = siteConfig.paymentMethods.pagoMovil;
-      data = `Pago Móvil TodoMax\nBanco: ${pm.banco}\nTeléfono: ${pm.telefono}\nCédula/RIF: ${pm.cedula}`;
-    } else if (metodoPago === 'Transferencia') {
-      const tr = siteConfig.paymentMethods.transferencia;
-      data = `Transferencia TodoMax\nBanco: ${tr.banco}\nCuenta: ${tr.cuenta}\nTitular: ${tr.titular}\nRIF: ${tr.rif}`;
-    } else if (metodoPago === 'Zelle') {
-      const zl = siteConfig.paymentMethods.zelle;
-      data = `Zelle TodoMax\nCorreo: ${zl.email}\nTitular: ${zl.titular}`;
-    } else if (metodoPago === 'Binance Pay') {
-      const bn = siteConfig.paymentMethods.binance;
-      data = `Binance TodoMax\nPay ID: ${bn.payId}\nUSDT (TRC20): ${bn.usdtAddress}`;
-    }
-
-    navigator.clipboard.writeText(data);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setComprobantePreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const procesarYEnviarPedido = async () => {
-    if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
-      alert('Por favor completa todos los datos personales y de envío.');
-      return;
-    }
-    if (metodoPago !== 'Efectivo' && !referencia.trim()) {
-      alert('Debes ingresar el número de referencia de tu pago.');
-      return;
-    }
-    if (metodoPago !== 'Efectivo' && !comprobantePreview) {
-      alert('Por favor adjunta la captura o foto del comprobante de pago.');
-      return;
-    }
-
-    setIsProcessing(true);
-    const orderId = `TMX-${Date.now().toString().slice(-6)}`;
-
-    // 1. Crear Objeto del Pedido para el ERP Admin
-    const newOrder = {
-      id: orderId,
-      date: new Date().toISOString(),
-      status: 'Pendiente de verificación',
-      customer: { nombre, apellido, cedula, telefono },
-      shipping: { courier, estado, ciudad, direccion, isFreeShipping },
-      payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview, receiptImage: comprobantePreview },
-      items: items,
-      financials: {
-        total,
-        cost: totalCost,
-        commission: refCode !== 'DIRECTO' ? totalAffiliateCommission : 0,
-        utility: expectedUtility,
-      },
-      attribution: {
-        affiliateCode: refCode,
-        channel: refCode !== 'DIRECTO' ? 'Afiliado' : adChannel,
-      }
-    };
-
-    // 2. Sincronizar con la Nube (Redis) y con localStorage
-    try {
-      let currentCloudOrders: any[] = [];
-      const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
-      if (resGet.ok) {
-        const json = await resGet.json();
-        if (Array.isArray(json.data)) {
-          currentCloudOrders = json.data;
-        }
-      }
-
-      if (currentCloudOrders.length === 0) {
-        const existingLocal = localStorage.getItem('store_orders');
-        if (existingLocal) {
-          try {
-            currentCloudOrders = JSON.parse(existingLocal);
-          } catch (e) {}
-        }
-      }
-
-      const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
-      localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
-
-      await fetch('/api/store', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'store_orders', value: updatedOrders }),
-      });
-    } catch (error) {
-      console.error('Error guardando pedido en la nube, respaldado en local:', error);
-      const existingOrdersStr = localStorage.getItem('store_orders');
-      const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
-      localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
-    }
-
-    // 3. Disparo de Evento Purchase en Meta Pixel (si existe)
-    if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
-    }
-
-    // 4. Armar Mensaje de WhatsApp
-    const listaProductos = items
-      .map(item => `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`)
-      .join('%0A');
-
-    const mensajeWhatsApp = 
-      `*NUEVO PEDIDO: ${orderId}*%0A%0A` +
-      `*CLIENTE:* ${nombre} ${apellido}%0A` +
-      `*CÉDULA:* ${cedula}%0A` +
-      `*TELÉFONO:* ${telefono}%0A%0A` +
-      `*📦 PRODUCTOS:*%0A${listaProductos}%0A%0A` +
-      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}%0A` +
-      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
-      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
-      `*💳 PAGO:* ${metodoPago}%0A` +
-      (metodoPago !== 'Efectivo' ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en el sistema y en esta conversación)*%0A` : '') +
-      (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
-
-    const rawWhatsApp = siteConfig.whatsappNumber;
-    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
-
-    // 5. Limpiar Carrito y Redirigir
-    clearCart();
-    
-    setTimeout(() => {
-      window.open(`https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`, '_blank');
-      router.push('/');
-    }, 1000);
-  };
-
-  if (items.length === 0 && !isProcessing) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
-        <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-6">
-          <ShoppingBag className="w-12 h-12" />
-        </div>
-        <h2 className="text-3xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
-        <p className="text-gray-500 mb-8 font-medium">Aún no has agregado productos a tu compra.</p>
-        <Link href="/catalogo" className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1">
-          Ir al Catálogo
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-slate-50 min-h-screen pt-24 md:pt-32 pb-20">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12">
-        
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs mb-8 transition-transform hover:-translate-x-1 cursor-pointer"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Modificar Carrito</span>
-        </button>
-
-        {isProcessing ? (
-          <div className="bg-white rounded-3xl p-12 text-center shadow-xl border border-gray-100 max-w-2xl mx-auto mt-10">
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
-            <p className="text-slate-600 font-medium leading-relaxed">
-              Estamos registrando tu orden en la nube de TodoMax. En un momento se abrirá WhatsApp para finalizar tu atención.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-            
-            {/* LADO IZQUIERDO: FORMULARIOS (7 de 12 columnas) */}
-            <div className="lg:col-span-7 space-y-8">
-              
-              {/* 1. Datos Personales */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">1</div>
-                  <h2 className="text-xl font-black text-slate-900">Tus Datos</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nombre</label>
-                    <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required placeholder="Ej. Carlos" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Apellido</label>
-                    <input type="text" value={apellido} onChange={e => setApellido(e.target.value)} required placeholder="Ej. Pérez" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Cédula o RIF</label>
-                    <input type="text" value={cedula} onChange={e => setCedula(e.target.value)} required placeholder="V-12345678" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">WhatsApp / Teléfono</label>
-                    <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} required placeholder="0412-1234567" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Datos de Envío */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">2</div>
-                  <h2 className="text-xl font-black text-slate-900">Datos de Envío</h2>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Empresa de Envío</label>
-                    <select value={courier} onChange={e => setCourier(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer">
-                      {siteConfig.shipping.companies.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Estado</label>
-                      <input type="text" value={estado} onChange={e => setEstado(e.target.value)} required placeholder="Ej. Distrito Capital" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Ciudad</label>
-                      <input type="text" value={ciudad} onChange={e => setCiudad(e.target.value)} required placeholder="Ej. Caracas" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Dirección Detallada (Agencia o Dirección Exacta)</label>
-                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} required placeholder="Agencia MRW / Av. Principal, Edificio..." className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Pago y Comprobante */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-orange-200 shadow-md">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">3</div>
-                  <h2 className="text-xl font-black text-slate-900">Validación de Pago</h2>
-                </div>
-                
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">Selecciona cómo deseas pagar</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
-                        <button
-                          key={metodo}
-                          type="button"
-                          onClick={() => setMetodoPago(metodo)}
-                          className={`p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
-                            metodoPago === metodo ? 'bg-orange-50 border-orange-500 text-orange-600 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
-                          }`}
-                        >
-                          {metodo}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Datos Bancarios Copiables */}
-                  <div className="bg-slate-900 rounded-2xl p-5 text-white relative group">
-                    <h3 className="text-xs font-black uppercase text-orange-400 mb-3 tracking-wider">Datos para {metodoPago}</h3>
-                    <div className="space-y-2 text-sm font-medium">
-                      {metodoPago === 'Pago Móvil' && (
-                        <>
-                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.pagoMovil.banco}</p>
-                          <p><span className="text-slate-400">Teléfono:</span> {siteConfig.paymentMethods.pagoMovil.telefono}</p>
-                          <p><span className="text-slate-400">Cédula/RIF:</span> {siteConfig.paymentMethods.pagoMovil.cedula}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Transferencia' && (
-                        <>
-                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.transferencia.banco}</p>
-                          <p><span className="text-slate-400">Cuenta:</span> {siteConfig.paymentMethods.transferencia.cuenta}</p>
-                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.transferencia.titular}</p>
-                          <p><span className="text-slate-400">RIF:</span> {siteConfig.paymentMethods.transferencia.rif}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Zelle' && (
-                        <>
-                          <p><span className="text-slate-400">Correo:</span> {siteConfig.paymentMethods.zelle.email}</p>
-                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.zelle.titular}</p>
-                        </>
-                      )}
-                      {metodoPago === 'Binance Pay' && (
-                        <>
-                          <p><span className="text-slate-400">Pay ID:</span> {siteConfig.paymentMethods.binance.payId}</p>
-                          <p className="break-all"><span className="text-slate-400">USDT (TRC20):</span> {siteConfig.paymentMethods.binance.usdtAddress}</p>
-                        </>
-                      )}
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={handleCopyBankData}
-                      className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                    >
-                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      {copied ? '¡Datos copiados!' : 'Copiar Datos de Pago'}
-                    </button>
-                  </div>
-
-                  {/* Carga de Comprobante */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Número de Referencia</label>
-                      <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} required placeholder="Ej. 123456" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Adjuntar Comprobante (Captura)</label>
-                      <div className="relative">
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="comprobante-upload" />
-                        <label htmlFor="comprobante-upload" className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-sm font-semibold text-slate-600 hover:border-orange-500 hover:text-orange-500 cursor-pointer transition-colors">
-                          <Upload className="w-4 h-4" />
-                          {comprobantePreview ? 'Cambiar imagen' : 'Subir foto o captura'}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {comprobantePreview && (
-                    <div className="mt-4 p-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
-                      <img src={comprobantePreview} alt="Comprobante" className="h-32 object-contain rounded-xl mb-2" />
-                      <p className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Comprobante adjuntado con éxito</p>
-                    </div>
-                  )}
-
-                </div>
-              </div>
-
-            </div>
-
-            {/* LADO DERECHO: RESUMEN DE ORDEN (5 de 12 columnas) */}
-            <div className="lg:col-span-5 relative">
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-lg sticky top-32 space-y-6">
-                
-                <h2 className="text-xl font-black text-slate-900 border-b border-gray-100 pb-4 flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-orange-500" />
-                  Resumen de tu Compra
-                </h2>
-
-                <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-4 py-2">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100">
-                          <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">{item.title}</span>
-                          <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Cant: {item.quantity}</span>
-                        </div>
-                      </div>
-                      <span className="font-black text-sm text-slate-900 flex-shrink-0">
-                        {siteConfig.currencySymbol}{subtotalPorItem(item.price, item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3 pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-sm text-gray-600 font-medium">
-                    <span>Subtotal de productos</span>
-                    <span>{siteConfig.currencySymbol}{total.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600 font-medium">Envío ({courier})</span>
-                    <span className={`font-black ${isFreeShipping ? 'text-emerald-600' : 'text-slate-900'}`}>
-                      {isFreeShipping ? '¡GRATIS!' : 'Cobro en Destino'}
-                    </span>
-                  </div>
-                </div>
-
-                {!isFreeShipping && (
-                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl">
-                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed text-center">
-                      ¡Agrega {siteConfig.currencySymbol}{(siteConfig.shipping.freeShippingThreshold - total).toFixed(2)} más en productos y tu envío sale GRATIS!
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <span className="text-base font-black text-slate-900">Total a Pagar</span>
-                  <span className="text-3xl font-black text-orange-500">
-                    {siteConfig.currencySymbol}{total.toFixed(2)}
-                  </span>
-                </div>
-
-                <button
-                  onClick={procesarYEnviarPedido}
-                  disabled={isProcessing}
-                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <ShieldCheck className="w-5 h-5" />
-                  Registrar Pago y Enviar Pedido
-                </button>
-                
-                <p className="text-[10px] text-gray-400 text-center font-medium px-4">
-                  Al confirmar, tu orden quedará registrada en TodoMax y se abrirá WhatsApp para atención inmediata.
-                </p>
-
-              </div>
-            </div>
-
-          </div>
-        )}
-      </div>
-    </div>
-  );
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
 }
-</file>
 
-<file path="src/components/HeroCarousel.tsx">
-'use client';
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
 
-import { useState, useEffect } from 'react';
-import useEmblaCarousel from 'embla-carousel-react';
-import Autoplay from 'embla-carousel-autoplay';
-import Link from 'next/link';
-import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
+/* Forzar respuesta táctil inmediata y eliminar retrasos en móviles */
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  color-scheme: light;
+}
 
-export const defaultHeroSlides = [
-  {
-    id: 1,
-    badge: 'PRODUCTO ESTRELLA & COMBOS',
-    title: 'Importadora Directa TodoMax',
-    subtitle: 'Tecnología, hogar, cocina, automóvil y belleza con garantía y envío gratis en compras mayores a $50.',
-    btnText: 'Comprar Ahora',
-    btnLink: '/catalogo',
-    desktopImg: '/hero/hero1catalogo.png',
-    mobileImg: '/hero/hero1catalogo-mobile.png',
-    bgGradient: 'from-orange-600 via-orange-500 to-amber-500',
-  },
-  {
-    id: 2,
-    badge: 'PROGRAMA DE AFILIADOS',
-    title: 'Gana Dinero con TodoMax',
-    subtitle: 'Promociona productos de alta rotación con videos profesionales preaprobados y cobra comisiones directas.',
-    btnText: 'Quiero ser Afiliado',
-    btnLink: '/afiliados',
-    desktopImg: '/hero/hero2afiliados.png',
-    mobileImg: '/hero/hero2afiliados-mobile.png',
-    bgGradient: 'from-slate-950 via-slate-900 to-orange-950',
-  },
-  {
-    id: 3,
-    badge: 'ENVÍO GRATIS A TODO EL PAÍS',
-    title: 'Despachos por MRW, Zoom y Tealca',
-    subtitle: 'Recibe directo en tu puerta con entrega rápida y respaldo asegurado en cada orden.',
-    btnText: 'Explorar Catálogo',
-    btnLink: '/catalogo',
-    desktopImg: '/hero/hero3registro.png',
-    mobileImg: '/hero/hero3registro-mobile.png',
-    bgGradient: 'from-emerald-800 via-teal-700 to-slate-900',
-  },
-];
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-export function HeroCarousel() {
-  const autoplayOptions = { delay: 6500, stopOnInteraction: false };
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [slides, setSlides] = useState<any[]>(defaultHeroSlides);
+/* Asegurar respuesta táctil */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
 
-  useEffect(() => {
-    const loadSlides = async () => {
-      if (typeof window !== 'undefined') {
-        const local = localStorage.getItem('store_hero_slides');
-        if (local) {
-          try {
-            const parsed = JSON.parse(local);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setSlides(parsed);
-            }
-          } catch (e) {}
-        }
-      }
+/* Clase utilitaria scrollbar-hide para ocultar scrollbars horizontales en carruseles */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
-      try {
-        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setSlides(json.data);
-            localStorage.setItem('store_hero_slides', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
-    };
-
-    loadSlides();
-  }, []);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
-  }, [emblaApi]);
-
-  return (
-    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
-      <div ref={emblaRef} className="overflow-hidden w-full">
-        <div className="flex w-full">
-          {slides.map((slide) => {
-            const dImg = slide.desktopImg || '';
-            const mImg = slide.mobileImg || dImg;
-            const hasText = Boolean(slide.title || slide.subtitle || slide.badge);
-
-            return (
-              <div
-                key={slide.id}
-                className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient || 'from-slate-900 via-slate-800 to-orange-950'} flex flex-col justify-center items-start overflow-hidden group`}
-              >
-                {/* Imagen PC */}
-                {dImg && (
-                  <img
-                    src={dImg}
-                    alt={slide.title || 'Banner Principal'}
-                    className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
-                  />
-                )}
-
-                {/* Imagen Móvil */}
-                {mImg && (
-                  <img
-                    src={mImg}
-                    alt={slide.title || 'Banner Principal'}
-                    className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
-                  />
-                )}
-
-                {/* Velo oscuro para legibilidad si hay texto e imagen */}
-                {(dImg || mImg) && hasText && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/50 to-transparent z-0" />
-                )}
-
-                {/* Enlace global si el banner es solo imagen */}
-                <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
-
-                <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none">
-                  {slide.badge && (
-                    <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
-                      <ShieldCheck className="w-4 h-4 text-white" />
-                      {slide.badge}
-                    </span>
-                  )}
-
-                  {slide.title && (
-                    <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
-                      {slide.title}
-                    </h1>
-                  )}
-
-                  {slide.subtitle && (
-                    <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-xs">
-                      {slide.subtitle}
-                    </p>
-                  )}
-
-                  <div className="pt-2 pointer-events-auto">
-                    <Link
-                      href={slide.btnLink || '/catalogo'}
-                      className="inline-flex items-center gap-2.5 bg-white text-slate-900 hover:bg-orange-50 font-black px-7 py-4 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
-                    >
-                      <ShoppingBag className="w-4 h-4 text-orange-500 group-hover/btn:scale-110 transition-transform" />
-                      <span>{slide.btnText || 'Comprar Ahora'}</span>
-                      <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Puntos de navegación */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => emblaApi?.scrollTo(i)}
-            className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'}`}
-            aria-label={`Slide ${i + 1}`}
-          />
-        ))}
-      </div>
-    </div>
-  );
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 </file>
 
@@ -3046,6 +2364,520 @@ export default function AfiliadosPage() {
 }
 </file>
 
+<file path="src/app/checkout/page.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useCartStore } from '@/store/cartStore';
+import { siteConfig } from '@/config/site';
+import { productService } from '@/services/productService';
+import { products as defaultProducts, Product } from '@/data/products';
+import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
+
+export default function CheckoutPage() {
+  const { items, clearCart } = useCartStore();
+  const router = useRouter();
+
+  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
+
+  // Estados del Formulario
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
+  const [cedula, setCedula] = useState('');
+  const [telefono, setTelefono] = useState('');
+
+  const [courier, setCourier] = useState('MRW');
+  const [estado, setEstado] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [direccion, setDireccion] = useState('');
+
+  const [metodoPago, setMetodoPago] = useState('Pago Móvil');
+  const [referencia, setReferencia] = useState('');
+  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
+
+  // Estados UI y Atribución
+  const [refCode, setRefCode] = useState('DIRECTO');
+  const [adChannel, setAdChannel] = useState('Directo');
+  const [copied, setCopied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    productService.getProducts().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveProducts(data);
+      }
+    });
+
+    const storedRef = localStorage.getItem('todomax_ref');
+    if (storedRef) {
+      setRefCode(storedRef);
+    }
+
+    const storedAttribution = localStorage.getItem('todomax_attribution');
+    if (storedAttribution) {
+      try {
+        const parsed = JSON.parse(storedAttribution);
+        if (parsed.affiliateRef && parsed.affiliateRef !== 'DIRECTO') {
+          setRefCode(parsed.affiliateRef);
+        }
+        if (parsed.channel) {
+          setAdChannel(parsed.channel);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  // Cálculos Financieros Reales (Cruzados con el inventario vivo del Admin)
+  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
+  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
+  const isFreeShipping = total >= siteConfig.shipping.freeShippingThreshold;
+
+  const totalCost = items.reduce((acc, item) => {
+    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
+    const itemCost = dbProduct ? Number(dbProduct.cost || 0) : 0;
+    return acc + (itemCost * item.quantity);
+  }, 0);
+
+  const totalAffiliateCommission = items.reduce((acc, item) => {
+    const dbProduct = liveProducts.find(p => String(p.id) === String(item.id));
+    const commPercent = dbProduct ? Number(dbProduct.affiliateCommission || 10) : 10;
+    return acc + ((item.price * item.quantity) * (commPercent / 100));
+  }, 0);
+
+  const expectedUtility = total - totalCost - (refCode !== 'DIRECTO' ? totalAffiliateCommission : 0);
+
+  const handleCopyBankData = () => {
+    let data = '';
+    if (metodoPago === 'Pago Móvil') {
+      const pm = siteConfig.paymentMethods.pagoMovil;
+      data = `Pago Móvil TodoMax\nBanco: ${pm.banco}\nTeléfono: ${pm.telefono}\nCédula/RIF: ${pm.cedula}`;
+    } else if (metodoPago === 'Transferencia') {
+      const tr = siteConfig.paymentMethods.transferencia;
+      data = `Transferencia TodoMax\nBanco: ${tr.banco}\nCuenta: ${tr.cuenta}\nTitular: ${tr.titular}\nRIF: ${tr.rif}`;
+    } else if (metodoPago === 'Zelle') {
+      const zl = siteConfig.paymentMethods.zelle;
+      data = `Zelle TodoMax\nCorreo: ${zl.email}\nTitular: ${zl.titular}`;
+    } else if (metodoPago === 'Binance Pay') {
+      const bn = siteConfig.paymentMethods.binance;
+      data = `Binance TodoMax\nPay ID: ${bn.payId}\nUSDT (TRC20): ${bn.usdtAddress}`;
+    }
+
+    navigator.clipboard.writeText(data);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 600;
+        let w = img.width, h = img.height;
+        if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+        setComprobantePreview(canvas.toDataURL('image/webp', 0.6));
+      };
+    };
+  };
+
+  const procesarYEnviarPedido = async () => {
+    if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
+      alert('Por favor completa todos los datos personales y de envío.');
+      return;
+    }
+    if (metodoPago !== 'Efectivo' && !referencia.trim()) {
+      alert('Debes ingresar el número de referencia de tu pago.');
+      return;
+    }
+    if (metodoPago !== 'Efectivo' && !comprobantePreview) {
+      alert('Por favor adjunta la captura o foto del comprobante de pago.');
+      return;
+    }
+
+    setIsProcessing(true);
+    const orderId = `TMX-${Date.now().toString().slice(-6)}`;
+
+    // 1. Crear Objeto del Pedido para el ERP Admin
+    const newOrder = {
+      id: orderId,
+      date: new Date().toISOString(),
+      status: 'Pendiente de verificación',
+      customer: { nombre, apellido, cedula, telefono },
+      shipping: { courier, estado, ciudad, direccion, isFreeShipping },
+      payment: { method: metodoPago, reference: referencia, hasReceipt: !!comprobantePreview, receiptImage: comprobantePreview },
+      items: items,
+      financials: {
+        total,
+        cost: totalCost,
+        commission: refCode !== 'DIRECTO' ? totalAffiliateCommission : 0,
+        utility: expectedUtility,
+      },
+      attribution: {
+        affiliateCode: refCode,
+        channel: refCode !== 'DIRECTO' ? 'Afiliado' : adChannel,
+      }
+    };
+
+    // 2. Sincronizar con la Nube (Redis) y con localStorage
+    try {
+      let currentCloudOrders: any[] = [];
+      const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+      if (resGet.ok) {
+        const json = await resGet.json();
+        if (Array.isArray(json.data)) {
+          currentCloudOrders = json.data;
+        }
+      }
+
+      if (currentCloudOrders.length === 0) {
+        const existingLocal = localStorage.getItem('store_orders');
+        if (existingLocal) {
+          try {
+            currentCloudOrders = JSON.parse(existingLocal);
+          } catch (e) {}
+        }
+      }
+
+      const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
+      localStorage.setItem('store_orders', JSON.stringify(updatedOrders));
+
+      await fetch('/api/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'store_orders', value: updatedOrders }),
+      });
+    } catch (error) {
+      console.error('Error guardando pedido en la nube, respaldado en local:', error);
+      const existingOrdersStr = localStorage.getItem('store_orders');
+      const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
+      localStorage.setItem('store_orders', JSON.stringify([newOrder, ...existingOrders]));
+    }
+
+    // 3. Disparo de Evento Purchase en Meta Pixel (si existe)
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
+    }
+
+    // 4. Armar Mensaje de WhatsApp
+    const listaProductos = items
+      .map(item => `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`)
+      .join('%0A');
+
+    const mensajeWhatsApp = 
+      `*NUEVO PEDIDO: ${orderId}*%0A%0A` +
+      `*CLIENTE:* ${nombre} ${apellido}%0A` +
+      `*CÉDULA:* ${cedula}%0A` +
+      `*TELÉFONO:* ${telefono}%0A%0A` +
+      `*📦 PRODUCTOS:*%0A${listaProductos}%0A%0A` +
+      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}%0A` +
+      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
+      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
+      `*💳 PAGO:* ${metodoPago}%0A` +
+      (metodoPago !== 'Efectivo' ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en el sistema y en esta conversación)*%0A` : '') +
+      (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
+
+    const rawWhatsApp = siteConfig.whatsappNumber;
+    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
+
+    // 5. Limpiar Carrito y Redirigir
+    clearCart();
+    
+    setTimeout(() => {
+      window.open(`https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`, '_blank');
+      router.push('/');
+    }, 1000);
+  };
+
+  if (items.length === 0 && !isProcessing) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
+        <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-6">
+          <ShoppingBag className="w-12 h-12" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
+        <p className="text-gray-500 mb-8 font-medium">Aún no has agregado productos a tu compra.</p>
+        <Link href="/catalogo" className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1">
+          Ir al Catálogo
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-50 min-h-screen pt-24 md:pt-32 pb-20">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12">
+        
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-slate-600 hover:text-orange-500 font-bold text-xs mb-8 transition-transform hover:-translate-x-1 cursor-pointer"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Modificar Carrito</span>
+        </button>
+
+        {isProcessing ? (
+          <div className="bg-white rounded-3xl p-12 text-center shadow-xl border border-gray-100 max-w-2xl mx-auto mt-10">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
+            <p className="text-slate-600 font-medium leading-relaxed">
+              Estamos registrando tu orden en la nube de TodoMax. En un momento se abrirá WhatsApp para finalizar tu atención.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+            
+            {/* LADO IZQUIERDO: FORMULARIOS (7 de 12 columnas) */}
+            <div className="lg:col-span-7 space-y-8">
+              
+              {/* 1. Datos Personales */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">1</div>
+                  <h2 className="text-xl font-black text-slate-900">Tus Datos</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Nombre</label>
+                    <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required placeholder="Ej. Carlos" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Apellido</label>
+                    <input type="text" value={apellido} onChange={e => setApellido(e.target.value)} required placeholder="Ej. Pérez" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Cédula o RIF</label>
+                    <input type="text" value={cedula} onChange={e => setCedula(e.target.value)} required placeholder="V-12345678" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">WhatsApp / Teléfono</label>
+                    <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} required placeholder="0412-1234567" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Datos de Envío */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-sm">2</div>
+                  <h2 className="text-xl font-black text-slate-900">Datos de Envío</h2>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Empresa de Envío</label>
+                    <select value={courier} onChange={e => setCourier(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors cursor-pointer">
+                      {siteConfig.shipping.companies.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Estado</label>
+                      <input type="text" value={estado} onChange={e => setEstado(e.target.value)} required placeholder="Ej. Distrito Capital" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Ciudad</label>
+                      <input type="text" value={ciudad} onChange={e => setCiudad(e.target.value)} required placeholder="Ej. Caracas" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Dirección Detallada (Agencia o Dirección Exacta)</label>
+                    <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} required placeholder="Agencia MRW / Av. Principal, Edificio..." className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Pago y Comprobante */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-orange-200 shadow-md">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-black text-sm">3</div>
+                  <h2 className="text-xl font-black text-slate-900">Validación de Pago</h2>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">Selecciona cómo deseas pagar</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
+                        <button
+                          key={metodo}
+                          type="button"
+                          onClick={() => setMetodoPago(metodo)}
+                          className={`p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                            metodoPago === metodo ? 'bg-orange-50 border-orange-500 text-orange-600 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
+                          }`}
+                        >
+                          {metodo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Datos Bancarios Copiables */}
+                  <div className="bg-slate-900 rounded-2xl p-5 text-white relative group">
+                    <h3 className="text-xs font-black uppercase text-orange-400 mb-3 tracking-wider">Datos para {metodoPago}</h3>
+                    <div className="space-y-2 text-sm font-medium">
+                      {metodoPago === 'Pago Móvil' && (
+                        <>
+                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.pagoMovil.banco}</p>
+                          <p><span className="text-slate-400">Teléfono:</span> {siteConfig.paymentMethods.pagoMovil.telefono}</p>
+                          <p><span className="text-slate-400">Cédula/RIF:</span> {siteConfig.paymentMethods.pagoMovil.cedula}</p>
+                        </>
+                      )}
+                      {metodoPago === 'Transferencia' && (
+                        <>
+                          <p><span className="text-slate-400">Banco:</span> {siteConfig.paymentMethods.transferencia.banco}</p>
+                          <p><span className="text-slate-400">Cuenta:</span> {siteConfig.paymentMethods.transferencia.cuenta}</p>
+                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.transferencia.titular}</p>
+                          <p><span className="text-slate-400">RIF:</span> {siteConfig.paymentMethods.transferencia.rif}</p>
+                        </>
+                      )}
+                      {metodoPago === 'Zelle' && (
+                        <>
+                          <p><span className="text-slate-400">Correo:</span> {siteConfig.paymentMethods.zelle.email}</p>
+                          <p><span className="text-slate-400">Titular:</span> {siteConfig.paymentMethods.zelle.titular}</p>
+                        </>
+                      )}
+                      {metodoPago === 'Binance Pay' && (
+                        <>
+                          <p><span className="text-slate-400">Pay ID:</span> {siteConfig.paymentMethods.binance.payId}</p>
+                          <p className="break-all"><span className="text-slate-400">USDT (TRC20):</span> {siteConfig.paymentMethods.binance.usdtAddress}</p>
+                        </>
+                      )}
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={handleCopyBankData}
+                      className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                      {copied ? '¡Datos copiados!' : 'Copiar Datos de Pago'}
+                    </button>
+                  </div>
+
+                  {/* Carga de Comprobante */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Número de Referencia</label>
+                      <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)} required placeholder="Ej. 123456" className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Adjuntar Comprobante (Captura)</label>
+                      <div className="relative">
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="comprobante-upload" />
+                        <label htmlFor="comprobante-upload" className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-2xl text-sm font-semibold text-slate-600 hover:border-orange-500 hover:text-orange-500 cursor-pointer transition-colors">
+                          <Upload className="w-4 h-4" />
+                          {comprobantePreview ? 'Cambiar imagen' : 'Subir foto o captura'}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {comprobantePreview && (
+                    <div className="mt-4 p-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
+                      <img src={comprobantePreview} alt="Comprobante" className="h-32 object-contain rounded-xl mb-2" />
+                      <p className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Comprobante adjuntado con éxito</p>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+            </div>
+
+            {/* LADO DERECHO: RESUMEN DE ORDEN (5 de 12 columnas) */}
+            <div className="lg:col-span-5 relative">
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-gray-200/80 shadow-lg sticky top-32 space-y-6">
+                
+                <h2 className="text-xl font-black text-slate-900 border-b border-gray-100 pb-4 flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-orange-500" />
+                  Resumen de tu Compra
+                </h2>
+
+                <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
+                  {items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-4 py-2">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100">
+                          <img src={item.image} alt={item.title} className="w-full h-full object-contain" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">{item.title}</span>
+                          <span className="text-[10px] text-gray-500 font-medium block mt-0.5">Cant: {item.quantity}</span>
+                        </div>
+                      </div>
+                      <span className="font-black text-sm text-slate-900 flex-shrink-0">
+                        {siteConfig.currencySymbol}{subtotalPorItem(item.price, item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between text-sm text-gray-600 font-medium">
+                    <span>Subtotal de productos</span>
+                    <span>{siteConfig.currencySymbol}{total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 font-medium">Envío ({courier})</span>
+                    <span className={`font-black ${isFreeShipping ? 'text-emerald-600' : 'text-slate-900'}`}>
+                      {isFreeShipping ? '¡GRATIS!' : 'Cobro en Destino'}
+                    </span>
+                  </div>
+                </div>
+
+                {!isFreeShipping && (
+                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl">
+                    <p className="text-[11px] font-bold text-orange-700 leading-relaxed text-center">
+                      ¡Agrega {siteConfig.currencySymbol}{(siteConfig.shipping.freeShippingThreshold - total).toFixed(2)} más en productos y tu envío sale GRATIS!
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <span className="text-base font-black text-slate-900">Total a Pagar</span>
+                  <span className="text-3xl font-black text-orange-500">
+                    {siteConfig.currencySymbol}{total.toFixed(2)}
+                  </span>
+                </div>
+
+                <button
+                  onClick={procesarYEnviarPedido}
+                  disabled={isProcessing}
+                  className="bg-slate-900 hover:bg-orange-500 text-white w-full py-4.5 rounded-2xl font-black text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  Registrar Pago y Enviar Pedido
+                </button>
+                
+                <p className="text-[10px] text-gray-400 text-center font-medium px-4">
+                  Al confirmar, tu orden quedará registrada en TodoMax y se abrirá WhatsApp para atención inmediata.
+                </p>
+
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="src/components/Header.tsx">
 'use client';
 
@@ -3359,190 +3191,6 @@ export default function Header() {
     <Suspense fallback={<div className="h-24 w-full bg-white" />}>
       <HeaderContent />
     </Suspense>
-  );
-}
-</file>
-
-<file path="src/components/OffersCarousel.tsx">
-'use client';
-
-import { useState, useEffect } from 'react';
-import useEmblaCarousel from 'embla-carousel-react';
-import Autoplay from 'embla-carousel-autoplay';
-import Link from 'next/link';
-import { ArrowRight, Sparkles } from 'lucide-react';
-
-export const defaultOffers = [
-  {
-    id: 1,
-    tag: 'COMBO AHORRO',
-    title: 'Aspiradora Auto + Mini UPS',
-    desc: 'Respaldo eléctrico ininterrumpido para tu hogar y limpieza total para tu vehículo.',
-    discount: '30% OFF',
-    link: '/product/combo-hogar-inteligente',
-    desktopImg: '/ofertas/oferta1.png',
-    mobileImg: '/ofertas/oferta1-mobile.png',
-    gradient: 'from-slate-900 via-slate-800 to-orange-950',
-  },
-  {
-    id: 2,
-    tag: 'ENVÍO GRATIS',
-    title: 'Freidora de Aire 6L Familiar',
-    desc: 'Cocina saludable sin aceite. Llévala hoy con flete cubierto por TodoMax a cualquier ciudad.',
-    discount: 'ENVÍO $0',
-    link: '/product/freidora-aire-digital',
-    desktopImg: '/ofertas/oferta2.png',
-    mobileImg: '/ofertas/oferta2-mobile.png',
-    gradient: 'from-orange-600 via-orange-500 to-amber-600',
-  },
-  {
-    id: 3,
-    tag: 'PRODUCTO VIRAL',
-    title: 'Proyector Galaxia LED',
-    desc: 'El proyector más vendido de TikTok. Parlante bluetooth y efectos espaciales inmersivos.',
-    discount: 'TOP VENTAS',
-    link: '/product/proyector-galaxia-led',
-    desktopImg: '/ofertas/oferta3.png',
-    mobileImg: '/ofertas/oferta3-mobile.png',
-    gradient: 'from-indigo-950 via-slate-900 to-slate-900',
-  },
-];
-
-export function OffersCarousel() {
-  const autoplayOptions = { delay: 6000, stopOnInteraction: false };
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [offers, setOffers] = useState<any[]>(defaultOffers);
-
-  useEffect(() => {
-    const loadOffers = async () => {
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('store_offers');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) setOffers(parsed);
-          } catch (error) {}
-        }
-      }
-
-      try {
-        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setOffers(json.data);
-            localStorage.setItem('store_offers', JSON.stringify(json.data));
-          }
-        }
-      } catch (e) {}
-    };
-
-    loadOffers();
-  }, []);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
-  }, [emblaApi]);
-
-  return (
-    <div className="w-full py-4 md:py-6" id="ofertas">
-      <div className="flex items-center justify-between mb-4 md:mb-6">
-        <div>
-          <span className="text-orange-500 font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" /> Oportunidades de la semana
-          </span>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900">Promociones y Combos</h2>
-        </div>
-      </div>
-
-      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
-        <div ref={emblaRef} className="overflow-hidden w-full">
-          <div className="flex w-full">
-            {offers.map((offer) => {
-              const dImg = offer.desktopImg || '';
-              const mImg = offer.mobileImg || dImg;
-
-              return (
-                <div
-                  key={offer.id}
-                  className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
-                >
-                  {/* Imágenes de Fondo Panorámicas */}
-                  {dImg && (
-                    <img
-                      src={dImg}
-                      alt={offer.title || 'Oferta'}
-                      className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
-                    />
-                  )}
-                  {mImg && (
-                    <img
-                      src={mImg}
-                      alt={offer.title || 'Oferta'}
-                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
-                    />
-                  )}
-
-                  {/* Capa Oscura para lectura limpia */}
-                  {(dImg || mImg) && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-transparent z-0" />
-                  )}
-
-                  {/* Enlace clickeable en toda la tarjeta */}
-                  <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
-
-                  {/* Textos de la oferta */}
-                  <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none">
-                    <div className="flex items-center gap-3">
-                      {offer.tag && (
-                        <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
-                          {offer.tag}
-                        </span>
-                      )}
-                      {offer.discount && (
-                        <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
-                          {offer.discount}
-                        </span>
-                      )}
-                    </div>
-                    {offer.title && (
-                      <h3 className="text-2xl md:text-5xl font-black drop-shadow-md">{offer.title}</h3>
-                    )}
-                    {offer.desc && (
-                      <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-sm max-w-xl">{offer.desc}</p>
-                    )}
-                    
-                    <div className="pt-2 pointer-events-auto">
-                      <Link
-                        href={offer.link || '/catalogo'}
-                        className="inline-flex items-center justify-center gap-2 bg-white text-slate-900 hover:bg-orange-50 font-black text-xs py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 cursor-pointer group/btn"
-                      >
-                        <span>Aprovechar Oferta</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-orange-500 group-hover/btn:translate-x-1 transition-transform" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Puntos de Navegación */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
-          {offers.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => emblaApi?.scrollTo(i)}
-              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'}`}
-              aria-label={`Ir a oferta ${i + 1}`}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 </file>
@@ -3870,6 +3518,179 @@ export default function ProductPage() {
 }
 </file>
 
+<file path="src/components/HeroCarousel.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
+import Link from 'next/link';
+import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
+
+export const defaultHeroSlides = [
+  {
+    id: 1,
+    badge: 'PRODUCTO ESTRELLA & COMBOS',
+    title: 'Importadora Directa TodoMax',
+    subtitle: 'Tecnología, hogar, cocina, automóvil y belleza con garantía y envío gratis en compras mayores a $50.',
+    btnText: 'Comprar Ahora',
+    btnLink: '/catalogo',
+    desktopImg: '/hero/hero1catalogo.png',
+    mobileImg: '/hero/hero1catalogo-mobile.png',
+    bgGradient: 'from-orange-600 via-orange-500 to-amber-500',
+  },
+  {
+    id: 2,
+    badge: 'PROGRAMA DE AFILIADOS',
+    title: 'Gana Dinero con TodoMax',
+    subtitle: 'Promociona productos de alta rotación con videos profesionales preaprobados y cobra comisiones directas.',
+    btnText: 'Quiero ser Afiliado',
+    btnLink: '/afiliados',
+    desktopImg: '/hero/hero2afiliados.png',
+    mobileImg: '/hero/hero2afiliados-mobile.png',
+    bgGradient: 'from-slate-950 via-slate-900 to-orange-950',
+  },
+  {
+    id: 3,
+    badge: 'ENVÍO GRATIS A TODO EL PAÍS',
+    title: 'Despachos por MRW, Zoom y Tealca',
+    subtitle: 'Recibe directo en tu puerta con entrega rápida y respaldo asegurado en cada orden.',
+    btnText: 'Explorar Catálogo',
+    btnLink: '/catalogo',
+    desktopImg: '/hero/hero3registro.png',
+    mobileImg: '/hero/hero3registro-mobile.png',
+    bgGradient: 'from-emerald-800 via-teal-700 to-slate-900',
+  },
+];
+
+export function HeroCarousel() {
+  const autoplayOptions = { delay: 6500, stopOnInteraction: false };
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [slides, setSlides] = useState<any[]>(defaultHeroSlides);
+
+  useEffect(() => {
+    const loadSlides = async () => {
+      if (typeof window !== 'undefined') {
+        const local = localStorage.getItem('store_hero_slides');
+        if (local) {
+          try {
+            const parsed = JSON.parse(local);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setSlides(parsed);
+            }
+          } catch (e) {}
+        }
+      }
+
+      try {
+        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setSlides(json.data);
+            localStorage.setItem('store_hero_slides', JSON.stringify(json.data));
+          }
+        }
+      } catch (e) {}
+    };
+
+    loadSlides();
+  }, []);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
+  }, [emblaApi]);
+
+  return (
+    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
+      <div ref={emblaRef} className="overflow-hidden w-full">
+        <div className="flex w-full">
+          {slides.map((slide) => {
+            const dImg = slide.desktopImg || '';
+            const mImg = slide.mobileImg || dImg;
+
+            return (
+              <div
+                key={slide.id}
+                className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient || 'from-slate-900 via-slate-800 to-orange-950'} flex flex-col justify-center items-start overflow-hidden group`}
+              >
+                {/* Imagen PC */}
+                {dImg && (
+                  <img
+                    src={dImg}
+                    alt={slide.title || 'Banner Principal'}
+                    className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                  />
+                )}
+
+                {/* Imagen Móvil */}
+                {mImg && (
+                  <img
+                    src={mImg}
+                    alt={slide.title || 'Banner Principal'}
+                    className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                  />
+                )}
+
+                {/* Enlace global si el banner es solo imagen */}
+                <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
+
+                {/* Renderizar textos y botón SOLO si escribes un Título explícito en el Admin */}
+                {slide.title && (
+                  <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none mt-40 md:mt-56">
+                    {slide.badge && (
+                      <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
+                        <ShieldCheck className="w-4 h-4 text-white" />
+                        {slide.badge}
+                      </span>
+                    )}
+
+                    <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
+                      {slide.title}
+                    </h1>
+
+                    {slide.subtitle && (
+                      <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
+                        {slide.subtitle}
+                      </p>
+                    )}
+
+                    <div className="pt-2 pointer-events-auto">
+                      <Link
+                        href={slide.btnLink || '/catalogo'}
+                        className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-7 py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-white group-hover/btn:scale-110 transition-transform" />
+                        <span>{slide.btnText || 'Comprar Ahora'}</span>
+                        <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Puntos de navegación */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => emblaApi?.scrollTo(i)}
+            className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'}`}
+            aria-label={`Slide ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="src/app/catalogo/page.tsx">
 'use client';
 
@@ -3880,7 +3701,7 @@ import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { Truck, ShieldCheck, Sparkles } from 'lucide-react';
+import { Truck, ShieldCheck, Sparkles, ShoppingBag } from 'lucide-react';
 
 const availableCategories = [
   'Todos',
@@ -3908,7 +3729,6 @@ function CatalogoContent() {
       const data = await productService.getProducts();
       setProducts(data);
 
-      // Cargar banners de catálogo desde localStorage y nube
       if (typeof window !== 'undefined') {
         const localSlides = localStorage.getItem('store_cat_slides');
         if (localSlides) {
@@ -3949,7 +3769,6 @@ function CatalogoContent() {
     }
   }, [searchParams, products]);
 
-  // Filtrar slides para la categoría activa
   const activeCategorySlides = (() => {
     const byCat = catSlides.filter((s: any) => s.category === activeCategory);
     if (byCat.length > 0) return byCat;
@@ -3991,7 +3810,6 @@ function CatalogoContent() {
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
         
-        {/* Cabecera Panorámica */}
         <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-3xl">
             <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
@@ -4022,9 +3840,9 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {/* BANNERS DE CATEGORÍAS (Conectado al Admin en Vivo o Banner Corporativo Limpio por defecto) */}
+        {/* BANNERS DE CATEGORÍAS (1:1 en móvil, panorámico en PC) */}
         {activeCategorySlides.length > 0 ? (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-[3/1] md:aspect-[6/1] relative border border-gray-200/80 group">
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-square md:aspect-[21/9] lg:aspect-[4/1] relative border border-gray-200/80 group">
             {activeCategorySlides.map((slide: any, i: number) => {
               const dImg = slide.desktopImg || slide.mobileImg;
               const mImg = slide.mobileImg || slide.desktopImg;
@@ -4110,9 +3928,9 @@ function CatalogoContent() {
                     </span>
                     <button
                       onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm"
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
                     >
-                      Comprar
+                      <ShoppingBag className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -4131,6 +3949,185 @@ export default function CatalogoPage() {
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando Catálogo...</div>}>
       <CatalogoContent />
     </Suspense>
+  );
+}
+</file>
+
+<file path="src/components/OffersCarousel.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
+import Link from 'next/link';
+import { ArrowRight, Sparkles } from 'lucide-react';
+
+export const defaultOffers = [
+  {
+    id: 1,
+    tag: 'COMBO AHORRO',
+    title: 'Aspiradora Auto + Mini UPS',
+    desc: 'Respaldo eléctrico ininterrumpido para tu hogar y limpieza total para tu vehículo.',
+    discount: '30% OFF',
+    link: '/product/combo-hogar-inteligente',
+    desktopImg: '/ofertas/oferta1.png',
+    mobileImg: '/ofertas/oferta1-mobile.png',
+    gradient: 'from-slate-900 via-slate-800 to-orange-950',
+  },
+  {
+    id: 2,
+    tag: 'ENVÍO GRATIS',
+    title: 'Freidora de Aire 6L Familiar',
+    desc: 'Cocina saludable sin aceite. Llévala hoy con flete cubierto por TodoMax a cualquier ciudad.',
+    discount: 'ENVÍO $0',
+    link: '/product/freidora-aire-digital',
+    desktopImg: '/ofertas/oferta2.png',
+    mobileImg: '/ofertas/oferta2-mobile.png',
+    gradient: 'from-orange-600 via-orange-500 to-amber-600',
+  },
+  {
+    id: 3,
+    tag: 'PRODUCTO VIRAL',
+    title: 'Proyector Galaxia LED',
+    desc: 'El proyector más vendido de TikTok. Parlante bluetooth y efectos espaciales inmersivos.',
+    discount: 'TOP VENTAS',
+    link: '/product/proyector-galaxia-led',
+    desktopImg: '/ofertas/oferta3.png',
+    mobileImg: '/ofertas/oferta3-mobile.png',
+    gradient: 'from-indigo-950 via-slate-900 to-slate-900',
+  },
+];
+
+export function OffersCarousel() {
+  const autoplayOptions = { delay: 6000, stopOnInteraction: false };
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [offers, setOffers] = useState<any[]>(defaultOffers);
+
+  useEffect(() => {
+    const loadOffers = async () => {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('store_offers');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) setOffers(parsed);
+          } catch (error) {}
+        }
+      }
+
+      try {
+        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setOffers(json.data);
+            localStorage.setItem('store_offers', JSON.stringify(json.data));
+          }
+        }
+      } catch (e) {}
+    };
+
+    loadOffers();
+  }, []);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
+  }, [emblaApi]);
+
+  return (
+    <div className="w-full py-4 md:py-6" id="ofertas">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <div>
+          <span className="text-orange-500 font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4" /> Oportunidades de la semana
+          </span>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900">Promociones y Combos</h2>
+        </div>
+      </div>
+
+      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
+        <div ref={emblaRef} className="overflow-hidden w-full">
+          <div className="flex w-full">
+            {offers.map((offer) => {
+              const dImg = offer.desktopImg || '';
+              const mImg = offer.mobileImg || dImg;
+
+              return (
+                <div
+                  key={offer.id}
+                  className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
+                >
+                  {/* Imágenes de Fondo Panorámicas SIN VELO OSCURO */}
+                  {dImg && (
+                    <img
+                      src={dImg}
+                      alt={offer.title || 'Oferta'}
+                      className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    />
+                  )}
+                  {mImg && (
+                    <img
+                      src={mImg}
+                      alt={offer.title || 'Oferta'}
+                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    />
+                  )}
+
+                  {/* Enlace clickeable en toda la tarjeta */}
+                  <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
+
+                  {/* Renderizar textos SOLO si se escribió un título explícito en el Admin */}
+                  {offer.title && (
+                    <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none mt-32 md:mt-48">
+                      <div className="flex items-center gap-3">
+                        {offer.tag && (
+                          <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
+                            {offer.tag}
+                          </span>
+                        )}
+                        {offer.discount && (
+                          <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
+                            {offer.discount}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-2xl md:text-5xl font-black drop-shadow-md">{offer.title}</h3>
+                      {offer.desc && (
+                        <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">{offer.desc}</p>
+                      )}
+                      
+                      <div className="pt-2 pointer-events-auto">
+                        <Link
+                          href={offer.link || '/catalogo'}
+                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-3 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
+                        >
+                          <span>Aprovechar Oferta</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-white group-hover/btn:translate-x-1 transition-transform" />
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Puntos de Navegación */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
+          {offers.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => emblaApi?.scrollTo(i)}
+              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'}`}
+              aria-label={`Ir a oferta ${i + 1}`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 </file>
@@ -4240,10 +4237,10 @@ function HomeContent() {
                     setSelectedCategory(isSelected ? 'Todos' : cat.name);
                     document.getElementById('catalogo-grilla')?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className={`flex-shrink-0 w-[140px] md:w-auto snap-start p-4 md:p-5 rounded-3xl border text-center transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer group hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/80 ${
+                  className={`flex-shrink-0 w-[140px] md:w-auto snap-start p-4 md:p-5 rounded-3xl border text-center transition-all duration-300 ease-out flex flex-col items-center justify-center gap-3 cursor-pointer group hover:-translate-y-2 hover:shadow-2xl hover:shadow-slate-300/50 ${
                     isSelected
-                      ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-105'
-                      : 'bg-white border-gray-200/80 text-slate-800 hover:border-orange-300'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-300/60 scale-105'
+                      : 'bg-white border-gray-200/80 text-slate-800 hover:border-orange-200'
                   }`}
                 >
                   <div className={`p-4 rounded-2xl transition-all duration-300 group-hover:scale-110 ${
@@ -4308,7 +4305,7 @@ function HomeContent() {
                     </div>
                     <button
                       onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" />
                     </button>
@@ -4373,7 +4370,7 @@ function HomeContent() {
                     </span>
                     <button
                       onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-slate-900 hover:bg-orange-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all active:scale-95 cursor-pointer"
+                      className="bg-slate-900 hover:bg-orange-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md shadow-slate-900/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-orange-500/40 active:scale-95 cursor-pointer"
                     >
                       Comprar
                     </button>
@@ -4538,7 +4535,7 @@ export default function AdminPage() {
     images: ['', '', '', ''],
   });
 
-  // 3. Estado de Publicidad y Contenido (Precargados con los banners por defecto)
+  // 3. Estado de Publicidad y Contenido
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
   const [heroForm, setHeroForm] = useState({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
@@ -4590,19 +4587,22 @@ export default function AdminPage() {
     }
   };
 
-  // 5. Utilidades Multimedia
+  // 5. Utilidades Multimedia (Calidad 100% Original - Sin Compresión)
+  const isVideoSource = (url: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 4.5 * 1024 * 1024) {
+        alert('⚠️ Advertencia: El archivo pesa más de 4.5MB. Vercel podría bloquear el guardado en la nube.');
+      }
       const reader = new FileReader();
       reader.onloadend = () => callback(reader.result as string);
       reader.readAsDataURL(file);
     }
-  };
-
-  const isVideoSource = (url: string) => {
-    if (!url) return false;
-    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
   useEffect(() => {
@@ -4650,7 +4650,6 @@ export default function AdminPage() {
 
     // 3. Cargar Banners Hero, Ofertas, Categorías y Configuración Marketing desde la Nube
     const loadMarketingData = async () => {
-      // Hero
       try {
         const resHero = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
         if (resHero.ok) {
@@ -4662,7 +4661,6 @@ export default function AdminPage() {
         }
       } catch (e) {}
 
-      // Ofertas
       try {
         const resOff = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
         if (resOff.ok) {
@@ -4674,7 +4672,6 @@ export default function AdminPage() {
         }
       } catch (e) {}
 
-      // Banners Catálogo
       try {
         const resCat = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
         if (resCat.ok) {
@@ -4686,7 +4683,6 @@ export default function AdminPage() {
         }
       } catch (e) {}
 
-      // Configuración de Ads y Pixel
       try {
         const resMkt = await fetch(`/api/store?key=store_marketing_config&t=${Date.now()}`, { cache: 'no-store' });
         if (resMkt.ok) {
@@ -4744,7 +4740,6 @@ export default function AdminPage() {
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
-    // Descuento automático y permanente de stock en la nube al aprobar el pago
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = products.map(p => {
         const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
@@ -4952,7 +4947,7 @@ export default function AdminPage() {
     localStorage.setItem('store_ad_spend', String(adSpendInput));
     localStorage.setItem('todomax_meta_pixel', metaPixelId.trim());
     await syncStoreKey('store_marketing_config', configData);
-    notify('Configuración de Meta Pixel y Gasto Publicitario guardada en la nube');
+    notify('Configuración guardada en la nube');
   };
 
   // ==========================================
@@ -5201,7 +5196,7 @@ export default function AdminPage() {
         {notification && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center justify-between shadow-xs">
             <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" /> {notification}</span>
-            <button onClick={() => setNotification('')}><X className="w-4 h-4" /></button>
+            <button onClick={() => setNotification('')} className="cursor-pointer"><X className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -5238,7 +5233,7 @@ export default function AdminPage() {
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full text-xs font-semibold outline-none bg-transparent"
               />
-              {searchTerm && <button onClick={() => setSearchTerm('')}><X className="w-4 h-4 text-slate-400" /></button>}
+              {searchTerm && <button onClick={() => setSearchTerm('')} className="cursor-pointer"><X className="w-4 h-4 text-slate-400" /></button>}
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
@@ -5837,8 +5832,9 @@ export default function AdminPage() {
                 <Sliders className="w-5 h-5 text-orange-500"/>
                 <h3 className="text-lg font-black text-slate-900">Banners Principales (Hero)</h3>
               </div>
+              <p className="text-xs text-slate-500">Nota: Si tu imagen ya tiene textos, deja el Título Grande en blanco para que el botón no tape tu foto.</p>
               <form onSubmit={handleSaveHero} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional si usas banner con texto)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu foto ya tiene textos" /></div>
                 <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-3 gap-2">
                   <div><label className="block font-bold uppercase mb-1">Etiqueta</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="OFERTA" /></div>
@@ -5846,7 +5842,7 @@ export default function AdminPage() {
                   <div><label className="block font-bold uppercase mb-1">Enlace Botón</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC (Recomendado Full HD)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
                   <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
@@ -5884,9 +5880,10 @@ export default function AdminPage() {
                 <Zap className="w-5 h-5 text-orange-500"/>
                 <h3 className="text-lg font-black text-slate-900">Promociones y Combos</h3>
               </div>
+              <p className="text-xs text-slate-500">Nota: Si tu imagen ya tiene textos, deja el Título en blanco para que el botón no tape tu foto.</p>
               <form onSubmit={handleSaveOffer} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título de la Oferta</label><input type="text" required value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                <div><label className="block font-bold uppercase mb-1">Descripción corta</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div><label className="block font-bold uppercase mb-1">Título de la Oferta (Opcional)</label><input type="text" value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu foto ya tiene textos" /></div>
+                <div><label className="block font-bold uppercase mb-1">Descripción corta (Opcional)</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className="block font-bold uppercase mb-1">Tag Superior</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. COMBO AHORRO" /></div>
                   <div><label className="block font-bold uppercase mb-1">Descuento/Aviso</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. 30% OFF" /></div>
@@ -5949,7 +5946,7 @@ export default function AdminPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
-                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil (Cuadrada 1:1 recomendada)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
                 </div>
                 <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
                   {editingCatBannerId ? 'Actualizar Banner de Catálogo en Nube' : 'Agregar Banner de Catálogo'}
