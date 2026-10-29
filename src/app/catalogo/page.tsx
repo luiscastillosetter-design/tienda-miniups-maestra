@@ -77,19 +77,31 @@ function CatalogoContent() {
 
   // Coincidencia flexible y robusta para reconocer los banners ya subidos por el Admin
   const activeCategorySlides = (() => {
-    const normalizedActive = activeCategory.toLowerCase().trim();
+    const normalizedActive = activeCategory
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
     
-    // 1. Buscar coincidencia exacta con la categoría activa
+    // Buscar coincidencia exacta con la categoría activa normalizada
     const byCat = catSlides.filter((s: any) => {
-      const slideCat = (s.category || 'Todos').toLowerCase().trim();
+      const slideCat = (s.category || 'Todos')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
       return slideCat === normalizedActive;
     });
 
     if (byCat.length > 0) return byCat;
 
-    // 2. Si no hay banner específico, mostrar el de "Todos" o general
+    // Si no hay banner específico para esa categoría, buscar el general o de "Todos"
     const generalSlides = catSlides.filter((s: any) => {
-      const slideCat = (s.category || 'Todos').toLowerCase().trim();
+      const slideCat = (s.category || 'Todos')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
       return slideCat === 'todos' || slideCat === 'general';
     });
 

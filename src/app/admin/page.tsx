@@ -468,27 +468,42 @@ export default function AdminPage() {
   };
 
   // CORRECCIÓN QUIRÚRGICA: Evita colisiones por ID numérico usando la categoría como clave única indiscutible
+  // CORRECCIÓN DEFINITIVA DE BANNERS DE CATÁLOGO: Normalización de clave por ID único de categoría
   const handleSaveCatBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catBannerForm.category) return;
 
-    const targetCategory = catBannerForm.category.trim();
+    // Normalizar la categoría para que las tildes y espacios no rompan la clave única
+    const rawCategory = catBannerForm.category.trim();
+    const normalizedKey = rawCategory
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "-");
 
-    // Eliminar cualquier banner previo de esta misma categoría exacta para evitar duplicados o colisiones
-    const filteredSlides = catBanners.filter(
-      (c: any) => (c.category || '').toLowerCase().trim() !== targetCategory.toLowerCase().trim()
-    );
+    // Filtrar cualquier registro previo de esta misma categoría para reemplazarlo limpiamente
+    const filteredSlides = catBanners.filter((c: any) => {
+      const existingKey = (c.category || '')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-");
+      return existingKey !== normalizedKey;
+    });
 
     const newItem = {
-      id: `cat-${targetCategory.toLowerCase().replace(/\s+/g, '-')}`,
-      ...catBannerForm
+      id: `cat-${normalizedKey}`,
+      category: rawCategory,
+      link: catBannerForm.link || '/catalogo',
+      desktopImg: catBannerForm.desktopImg || '',
+      mobileImg: catBannerForm.mobileImg || ''
     };
 
     const updated = [...filteredSlides, newItem];
     setCatBanners(updated);
     await syncStoreKey('store_cat_slides', updated);
     
-    notify(`Banner de Catálogo para "${targetCategory}" guardado en la nube con éxito`);
+    notify(`Banner de Catálogo para "${rawCategory}" guardado en la nube con éxito`);
     setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
     setEditingCatBannerId(null);
   };
