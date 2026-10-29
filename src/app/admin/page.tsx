@@ -467,22 +467,30 @@ export default function AdminPage() {
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
   };
 
+  // CORRECCIÓN QUIRÚRGICA: Evita colisiones por ID numérico usando la categoría como clave única indiscutible
   const handleSaveCatBanner = async (e: React.FormEvent) => {
     e.preventDefault();
-    let updated: any[];
-    if (editingCatBannerId) {
-      updated = catBanners.map(c => c.id === editingCatBannerId ? { ...c, ...catBannerForm } : c);
-      setEditingCatBannerId(null);
-      notify('Banner de Catálogo actualizado en la nube');
-    } else {
-      const newItem = { id: Date.now(), ...catBannerForm };
-      updated = [...catBanners, newItem];
-      notify('Banner de Catálogo agregado en la nube');
-    }
+    if (!catBannerForm.category) return;
+
+    const targetCategory = catBannerForm.category.trim();
+
+    // Eliminar cualquier banner previo de esta misma categoría exacta para evitar duplicados o colisiones
+    const filteredSlides = catBanners.filter(
+      (c: any) => (c.category || '').toLowerCase().trim() !== targetCategory.toLowerCase().trim()
+    );
+
+    const newItem = {
+      id: `cat-${targetCategory.toLowerCase().replace(/\s+/g, '-')}`,
+      ...catBannerForm
+    };
+
+    const updated = [...filteredSlides, newItem];
     setCatBanners(updated);
     await syncStoreKey('store_cat_slides', updated);
-    // Limpiar formulario y reiniciar imágenes para evitar arrastrar la foto anterior
+    
+    notify(`Banner de Catálogo para "${targetCategory}" guardado en la nube con éxito`);
     setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
+    setEditingCatBannerId(null);
   };
 
   const handleSaveMarketingConfig = async () => {
