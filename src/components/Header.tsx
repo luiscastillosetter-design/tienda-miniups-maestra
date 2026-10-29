@@ -247,7 +247,7 @@ function HeaderContent() {
           </div>
         )}
 
-        {/* Menú Desplegable */}
+        {/* Menú Desplegable con Enlaces Directos y Seguros */}
         {isMobileMenuOpen && (
           <div className="bg-white/98 backdrop-blur-xl border-b border-gray-200 shadow-2xl p-6 md:px-12 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between border-b pb-3">

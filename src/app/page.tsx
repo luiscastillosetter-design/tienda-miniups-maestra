@@ -11,7 +11,7 @@ import { OffersCarousel } from '@/components/OffersCarousel';
 import { useCartStore } from '@/store/cartStore';
 import { 
   Home as HomeIcon, Cpu, Utensils, Car, Sparkles, Flame, 
-  ShoppingBag, ShieldCheck, Truck, CreditCard, Star, CheckCircle, ArrowRight
+  ShoppingBag, ShieldCheck, Truck, CreditCard, Star, ArrowRight
 } from 'lucide-react';
 
 const categoriesList = [
@@ -45,14 +45,21 @@ function HomeContent() {
     }
   }, [searchParams]);
 
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
   const handleBuyNow = (product: Product, e: React.MouseEvent) => {
     e.preventDefault();
+    if (product.stock <= 0) return;
+    const firstValidImg = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
-        image: product.images[0],
+        image: firstValidImg,
       },
       1
     );
@@ -65,7 +72,6 @@ function HomeContent() {
     : products.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
 
   return (
-    // Se aumentó el pt (padding-top) para que el Header fijo no pise el Hero
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-28">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-12 md:space-y-16">
         
@@ -122,7 +128,7 @@ function HomeContent() {
           </div>
         </section>
 
-        {/* 3. PRODUCTOS MÁS VENDIDOS: Carrusel Horizontal */}
+        {/* 3. PRODUCTOS MÁS VENDIDOS */}
         <section className="w-full">
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
@@ -134,50 +140,60 @@ function HomeContent() {
           </div>
 
           <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
-            {bestSellers.map((product) => (
-              <div
-                key={product.id}
-                className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
-
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                        {product.title}
-                      </h3>
-                    </Link>
-                  </div>
-
-                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                    <div>
-                      <span className="text-lg md:text-xl font-black text-slate-900">
-                        {siteConfig.currencySymbol}{product.price.toFixed(2)}
+            {bestSellers.map((product) => {
+              const outOfStock = product.stock <= 0;
+              const coverMedia = product.images?.[0] || '';
+              return (
+                <div
+                  key={product.id}
+                  className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                >
+                  <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                    {isVideo(coverMedia) ? (
+                      <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                    )}
+                    {outOfStock ? (
+                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
+                        Agotado
                       </span>
+                    ) : product.badge ? (
+                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </Link>
+
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
+                      <Link href={`/product/${product.id}`}>
+                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
+                          {product.title}
+                        </h3>
+                      </Link>
                     </div>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                    </button>
+
+                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-lg md:text-xl font-black text-slate-900">
+                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={(e) => handleBuyNow(product, e)}
+                        disabled={outOfStock}
+                        title={outOfStock ? 'Sin stock disponible' : 'Comprar ahora'}
+                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -186,7 +202,7 @@ function HomeContent() {
           <OffersCarousel />
         </section>
 
-        {/* 5. CATÁLOGO GENERAL: Ahora también es Carrusel Horizontal */}
+        {/* 5. CATÁLOGO GENERAL */}
         <section className="w-full" id="catalogo-grilla">
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
@@ -201,48 +217,58 @@ function HomeContent() {
           </div>
 
           <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
+            {filteredProducts.map((product) => {
+              const outOfStock = product.stock <= 0;
+              const coverMedia = product.images?.[0] || '';
+              return (
+                <div
+                  key={product.id}
+                  className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                >
+                  <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                    {isVideo(coverMedia) ? (
+                      <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
+                    )}
+                    {outOfStock ? (
+                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                        Agotado
+                      </span>
+                    ) : product.badge ? (
+                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </Link>
 
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
-                        {product.title}
-                      </h3>
-                    </Link>
-                  </div>
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
+                      <Link href={`/product/${product.id}`}>
+                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
+                          {product.title}
+                        </h3>
+                      </Link>
+                    </div>
 
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-base md:text-lg font-black text-slate-900">
-                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-slate-900 hover:bg-orange-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md shadow-slate-900/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-orange-500/40 active:scale-95 cursor-pointer"
-                    >
-                      Comprar
-                    </button>
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-base md:text-lg font-black text-slate-900">
+                        {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={(e) => handleBuyNow(product, e)}
+                        disabled={outOfStock}
+                        title={outOfStock ? 'Sin stock disponible' : 'Comprar'}
+                        className="bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        {outOfStock ? 'Agotado' : 'Comprar'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 

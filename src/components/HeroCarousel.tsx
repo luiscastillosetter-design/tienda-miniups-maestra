@@ -6,72 +6,64 @@ import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 
-export const defaultHeroSlides = [
-  {
-    id: 1,
-    badge: 'PRODUCTO ESTRELLA & COMBOS',
-    title: 'Importadora Directa TodoMax',
-    subtitle: 'Tecnología, hogar, cocina, automóvil y belleza con garantía y envío gratis en compras mayores a $50.',
-    btnText: 'Comprar Ahora',
-    btnLink: '/catalogo',
-    desktopImg: '/hero/hero1catalogo.png',
-    mobileImg: '/hero/hero1catalogo-mobile.png',
-    bgGradient: 'from-orange-600 via-orange-500 to-amber-500',
-  },
-  {
-    id: 2,
-    badge: 'PROGRAMA DE AFILIADOS',
-    title: 'Gana Dinero con TodoMax',
-    subtitle: 'Promociona productos de alta rotación con videos profesionales preaprobados y cobra comisiones directas.',
-    btnText: 'Quiero ser Afiliado',
-    btnLink: '/afiliados',
-    desktopImg: '/hero/hero2afiliados.png',
-    mobileImg: '/hero/hero2afiliados-mobile.png',
-    bgGradient: 'from-slate-950 via-slate-900 to-orange-950',
-  },
-  {
-    id: 3,
-    badge: 'ENVÍO GRATIS A TODO EL PAÍS',
-    title: 'Despachos por MRW, Zoom y Tealca',
-    subtitle: 'Recibe directo en tu puerta con entrega rápida y respaldo asegurado en cada orden.',
-    btnText: 'Explorar Catálogo',
-    btnLink: '/catalogo',
-    desktopImg: '/hero/hero3registro.png',
-    mobileImg: '/hero/hero3registro-mobile.png',
-    bgGradient: 'from-emerald-800 via-teal-700 to-slate-900',
-  },
-];
+// Array vacío para que ni la tienda ni el Admin carguen parchos naranjas por defecto
+export const defaultHeroSlides: any[] = [];
+
+// Filtra cualquier slide viejo que apunte a rutas locales inexistentes (/hero/...)
+function filterValidAdminSlides(rawSlides: any[]): any[] {
+  if (!Array.isArray(rawSlides)) return [];
+  return rawSlides.filter((s) => {
+    const dImg = String(s?.desktopImg || '').trim();
+    const mImg = String(s?.mobileImg || '').trim();
+    const isLegacyFakePath =
+      dImg.startsWith('/hero/') ||
+      mImg.startsWith('/hero/');
+    const hasRealImage = Boolean(dImg || mImg);
+    return hasRealImage && !isLegacyFakePath;
+  });
+}
 
 export function HeroCarousel() {
   const autoplayOptions = { delay: 6500, stopOnInteraction: false };
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [slides, setSlides] = useState<any[]>(defaultHeroSlides);
+  const [slides, setSlides] = useState<any[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const loadSlides = async () => {
-      try {
-        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setSlides(json.data);
-            return;
-          }
-        }
-      } catch (e) {}
-
+      // 1. Lectura instantánea de caché local si existe
       if (typeof window !== 'undefined') {
         const local = localStorage.getItem('store_hero_slides');
         if (local) {
           try {
-            const parsed = JSON.parse(local);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            const parsed = filterValidAdminSlides(JSON.parse(local));
+            if (parsed.length > 0) {
               setSlides(parsed);
+              setIsLoaded(true);
             }
           } catch (e) {}
         }
       }
+
+      // 2. Sincronización con la base de datos del Admin
+      try {
+        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data)) {
+            const cleanSlides = filterValidAdminSlides(json.data);
+            setSlides(cleanSlides);
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+
+      setIsLoaded(true);
     };
 
     loadSlides();
@@ -82,18 +74,30 @@ export function HeroCarousel() {
     emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
   }, [emblaApi]);
 
+  // Mientras carga desde el servidor: esqueleto neutro (CERO parcho naranja)
+  if (!isLoaded) {
+    return (
+      <div className="w-full h-[42vh] md:h-[58vh] min-h-[320px] md:min-h-[460px] rounded-2xl md:rounded-3xl bg-slate-200/70 animate-pulse" />
+    );
+  }
+
+  // Si aún no se ha subido ningún banner en el Admin, no muestra parchos rotos
+  if (slides.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
+    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
       <div ref={emblaRef} className="overflow-hidden w-full">
         <div className="flex w-full">
-          {slides.map((slide) => {
-            const dImg = slide.desktopImg || '';
-            const mImg = slide.mobileImg || dImg;
+          {slides.map((slide, idx) => {
+            const dImg = slide.desktopImg || slide.mobileImg || '';
+            const mImg = slide.mobileImg || slide.desktopImg || '';
 
             return (
               <div
-                key={slide.id}
-                className={`flex-[0_0_100%] min-w-0 relative h-[48vh] md:h-[62vh] min-h-[380px] md:min-h-[480px] py-12 md:py-20 px-6 md:px-20 text-white bg-gradient-to-r ${slide.bgGradient || 'from-slate-900 via-slate-800 to-orange-950'} flex flex-col justify-center items-start overflow-hidden group`}
+                key={slide.id || idx}
+                className="flex-[0_0_100%] min-w-0 relative h-[42vh] md:h-[58vh] min-h-[320px] md:min-h-[460px] py-10 pb-16 md:py-16 md:pb-20 px-6 md:px-20 text-white bg-slate-950 flex flex-col justify-center items-start overflow-hidden group"
               >
                 {dImg && (
                   <img
@@ -111,23 +115,28 @@ export function HeroCarousel() {
                   />
                 )}
 
-                <Link href={slide.btnLink || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={slide.title || 'Ver catálogo'} />
+                <Link
+                  href={slide.btnLink || '/catalogo'}
+                  className="absolute inset-0 z-10 cursor-pointer"
+                  aria-label={slide.title || 'Ver catálogo'}
+                />
 
-                {slide.title && (
-                  <div className="max-w-3xl space-y-4 md:space-y-6 relative z-20 pointer-events-none mt-40 md:mt-56">
+                {/* Solo muestra textos superpuestos si el Admin escribió un título explícitamente */}
+                {slide.title && slide.title.trim() !== '' && (
+                  <div className="max-w-3xl space-y-3.5 md:space-y-5 relative z-20 pointer-events-none my-auto">
                     {slide.badge && (
                       <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] md:text-xs font-black uppercase tracking-wider shadow-sm">
-                        <ShieldCheck className="w-4 h-4 text-white" />
-                        {slide.badge}
+                        <ShieldCheck className="w-4 h-4 text-white flex-shrink-0" />
+                        <span>{slide.badge}</span>
                       </span>
                     )}
 
-                    <h1 className="text-3xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
+                    <h1 className="text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
                       {slide.title}
                     </h1>
 
                     {slide.subtitle && (
-                      <p className="text-xs md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
+                      <p className="text-xs sm:text-sm md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
                         {slide.subtitle}
                       </p>
                     )}
@@ -135,7 +144,7 @@ export function HeroCarousel() {
                     <div className="pt-2 pointer-events-auto">
                       <Link
                         href={slide.btnLink || '/catalogo'}
-                        className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-7 py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
+                        className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-6 md:px-7 py-3.5 md:py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
                       >
                         <ShoppingBag className="w-4 h-4 text-white group-hover/btn:scale-110 transition-transform" />
                         <span>{slide.btnText || 'Comprar Ahora'}</span>
@@ -150,16 +159,20 @@ export function HeroCarousel() {
         </div>
       </div>
 
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => emblaApi?.scrollTo(i)}
-            className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'}`}
-            aria-label={`Slide ${i + 1}`}
-          />
-        ))}
-      </div>
+      {slides.length > 1 && (
+        <div className="absolute bottom-4 md:bottom-5 left-1/2 -translate-x-1/2 flex gap-2.5 z-30">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => emblaApi?.scrollTo(i)}
+              className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                i === selectedIndex ? 'w-10 bg-white shadow-md' : 'w-2.5 bg-white/40 hover:bg-white/70'
+              }`}
+              aria-label={`Slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

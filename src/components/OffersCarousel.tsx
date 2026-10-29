@@ -6,79 +6,66 @@ import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
-export const defaultOffers = [
-  {
-    id: 1,
-    tag: 'COMBO AHORRO',
-    title: 'Aspiradora Auto + Mini UPS',
-    desc: 'Respaldo eléctrico ininterrumpido para tu hogar y limpieza total para tu vehículo.',
-    discount: '30% OFF',
-    link: '/product/combo-hogar-inteligente',
-    desktopImg: '/ofertas/oferta1.png',
-    mobileImg: '/ofertas/oferta1-mobile.png',
-    gradient: 'from-slate-900 via-slate-800 to-orange-950',
-  },
-  {
-    id: 2,
-    tag: 'ENVÍO GRATIS',
-    title: 'Freidora de Aire 6L Familiar',
-    desc: 'Cocina saludable sin aceite. Llévala hoy con flete cubierto por TodoMax a cualquier ciudad.',
-    discount: 'ENVÍO $0',
-    link: '/product/freidora-aire-digital',
-    desktopImg: '/ofertas/oferta2.png',
-    mobileImg: '/ofertas/oferta2-mobile.png',
-    gradient: 'from-orange-600 via-orange-500 to-amber-600',
-  },
-  {
-    id: 3,
-    tag: 'PRODUCTO VIRAL',
-    title: 'Proyector Galaxia LED',
-    desc: 'El proyector más vendido de TikTok. Parlante bluetooth y efectos espaciales inmersivos.',
-    discount: 'TOP VENTAS',
-    link: '/product/proyector-galaxia-led',
-    desktopImg: '/ofertas/oferta3.png',
-    mobileImg: '/ofertas/oferta3-mobile.png',
-    gradient: 'from-indigo-950 via-slate-900 to-slate-900',
-  },
-];
+// Exportación requerida por el panel administrativo (/admin/page.tsx)
+export const defaultOffers: any[] = [];
+
+function filterValidAdminOffers(rawOffers: any[]): any[] {
+  if (!Array.isArray(rawOffers)) return [];
+  return rawOffers.filter((o) => {
+    const dImg = String(o?.desktopImg || '').trim();
+    const mImg = String(o?.mobileImg || '').trim();
+    const isLegacyFakePath =
+      dImg.startsWith('/ofertas/') ||
+      mImg.startsWith('/ofertas/');
+    const hasRealImage = Boolean(dImg || mImg);
+    return hasRealImage && !isLegacyFakePath;
+  });
+}
 
 export function OffersCarousel() {
   const autoplayOptions = { delay: 6000, stopOnInteraction: false };
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [offers, setOffers] = useState<any[]>(defaultOffers);
 
-  useEffect(() => {
-    const loadOffers = async () => {
+  // Inicialización síncrona inmediata con localStorage para carga instantánea en 0ms
+  const [offers, setOffers] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
       try {
-        const res = await fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setOffers(json.data);
-            return;
-          }
-        }
-      } catch (e) {}
-
-      if (typeof window !== 'undefined') {
         const saved = localStorage.getItem('store_offers');
         if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) setOffers(parsed);
-          } catch (error) {}
+          const parsed = filterValidAdminOffers(JSON.parse(saved));
+          if (parsed.length > 0) return parsed;
         }
-      }
-    };
+      } catch (error) {}
+    }
+    return [];
+  });
 
-    loadOffers();
+  useEffect(() => {
+    fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && Array.isArray(json.data)) {
+          const cleanOffers = filterValidAdminOffers(json.data);
+          if (cleanOffers.length > 0) {
+            setOffers(cleanOffers);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+            }
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!emblaApi) return;
     emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
   }, [emblaApi]);
+
+  if (offers.length === 0) {
+    return null;
+  }
 
   return (
     <div className="w-full py-4 md:py-6" id="ofertas">
@@ -91,17 +78,17 @@ export function OffersCarousel() {
         </div>
       </div>
 
-      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50">
+      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
         <div ref={emblaRef} className="overflow-hidden w-full">
           <div className="flex w-full">
-            {offers.map((offer) => {
-              const dImg = offer.desktopImg || '';
-              const mImg = offer.mobileImg || dImg;
+            {offers.map((offer, idx) => {
+              const dImg = offer.desktopImg || offer.mobileImg || '';
+              const mImg = offer.mobileImg || offer.desktopImg || '';
 
               return (
                 <div
-                  key={offer.id}
-                  className={`flex-[0_0_100%] min-w-0 relative h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] bg-gradient-to-r ${offer.gradient || 'from-slate-900 to-slate-800'} text-white flex flex-col justify-center items-start overflow-hidden group`}
+                  key={offer.id || idx}
+                  className="flex-[0_0_100%] min-w-0 relative h-[38vh] md:h-[48vh] min-h-[280px] md:min-h-[380px] py-10 pb-14 md:py-14 md:pb-16 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
                 >
                   {dImg && (
                     <img
@@ -118,11 +105,15 @@ export function OffersCarousel() {
                     />
                   )}
 
-                  <Link href={offer.link || '/catalogo'} className="absolute inset-0 z-10 cursor-pointer" aria-label={offer.title || 'Oferta'} />
+                  <Link
+                    href={offer.link || '/catalogo'}
+                    className="absolute inset-0 z-10 cursor-pointer"
+                    aria-label={offer.title || 'Oferta'}
+                  />
 
-                  {offer.title && (
-                    <div className="px-6 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none mt-32 md:mt-48">
-                      <div className="flex items-center gap-3">
+                  {offer.title && offer.title.trim() !== '' && (
+                    <div className="px-6 sm:px-10 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none my-auto">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         {offer.tag && (
                           <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
                             {offer.tag}
@@ -134,18 +125,22 @@ export function OffersCarousel() {
                           </span>
                         )}
                       </div>
-                      <h3 className="text-2xl md:text-5xl font-black drop-shadow-md">{offer.title}</h3>
+                      <h3 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight drop-shadow-md">
+                        {offer.title}
+                      </h3>
                       {offer.desc && (
-                        <p className="text-xs md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">{offer.desc}</p>
+                        <p className="text-xs sm:text-sm md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">
+                          {offer.desc}
+                        </p>
                       )}
-                      
+
                       <div className="pt-2 pointer-events-auto">
                         <Link
                           href={offer.link || '/catalogo'}
-                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-3 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
+                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs md:text-sm py-3.5 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
                         >
                           <span>Aprovechar Oferta</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-white group-hover/btn:translate-x-1 transition-transform" />
+                          <ArrowRight className="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" />
                         </Link>
                       </div>
                     </div>
@@ -156,16 +151,20 @@ export function OffersCarousel() {
           </div>
         </div>
 
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
-          {offers.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => emblaApi?.scrollTo(i)}
-              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'}`}
-              aria-label={`Ir a oferta ${i + 1}`}
-            />
-          ))}
-        </div>
+        {offers.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
+            {offers.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => emblaApi?.scrollTo(i)}
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'
+                }`}
+                aria-label={`Ir a oferta ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

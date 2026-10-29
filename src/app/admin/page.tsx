@@ -61,6 +61,13 @@ interface Order {
   };
 }
 
+interface AffiliateUser {
+  nombre: string;
+  email: string;
+  codigo: string;
+  joinedAt: string;
+}
+
 function safeLocalStorageSet(key: string, value: any) {
   if (typeof window === 'undefined') return;
   try {
@@ -102,6 +109,9 @@ export default function AdminPage() {
     isBestSeller: false,
     images: ['', '', '', ''],
   });
+
+  const [registeredAffiliates, setRegisteredAffiliates] = useState<AffiliateUser[]>([]);
+  const [paidAffiliateCodes, setPaidAffiliateCodes] = useState<string[]>([]);
 
   const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
@@ -179,7 +189,7 @@ export default function AdminPage() {
       })
       .catch(e => console.error('Error cargando inventario:', e));
 
-    const loadOrders = async () => {
+    const loadOrdersAndAffiliates = async () => {
       try {
         const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
@@ -187,18 +197,33 @@ export default function AdminPage() {
           if (Array.isArray(json.data)) {
             setOrders(json.data);
             safeLocalStorageSet('store_orders', json.data);
-            return;
           }
         }
       } catch (e) {}
 
-      const savedOrders = localStorage.getItem('store_orders');
-      if (savedOrders) {
-        try { setOrders(JSON.parse(savedOrders)); } catch (e) {}
-      }
+      try {
+        const resAff = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+        if (resAff.ok) {
+          const jsonAff = await resAff.json();
+          if (Array.isArray(jsonAff.data)) {
+            setRegisteredAffiliates(jsonAff.data);
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+        if (resPaid.ok) {
+          const jsonPaid = await resPaid.json();
+          if (Array.isArray(jsonPaid.data)) {
+            setPaidAffiliateCodes(jsonPaid.data);
+          }
+        }
+      } catch (e) {}
     };
-    loadOrders();
-    const orderInterval = setInterval(loadOrders, 4000);
+
+    loadOrdersAndAffiliates();
+    const interval = setInterval(loadOrdersAndAffiliates, 5000);
 
     const loadMarketingData = async () => {
       try {
@@ -247,7 +272,7 @@ export default function AdminPage() {
     };
     loadMarketingData();
 
-    return () => clearInterval(orderInterval);
+    return () => clearInterval(interval);
   }, []);
 
   const notify = (msg: string) => {
@@ -288,11 +313,28 @@ export default function AdminPage() {
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
+    // Si pasa a Pago Aprobado y antes estaba pendiente, descontamos stock
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = products.map(p => {
         const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
         if (itemPedido) {
           return { ...p, stock: Math.max(0, p.stock - itemPedido.quantity) };
+        }
+        return p;
+      });
+      await syncProducts(productosActualizados);
+    }
+
+    // Si el pedido se Cancela y ya había descontado stock (estaba aprobado, en preparación o despachado), devolvemos el stock automáticamente
+    if (
+      nuevoEstado === 'Cancelado' &&
+      ordenPrevia &&
+      ['Pago Aprobado', 'En Preparación', 'Despachado', 'Entregado'].includes(ordenPrevia.status)
+    ) {
+      const productosActualizados = products.map(p => {
+        const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
+        if (itemPedido) {
+          return { ...p, stock: p.stock + itemPedido.quantity };
         }
         return p;
       });
@@ -467,7 +509,6 @@ export default function AdminPage() {
     setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
   };
 
-  // CORRECCIÓN BLINDADA DE BANNERS DE CATÁLOGO: Normalización robusta y sin colisiones por tildes o mayúsculas
   const handleSaveCatBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catBannerForm.category) return;
@@ -479,7 +520,6 @@ export default function AdminPage() {
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/\s+/g, "-");
 
-    // Filtrar cualquier registro previo que coincida exactamente con la misma categoría normalizada
     const filteredSlides = catBanners.filter((c: any) => {
       const existingKey = (c.category || '')
         .toLowerCase()
@@ -567,24 +607,44 @@ export default function AdminPage() {
     };
   });
 
-  const affiliateStats = Array.from(new Set(orders.map(o => o.attribution?.affiliateCode)))
-    .filter(code => code && code !== 'DIRECTO')
-    .map(code => {
-      const afOrders = orders.filter(o => o.attribution?.affiliateCode === code);
-      const confirmedOrders = afOrders.filter(o => o.status === 'Entregado');
-      const pendingOrders = afOrders.filter(o => o.status !== 'Cancelado' && o.status !== 'Entregado');
-      const totalVendido = confirmedOrders.reduce((sum, o) => sum + o.financials.total, 0);
-      const comisionAcumulada = confirmedOrders.reduce((sum, o) => sum + calcularComisionOrden(o), 0);
+  // Lista unificada de todos los afiliados registrados (incluso con 0 ventas) + códigos detectados en órdenes
+  const allAffiliateCodesSet = new Set<string>();
+  registeredAffiliates.forEach(a => {
+    if (a.codigo) allAffiliateCodesSet.add(a.codigo);
+  });
+  orders.forEach(o => {
+    const code = o.attribution?.affiliateCode;
+    if (code && code !== 'DIRECTO') allAffiliateCodesSet.add(code);
+  });
 
-      return {
-        codigo: code,
-        totalOrdenes: afOrders.length,
-        entregadas: confirmedOrders.length,
-        pendientes: pendingOrders.length,
-        totalVendido,
-        comisionAcumulada,
-      };
-    });
+  const affiliateStats = Array.from(allAffiliateCodesSet).map(code => {
+    const regInfo = registeredAffiliates.find(a => a.codigo === code);
+    const afOrders = orders.filter(o => o.attribution?.affiliateCode === code);
+    const confirmedOrders = afOrders.filter(o => o.status === 'Entregado');
+    const pendingOrders = afOrders.filter(o => o.status !== 'Cancelado' && o.status !== 'Entregado');
+    const totalVendido = confirmedOrders.reduce((sum, o) => sum + o.financials.total, 0);
+    const comisionAcumulada = confirmedOrders.reduce((sum, o) => sum + calcularComisionOrden(o), 0);
+    const isPaid = paidAffiliateCodes.includes(code);
+
+    return {
+      codigo: code,
+      nombre: regInfo?.nombre || 'Afiliado Independiente',
+      email: regInfo?.email || 'N/A',
+      totalOrdenes: afOrders.length,
+      entregadas: confirmedOrders.length,
+      pendientes: pendingOrders.length,
+      totalVendido,
+      comisionAcumulada,
+      isPaid,
+    };
+  });
+
+  const handleMarcarPagadoAfiliado = async (code: string) => {
+    const updatedPaid = Array.from(new Set([...paidAffiliateCodes, code]));
+    setPaidAffiliateCodes(updatedPaid);
+    await syncStoreKey('store_paid_affiliates', updatedPaid);
+    notify(`Comisiones del afiliado [${code}] marcadas como pagadas con éxito.`);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -974,7 +1034,7 @@ export default function AdminPage() {
                           onClick={() => actualizarEstadoPedido(selectedOrder.id, 'Cancelado')}
                           className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                         >
-                          Cancelar Pedido
+                          Cancelar Pedido (Devolver Stock)
                         </button>
                       )}
 
@@ -1299,12 +1359,12 @@ export default function AdminPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-black text-slate-900">Rendimiento del Programa de Afiliados</h2>
-              <p className="text-xs text-slate-500">Revisa ventas por embajador y montos de comisiones reales disponibles tras entrega.</p>
+              <p className="text-xs text-slate-500">Listado completo de embajadores registrados, volumen facturado y liquidación real de comisiones.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Afiliados con Ventas</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">Afiliados Registrados</p>
                 <p className="text-3xl font-black text-slate-900 mt-2">{affiliateStats.length}</p>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
@@ -1314,9 +1374,9 @@ export default function AdminPage() {
                 </p>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Comisiones por Liquidar</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">Comisiones Pendientes de Pago</p>
                 <p className="text-3xl font-black text-emerald-600 mt-2">
-                  ${totalComisionesAfiliados.toFixed(2)}
+                  ${affiliateStats.filter(a => !a.isPaid).reduce((sum, a) => sum + a.comisionAcumulada, 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -1325,35 +1385,47 @@ export default function AdminPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-[10px] font-black uppercase text-slate-500">
                   <tr>
-                    <th className="p-4">Código Afiliado</th>
+                    <th className="p-4">Embajador / Código</th>
                     <th className="p-4">Órdenes Totales</th>
                     <th className="p-4">Entregadas</th>
                     <th className="p-4">Volumen Facturado</th>
                     <th className="p-4">Comisión Disponible</th>
+                    <th className="p-4">Estatus Pago</th>
                     <th className="p-4 text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {affiliateStats.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 font-bold">
-                        Aún no se han registrado ventas con códigos de afiliados.
+                      <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">
+                        Aún no hay afiliados registrados ni ventas con código.
                       </td>
                     </tr>
                   ) : (
                     affiliateStats.map(af => (
                       <tr key={af.codigo} className="hover:bg-slate-50">
-                        <td className="p-4 font-black text-orange-600">{af.codigo}</td>
+                        <td className="p-4">
+                          <span className="font-black text-slate-900 block">{af.nombre}</span>
+                          <span className="text-[10px] text-orange-600 font-bold">Código: {af.codigo}</span>
+                        </td>
                         <td className="p-4">{af.totalOrdenes} pedidos</td>
                         <td className="p-4 text-emerald-600 font-bold">{af.entregadas} entregados</td>
                         <td className="p-4 font-black">${af.totalVendido.toFixed(2)}</td>
                         <td className="p-4 font-black text-emerald-600">${af.comisionAcumulada.toFixed(2)}</td>
+                        <td className="p-4">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            af.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {af.isPaid ? 'Pagado' : 'Por Liquidar'}
+                          </span>
+                        </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => notify(`Liquidación para ${af.codigo} registrada con éxito.`)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                            onClick={() => handleMarcarPagadoAfiliado(af.codigo)}
+                            disabled={af.isPaid || af.comisionAcumulada <= 0}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
                           >
-                            Marcar Pagado
+                            {af.isPaid ? 'Liquidado' : 'Marcar Pagado'}
                           </button>
                         </td>
                       </tr>
@@ -1590,7 +1662,7 @@ export default function AdminPage() {
         {activeTab === 'finanzas' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-callout font-black text-slate-900">Estado Financiero y Rentabilidad Real</h2>
+              <h2 className="text-2xl font-black text-slate-900">Estado Financiero y Rentabilidad Real</h2>
               <p className="text-xs text-slate-500">Cruza ingresos brutos, costos de importación, gasto publicitario y comisiones.</p>
             </div>
 
@@ -1613,7 +1685,7 @@ export default function AdminPage() {
                 <span className="text-[10px] text-slate-500 mt-1 block">Publicidad: ${adSpendInput} • Afiliados: ${totalComisionesAfiliados.toFixed(2)}</span>
               </div>
 
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg">
+              <div className="gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg bg-slate-900">
                 <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">Utilidad Neta Estimada</span>
                 <p className="text-3xl font-black mt-2 text-emerald-400">${utilidadNetaEstimada.toFixed(2)}</p>
                 <span className="text-[10px] text-white/70 mt-1 block">

@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
+import { products as defaultProducts } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { Truck, Sparkles, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 
 const availableCategories = [
   'Todos',
@@ -16,98 +17,137 @@ const availableCategories = [
   'Cocina',
   'Automóvil',
   'Belleza',
-  'Productos Virales'
+  'Productos Virales',
 ];
+
+function normalizeCatName(val: string) {
+  return (val || 'Todos')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function filterValidCatBanners(rawSlides: any[]): any[] {
+  if (!Array.isArray(rawSlides)) return [];
+  return rawSlides.filter((s) => {
+    const dImg = String(s?.desktopImg || '').trim();
+    const mImg = String(s?.mobileImg || '').trim();
+    const isLegacyFakePath =
+      dImg.startsWith('/categories/') ||
+      mImg.startsWith('/categories/');
+    const hasRealImage = Boolean(dImg || mImg);
+    return hasRealImage && !isLegacyFakePath;
+  });
+}
 
 function CatalogoContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { addItem } = useCartStore();
-  
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('Todos');
-  const [catSlides, setCatSlides] = useState<any[]>([]);
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_products');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return defaultProducts;
+  });
+
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    return searchParams.get('category') || 'Todos';
+  });
+
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>(() => {
+    const cat = searchParams.get('category');
+    if (!cat || cat.toLowerCase() === 'todos') return products;
+    const targetNorm = normalizeCatName(cat);
+    return products.filter((p) => normalizeCatName(p.category) === targetNorm);
+  });
+
+  const [catSlides, setCatSlides] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const localSlides = localStorage.getItem('store_cat_slides');
+        if (localSlides) {
+          const parsed = filterValidCatBanners(JSON.parse(localSlides));
+          if (parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
   const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
 
   useEffect(() => {
-    const loadData = async () => {
-      const data = await productService.getProducts();
-      setProducts(data);
-
-      try {
-        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            setCatSlides(json.data);
-            return;
-          }
-        }
-      } catch (e) {}
-
-      if (typeof window !== 'undefined') {
-        const localSlides = localStorage.getItem('store_cat_slides');
-        if (localSlides) {
-          try {
-            const parsed = JSON.parse(localSlides);
-            if (Array.isArray(parsed)) setCatSlides(parsed);
-          } catch (e) {}
-        }
-      }
-    };
-    loadData();
-  }, []);
-
-  useEffect(() => {
     const categoryParam = searchParams.get('category');
-    if (products.length > 0) {
-      if (!categoryParam || categoryParam.toLowerCase() === 'todos') {
-        setActiveCategory('Todos');
-        setFilteredProducts(products);
-      } else {
-        setActiveCategory(categoryParam);
-        const filtered = products.filter(
-          p => p.category?.toLowerCase() === categoryParam.toLowerCase()
-        );
-        setFilteredProducts(filtered);
-      }
+    const currentCat = categoryParam || 'Todos';
+    setActiveCategory(currentCat);
+
+    if (!currentCat || currentCat.toLowerCase() === 'todos') {
+      setFilteredProducts(products);
+    } else {
+      const targetNorm = normalizeCatName(currentCat);
+      setFilteredProducts(products.filter((p) => normalizeCatName(p.category) === targetNorm));
     }
   }, [searchParams, products]);
 
-  // Coincidencia flexible y robusta para reconocer los banners ya subidos por el Admin
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const prods = await productService.getProducts();
+        if (Array.isArray(prods) && prods.length > 0) {
+          setProducts(prods);
+          const currentCat = searchParams.get('category') || 'Todos';
+          if (!currentCat || currentCat.toLowerCase() === 'todos') {
+            setFilteredProducts(prods);
+          } else {
+            const targetNorm = normalizeCatName(currentCat);
+            setFilteredProducts(prods.filter((p) => normalizeCatName(p.category) === targetNorm));
+          }
+        }
+
+        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.data)) {
+            const cleanSlides = filterValidCatBanners(json.data);
+            setCatSlides(cleanSlides);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('store_cat_slides', JSON.stringify(cleanSlides));
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    loadData();
+  }, [searchParams]);
+
+  // FILTRO ESTRICTO DE BANNERS: Si la categoría no tiene banner propio, no muestra banner cruzado de otra categoría (evita contaminación)
   const activeCategorySlides = (() => {
-    const normalizedActive = activeCategory
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
-    
-    // Buscar coincidencia exacta con la categoría activa normalizada
-    const byCat = catSlides.filter((s: any) => {
-      const slideCat = (s.category || 'Todos')
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-      return slideCat === normalizedActive;
-    });
+    const normalizedActive = normalizeCatName(activeCategory);
 
-    if (byCat.length > 0) return byCat;
+    const exactMatches = catSlides.filter(
+      (s: any) => normalizeCatName(s.category) === normalizedActive
+    );
+    if (exactMatches.length > 0) return exactMatches;
 
-    // Si no hay banner específico para esa categoría, buscar el general o de "Todos"
-    const generalSlides = catSlides.filter((s: any) => {
-      const slideCat = (s.category || 'Todos')
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-      return slideCat === 'todos' || slideCat === 'general';
-    });
+    // Si está en 'Todos', mostrar generales
+    if (normalizedActive === 'todos') {
+      return catSlides.filter((s: any) => {
+        const slideCat = normalizeCatName(s.category);
+        return slideCat === 'todos' || slideCat === 'general';
+      });
+    }
 
-    if (generalSlides.length > 0) return generalSlides;
-
-    return catSlides;
+    return [];
   })();
 
   useEffect(() => {
@@ -127,14 +167,21 @@ function CatalogoContent() {
     }
   };
 
+  const isVideo = (url?: string) => {
+    if (!url) return false;
+    return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
+  };
+
   const handleBuyNow = (product: Product, e: React.MouseEvent) => {
     e.preventDefault();
+    if (product.stock <= 0) return;
+    const firstValidImg = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
     addItem(
       {
         id: product.id,
         title: product.title,
         price: product.price,
-        image: product.images[0],
+        image: firstValidImg,
       },
       1
     );
@@ -144,17 +191,16 @@ function CatalogoContent() {
   return (
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-24">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-8">
-        
-        <div className="bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-white rounded-3xl p-6 md:p-10 border border-gray-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-3xl">
             <span className="text-orange-500 font-black text-xs uppercase tracking-wider">
               {siteConfig.storeName}
             </span>
-            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-3">
-              Catálogo Completo
+            <h1 className="text-2xl md:text-4xl font-black text-slate-900 mt-1 mb-2">
+              {activeCategory === 'Todos' ? 'Catálogo Completo' : `Departamento: ${activeCategory}`}
             </h1>
             <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed">
-              Descubre oportunidades con precios directos de mayorista, garantía oficial en Venezuela y despacho gratuito a partir de ${siteConfig.shipping.freeShippingThreshold}.
+              Precios directos de importadora, garantía oficial y envío gratis a partir de {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold}.
             </p>
           </div>
 
@@ -164,7 +210,7 @@ function CatalogoContent() {
                 key={cat}
                 onClick={() => handleCategorySelect(cat)}
                 className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
-                  activeCategory.toLowerCase() === cat.toLowerCase()
+                  normalizeCatName(activeCategory) === normalizeCatName(cat)
                     ? 'bg-slate-900 text-white shadow-lg'
                     : 'bg-slate-100 text-slate-700 hover:bg-orange-50 hover:text-orange-600'
                 }`}
@@ -175,8 +221,8 @@ function CatalogoContent() {
           </div>
         </div>
 
-        {activeCategorySlides.length > 0 ? (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-900 aspect-square md:aspect-[21/9] lg:aspect-[4/1] relative border border-gray-200/80 group">
+        {activeCategorySlides.length > 0 && (
+          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-slate-950 aspect-[16/9] md:aspect-[21/8] lg:aspect-[4/1] relative border border-gray-200/80 group">
             {activeCategorySlides.map((slide: any, i: number) => {
               const dImg = slide.desktopImg || slide.mobileImg;
               const mImg = slide.mobileImg || slide.desktopImg;
@@ -185,39 +231,35 @@ function CatalogoContent() {
                 <Link
                   key={slide.id || i}
                   href={slide.link || '/catalogo'}
-                  className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
+                  className={`absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out ${
                     isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
                   }`}
                 >
-                  {dImg && <img src={dImg} alt="Banner Catálogo PC" className="hidden md:block w-full h-full object-cover" />}
-                  {mImg && <img src={mImg} alt="Banner Catálogo Móvil" className="block md:hidden w-full h-full object-cover" />}
+                  {dImg && (
+                    <img
+                      src={dImg}
+                      alt={`Banner ${slide.category || activeCategory}`}
+                      className="hidden md:block w-full h-full object-cover"
+                    />
+                  )}
+                  {mImg && (
+                    <img
+                      src={mImg}
+                      alt={`Banner ${slide.category || activeCategory}`}
+                      className="block md:hidden w-full h-full object-cover"
+                    />
+                  )}
                 </Link>
               );
             })}
-          </div>
-        ) : (
-          <div className="w-full rounded-3xl overflow-hidden shadow-sm bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 p-6 md:px-12 md:py-8 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
-            <div className="space-y-1.5">
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-orange-400 bg-white/10 px-3 py-1 rounded-full">
-                <Sparkles className="w-3.5 h-3.5" /> Departamento: {activeCategory}
-              </span>
-              <h2 className="text-xl md:text-2xl font-black">
-                Envío Gratis en compras desde {siteConfig.currencySymbol}{siteConfig.shipping.freeShippingThreshold}
-              </h2>
-              <p className="text-xs text-slate-300 font-medium">
-                Despachos rápidos por {siteConfig.shipping.companies.slice(0, 3).join(', ')} con garantía directa de importadora.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-bold bg-white/10 backdrop-blur-xs px-4 py-3 rounded-2xl border border-white/10">
-              <Truck className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <span>Stock verificado y entrega inmediata</span>
-            </div>
           </div>
         )}
 
         {filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-16 text-center border border-gray-200/80">
-            <p className="text-sm text-gray-500 font-bold mb-4">No hay productos disponibles en esta categoría.</p>
+            <p className="text-sm text-gray-500 font-bold mb-4">
+              No hay productos disponibles en esta categoría.
+            </p>
             <button
               onClick={() => handleCategorySelect('Todos')}
               className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold text-xs cursor-pointer"
@@ -227,51 +269,76 @@ function CatalogoContent() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-              >
-                <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                  />
-                  {product.badge && (
-                    <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
-                      {product.badge}
-                    </span>
-                  )}
-                </Link>
+            {filteredProducts.map((product) => {
+              const outOfStock = product.stock <= 0;
+              const coverMedia = product.images?.[0] || '';
+              return (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                >
+                  <Link
+                    href={`/product/${product.id}`}
+                    className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden"
+                  >
+                    {isVideo(coverMedia) ? (
+                      <video
+                        src={coverMedia}
+                        muted
+                        loop
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                    ) : (
+                      <img
+                        src={coverMedia}
+                        alt={product.title}
+                        className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
+                      />
+                    )}
+                    {outOfStock ? (
+                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
+                        Agotado
+                      </span>
+                    ) : product.badge ? (
+                      <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
+                        {product.badge}
+                      </span>
+                    ) : null}
+                  </Link>
 
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">{product.category}</span>
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                        {product.title}
-                      </h3>
-                    </Link>
-                  </div>
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">
+                        {product.category}
+                      </span>
+                      <Link href={`/product/${product.id}`}>
+                        <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
+                          {product.title}
+                        </h3>
+                      </Link>
+                    </div>
 
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-base md:text-lg font-black text-slate-900">
-                      {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={(e) => handleBuyNow(product, e)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-base md:text-lg font-black text-slate-900">
+                        {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={(e) => handleBuyNow(product, e)}
+                        disabled={outOfStock}
+                        title={outOfStock ? 'Sin stock disponible' : 'Comprar ahora'}
+                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
-
       </div>
     </div>
   );
