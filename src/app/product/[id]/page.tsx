@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ShoppingCart, ChevronLeft, Truck, CheckCircle2, CreditCard, Play, Flame, ListChecks } from 'lucide-react';
+import { 
+  ShoppingCart, ChevronLeft, Truck, CheckCircle2, 
+  CreditCard, Play, Flame, ListChecks, Search 
+} from 'lucide-react';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
@@ -21,6 +24,9 @@ export default function ProductPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+
+  // Estado para el zoom óptico tipo Mercado Libre
+  const [zoomPos, setZoomPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -100,6 +106,18 @@ export default function ProductPage() {
     router.push('/checkout');
   };
 
+  // Manejador del movimiento del cursor sobre la imagen principal
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomPos({ x, y });
+  };
+
+  const handleMouseLeave = () => {
+    setZoomPos(null);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pt-28 md:pt-36 pb-24">
       <main className="w-full px-4 md:px-10 lg:px-16 space-y-12">
@@ -115,16 +133,19 @@ export default function ProductPage() {
         {/* Ficha Principal Panorámica */}
         <div className="bg-white rounded-3xl border border-gray-200/80 shadow-sm p-6 md:p-12 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
           
-          {/* LADO IZQUIERDO: Gran Visor Multimedia (7 de 12 columnas) */}
+          {/* LADO IZQUIERDO: Gran Visor Multimedia con Lupa Interactiva (7 de 12 cols) */}
           <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
             
-            {/* Tira de Miniaturas con soporte para Foto y Video */}
+            {/* Tira de Miniaturas */}
             {product.images && product.images.length > 1 && (
               <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto max-h-[550px] pb-2 md:pb-0 scrollbar-hide">
                 {product.images.map((media, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setSelectedImageIndex(idx)}
+                    onClick={() => {
+                      setSelectedImageIndex(idx);
+                      setZoomPos(null);
+                    }}
                     className={`relative w-16 h-16 md:w-20 md:h-20 rounded-2xl border-2 overflow-hidden bg-slate-50 flex-shrink-0 cursor-pointer transition-all ${
                       selectedImageIndex === idx ? 'border-orange-500 shadow-md scale-105' : 'border-gray-200 opacity-60 hover:opacity-100'
                     }`}
@@ -142,22 +163,49 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* Imagen/Video Principal Grande */}
-            <div className="relative flex-1 aspect-square md:aspect-auto md:min-h-[550px] bg-slate-50 rounded-3xl overflow-hidden border border-gray-100 flex items-center justify-center p-6">
+            {/* Imagen/Video Principal con Lupa Óptica Tipo Mercado Libre */}
+            <div 
+              onMouseMove={!isVideo(currentMedia) ? handleMouseMove : undefined}
+              onMouseLeave={!isVideo(currentMedia) ? handleMouseLeave : undefined}
+              className={`relative flex-1 aspect-square md:aspect-auto md:min-h-[550px] bg-slate-50 rounded-3xl overflow-hidden border border-gray-100 flex items-center justify-center p-6 ${
+                !isVideo(currentMedia) ? 'cursor-crosshair' : ''
+              }`}
+            >
               {isVideo(currentMedia) ? (
                 <video src={currentMedia} controls autoPlay muted loop className="w-full h-full object-contain rounded-2xl max-h-[520px]" />
               ) : (
-                <img src={currentMedia} alt={product.title} className="w-full h-full object-contain" />
+                <img 
+                  src={currentMedia} 
+                  alt={product.title} 
+                  style={
+                    zoomPos
+                      ? {
+                          transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                          transform: 'scale(1.95)',
+                          transition: 'transform 0.06s ease-out',
+                        }
+                      : { transition: 'transform 0.25s ease-out' }
+                  }
+                  className="w-full h-full object-contain pointer-events-none select-none" 
+                />
               )}
+
               {product.badge && (
-                <span className="absolute top-4 left-4 bg-slate-900 text-white text-xs font-black px-3 py-1 rounded-xl uppercase shadow-md">
+                <span className="absolute top-4 left-4 bg-slate-900 text-white text-xs font-black px-3 py-1 rounded-xl uppercase shadow-md pointer-events-none">
                   {product.badge}
+                </span>
+              )}
+
+              {/* Indicador de Lupa en PC */}
+              {!isVideo(currentMedia) && !zoomPos && (
+                <span className="hidden md:flex items-center gap-1.5 absolute bottom-4 right-4 bg-white/90 backdrop-blur-md text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-full shadow-xs border border-gray-200 pointer-events-none">
+                  <Search className="w-3.5 h-3.5 text-orange-500" /> Pasa el cursor para ampliar
                 </span>
               )}
             </div>
           </div>
 
-          {/* LADO DERECHO: Caja de Compra y Detalles Estructurados (5 de 12 columnas) */}
+          {/* LADO DERECHO: Detalles Estructurados y Compra (5 de 12 cols) */}
           <div className="lg:col-span-5 flex flex-col justify-between space-y-6">
             
             <div className="space-y-4">
@@ -172,7 +220,7 @@ export default function ProductPage() {
                 </span>
               </div>
 
-              <h1 className="text-2xl md:text-4xl font-black text-slate-900 leading-tight">
+              <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
                 {product.title}
               </h1>
 
@@ -197,12 +245,17 @@ export default function ProductPage() {
                 </p>
               </div>
 
-              {/* Descripción */}
+              {/* DESCRIPCIÓN ESTRUCTURADA: Respeta párrafos y saltos de línea del administrador */}
               {product.description && (
-                <div className="pt-1">
-                  <p className="text-xs md:text-sm text-gray-600 leading-relaxed font-normal">
-                    {product.description}
-                  </p>
+                <div className="pt-2">
+                  <div className="bg-slate-50/70 rounded-2xl p-5 border border-slate-200/80 space-y-2">
+                    <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">
+                      Descripción del Producto
+                    </h3>
+                    <div className="text-xs md:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-line">
+                      {product.description}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -221,7 +274,7 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Características / Ficha Técnica */}
+              {/* Especificaciones Técnicas */}
               {product.features && product.features.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <p className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
@@ -298,7 +351,7 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* CARRUSEL INFERIOR DE REMARKETING CON SOPORTE COMPLETO DE VIDEO */}
+        {/* Carrusel Inferior de Recomendados */}
         {relatedProducts.length > 0 && (
           <section className="w-full pt-8">
             <div className="flex items-center justify-between mb-6">
