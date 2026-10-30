@@ -36,6 +36,12 @@ export default function Footer() {
       .catch(() => {});
   }, []);
 
+  const openPolicyModal = (policyKey: 'shipping' | 'warranty' | 'terms' | 'privacy') => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('open-policy', { detail: policyKey }));
+    }
+  };
+
   return (
     <footer className="w-full bg-white border-t border-gray-200 mt-auto px-4 md:px-12 py-12 md:py-16">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
@@ -70,26 +76,57 @@ export default function Footer() {
                 Promociones y Combos
               </Link>
             </li>
-          </ul>
-        </div>
-
-        {/* Columna 3: Afiliados y Envíos */}
-        <div className="flex flex-col items-start text-left">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Servicios</h3>
-          <ul className="space-y-3">
             <li>
               <Link href="/afiliados" className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1">
                 Gana dinero con {footerSettings.storeName}
               </Link>
             </li>
-            <li className="flex items-start gap-2 mt-4 text-sm text-gray-500 font-medium">
+          </ul>
+        </div>
+
+        {/* Columna 3: Políticas y Condiciones */}
+        <div className="flex flex-col items-start text-left">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Políticas</h3>
+          <ul className="space-y-2.5">
+            <li>
+              <button
+                type="button"
+                onClick={() => openPolicyModal('shipping')}
+                className="text-sm text-gray-500 hover:text-orange-500 font-medium transition-colors cursor-pointer text-left"
+              >
+                Envíos y Entregas
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => openPolicyModal('warranty')}
+                className="text-sm text-gray-500 hover:text-orange-500 font-medium transition-colors cursor-pointer text-left"
+              >
+                Cambios y Reembolsos
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => openPolicyModal('terms')}
+                className="text-sm text-gray-500 hover:text-orange-500 font-medium transition-colors cursor-pointer text-left"
+              >
+                Términos del Servicio
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => openPolicyModal('privacy')}
+                className="text-sm text-gray-500 hover:text-orange-500 font-medium transition-colors cursor-pointer text-left"
+              >
+                Política de Privacidad
+              </button>
+            </li>
+            <li className="flex items-start gap-2 pt-2 text-xs text-gray-400 font-medium">
               <Truck className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-              <span>
-                Envíos seguros por: <br />
-                <span className="font-bold text-slate-700">
-                  {footerSettings.shippingCompanies.slice(0, 3).join(', ')}
-                </span>
-              </span>
+              <span>Envíos: {footerSettings.shippingCompanies.slice(0, 3).join(', ')}</span>
             </li>
           </ul>
         </div>

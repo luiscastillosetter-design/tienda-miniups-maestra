@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
+import TrustAndPolicies from '@/components/TrustAndPolicies';
 
 const categoriesList = [
   { name: 'Hogar', icon: HomeIcon, desc: 'Espacios modernos' },
@@ -87,11 +88,13 @@ function CatalogoContent() {
       .then((json) => {
         if (json && Array.isArray(json.data)) {
           const cleanSlides = filterValidCatBanners(json.data);
-          setCatSlides(cleanSlides);
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('store_cat_slides', JSON.stringify(cleanSlides));
-            } catch (_) {}
+          if (cleanSlides.length > 0) {
+            setCatSlides(cleanSlides);
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('store_cat_slides', JSON.stringify(cleanSlides));
+              } catch (_) {}
+            }
           }
         }
       })
@@ -386,6 +389,9 @@ function CatalogoContent() {
             </div>
           )}
         </section>
+
+        {/* 4. BLOQUE DE POLÍTICAS DINÁMICAS */}
+        <TrustAndPolicies />
 
       </div>
     </div>

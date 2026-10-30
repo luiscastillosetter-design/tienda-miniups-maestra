@@ -14,6 +14,7 @@ import { products as initialProducts, Product } from '@/data/products';
 import { defaultHeroSlides } from '@/components/HeroCarousel';
 import { defaultOffers } from '@/components/OffersCarousel';
 import { supabase } from '@/lib/supabase';
+import { defaultPolicies, StorePolicies } from '@/components/TrustAndPolicies';
 
 type UserRole = 'Super Admin' | 'Logística y Pagos' | 'Marketing y Afiliados';
 
@@ -114,7 +115,6 @@ export default function AdminPage() {
   const [registeredAffiliates, setRegisteredAffiliates] = useState<AffiliateUser[]>([]);
   const [paidAffiliateMap, setPaidAffiliateMap] = useState<Record<string, number>>({});
 
-  // Carga síncrona desde localStorage para que los banners preestablecidos se vean de inmediato en el Admin
   const [heroSlides, setHeroSlides] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -187,6 +187,8 @@ export default function AdminPage() {
     showBtn: true 
   });
 
+  const [policiesForm, setPoliciesForm] = useState<StorePolicies>(defaultPolicies);
+
   const [adSpendInput, setAdSpendInput] = useState<number>(0);
   const [metaPixelId, setMetaPixelId] = useState(siteConfig.metaPixelId || '');
   const [searchTerm, setSearchTerm] = useState('');
@@ -244,7 +246,6 @@ export default function AdminPage() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  // Subida directa a Supabase Storage con URL corta
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -470,6 +471,16 @@ export default function AdminPage() {
           const jCfg = await resCfg.json();
           if (jCfg.data) {
             setStoreSettings(prev => ({ ...prev, ...jCfg.data }));
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const resPol = await fetch(`/api/store?key=store_policies&t=${Date.now()}`, { cache: 'no-store' });
+        if (resPol.ok) {
+          const jPol = await resPol.json();
+          if (jPol.data) {
+            setPoliciesForm({ ...defaultPolicies, ...jPol.data });
           }
         }
       } catch (e) {}
@@ -1299,7 +1310,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* RESTO DE TABS (Pedidos, Inventario, Afiliados, CRM, Finanzas, Ajustes) */}
+        {/* TAB PEDIDOS */}
         {activeTab === 'pedidos' && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1514,6 +1525,7 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* TAB INVENTARIO */}
         {activeTab === 'inventario' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs h-fit space-y-4">
@@ -1696,6 +1708,7 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* TAB AFILIADOS */}
         {activeTab === 'afiliados' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-slate-900">Programa de Afiliados</h2>
@@ -1734,6 +1747,7 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* TAB CRM */}
         {activeTab === 'crm' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-slate-900">Directorio CRM</h2>
@@ -1762,6 +1776,7 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* TAB FINANZAS */}
         {activeTab === 'finanzas' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-slate-900">Finanzas</h2>
@@ -1782,6 +1797,7 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* TAB AJUSTES */}
         {activeTab === 'ajustes' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-slate-900">Ajustes Generales de la Tienda</h2>
@@ -1789,31 +1805,341 @@ export default function AdminPage() {
               onSubmit={async (e) => {
                 e.preventDefault();
                 await syncStoreKey('store_site_config', storeSettings);
-                notify('Ajustes de tienda guardados en Supabase con éxito');
+                await syncStoreKey('store_policies', policiesForm);
+                notify('Ajustes de tienda y políticas guardados con éxito');
               }}
-              className="space-y-6 bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs"
+              className="space-y-8"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label className="block font-bold uppercase text-slate-500 mb-1">WhatsApp</label>
-                  <input type="text" value={storeSettings.whatsappNumber} onChange={e => setStoreSettings({...storeSettings, whatsappNumber: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
+              {/* Bloque 1: Contacto y Marca */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <h3 className="text-base font-black text-slate-900">1. Datos de Contacto y Tienda</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Nombre Comercial de la Tienda</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.storeName}
+                      onChange={e => setStoreSettings({ ...storeSettings, storeName: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Número de WhatsApp (con código de país)</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.whatsappNumber}
+                      onChange={e => setStoreSettings({ ...storeSettings, whatsappNumber: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Correo Electrónico de Contacto</label>
+                    <input
+                      type="email"
+                      required
+                      value={storeSettings.email}
+                      onChange={e => setStoreSettings({ ...storeSettings, email: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Ubicación / Ciudad</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.location}
+                      onChange={e => setStoreSettings({ ...storeSettings, location: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold uppercase text-slate-500 mb-1">Envío Gratis Desde ($)</label>
-                  <input type="number" value={storeSettings.freeShippingThreshold} onChange={e => setStoreSettings({...storeSettings, freeShippingThreshold: Number(e.target.value)})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
+              </div>
+
+              {/* Bloque 2: Políticas de Envío */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <h3 className="text-base font-black text-slate-900">2. Envíos y Despacho</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Monto Mínimo para Envío Gratis ($)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      required
+                      value={storeSettings.freeShippingThreshold}
+                      onChange={e => setStoreSettings({ ...storeSettings, freeShippingThreshold: Number(e.target.value) })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">Empresas de Envío (separadas por coma)</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.shippingCompanies}
+                      onChange={e => setStoreSettings({ ...storeSettings, shippingCompanies: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold uppercase text-slate-500 mb-1">Pay ID Binance</label>
-                  <input type="text" value={storeSettings.binancePayId} onChange={e => setStoreSettings({...storeSettings, binancePayId: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
+              </div>
+
+              {/* Bloque 3: Datos Bancarios */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
+                <h3 className="text-base font-black text-slate-900">3. Datos Bancarios y Formas de Pago</h3>
+
+                {/* Pago Móvil */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                  <h4 className="text-xs font-black uppercase text-orange-600">Pago Móvil</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Banco y Código</label>
+                      <input
+                        type="text"
+                        value={storeSettings.pagoMovilBanco}
+                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilBanco: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Teléfono</label>
+                      <input
+                        type="text"
+                        value={storeSettings.pagoMovilTelefono}
+                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilTelefono: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Cédula / RIF</label>
+                      <input
+                        type="text"
+                        value={storeSettings.pagoMovilCedula}
+                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilCedula: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold uppercase text-slate-500 mb-1">Correo Binance</label>
-                  <input type="email" value={storeSettings.binanceEmail} onChange={e => setStoreSettings({...storeSettings, binanceEmail: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
+
+                {/* Transferencia */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                  <h4 className="text-xs font-black uppercase text-orange-600">Transferencia Bancaria</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Banco</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfBanco}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfBanco: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Número de Cuenta</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfCuenta}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfCuenta: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Titular</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfTitular}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfTitular: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">RIF</label>
+                      <input
+                        type="text"
+                        value={storeSettings.transfRif}
+                        onChange={e => setStoreSettings({ ...storeSettings, transfRif: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Zelle y Binance */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                    <h4 className="text-xs font-black uppercase text-orange-600">Zelle</h4>
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Correo Zelle</label>
+                        <input
+                          type="email"
+                          value={storeSettings.zelleEmail}
+                          onChange={e => setStoreSettings({ ...storeSettings, zelleEmail: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Titular de Cuenta</label>
+                        <input
+                          type="text"
+                          value={storeSettings.zelleTitular}
+                          onChange={e => setStoreSettings({ ...storeSettings, zelleTitular: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                    <h4 className="text-xs font-black uppercase text-orange-600">Binance Pay</h4>
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Binance Pay ID (Números)</label>
+                        <input
+                          type="text"
+                          value={storeSettings.binancePayId}
+                          onChange={e => setStoreSettings({ ...storeSettings, binancePayId: e.target.value })}
+                          placeholder="Ej. 123456789"
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Correo Binance</label>
+                        <input
+                          type="email"
+                          value={storeSettings.binanceEmail}
+                          onChange={e => setStoreSettings({ ...storeSettings, binanceEmail: e.target.value })}
+                          placeholder="tu-correo-binance@email.com"
+                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloque 4: Políticas, Términos y Condiciones */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">4. Políticas, Envíos y Términos Legales</h3>
+                    <p className="text-xs text-slate-500">Estos textos se muestran en las tarjetas interactivas y en el modal emergente de la tienda.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await syncStoreKey('store_policies', policiesForm);
+                      notify('¡Políticas guardadas en Supabase con éxito!');
+                    }}
+                    className="px-4 py-2 bg-slate-900 hover:bg-orange-500 text-white font-black text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    Guardar Solo Políticas
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                  {/* 1. Envíos y Entregas */}
+                  <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block font-black uppercase text-slate-700">1. Envíos y Entregas</label>
+                    <input
+                      type="text"
+                      value={policiesForm.shipping.badge}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        shipping: { ...policiesForm.shipping, badge: e.target.value }
+                      })}
+                      placeholder="Subtítulo corto en la tarjeta"
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-bold mb-2"
+                    />
+                    <textarea
+                      rows={6}
+                      value={policiesForm.shipping.content}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        shipping: { ...policiesForm.shipping, content: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-medium leading-relaxed"
+                    />
+                  </div>
+
+                  {/* 2. Cambios y Reembolsos */}
+                  <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block font-black uppercase text-slate-700">2. Cambios y Reembolsos (Garantía)</label>
+                    <input
+                      type="text"
+                      value={policiesForm.warranty.badge}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        warranty: { ...policiesForm.warranty, badge: e.target.value }
+                      })}
+                      placeholder="Subtítulo corto en la tarjeta"
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-bold mb-2"
+                    />
+                    <textarea
+                      rows={6}
+                      value={policiesForm.warranty.content}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        warranty: { ...policiesForm.warranty, content: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-medium leading-relaxed"
+                    />
+                  </div>
+
+                  {/* 3. Términos del Servicio */}
+                  <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block font-black uppercase text-slate-700">3. Términos del Servicio</label>
+                    <input
+                      type="text"
+                      value={policiesForm.terms.badge}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        terms: { ...policiesForm.terms, badge: e.target.value }
+                      })}
+                      placeholder="Subtítulo corto en la tarjeta"
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-bold mb-2"
+                    />
+                    <textarea
+                      rows={6}
+                      value={policiesForm.terms.content}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        terms: { ...policiesForm.terms, content: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-medium leading-relaxed"
+                    />
+                  </div>
+
+                  {/* 4. Política de Privacidad */}
+                  <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label className="block font-black uppercase text-slate-700">4. Política de Privacidad</label>
+                    <input
+                      type="text"
+                      value={policiesForm.privacy.badge}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        privacy: { ...policiesForm.privacy, badge: e.target.value }
+                      })}
+                      placeholder="Subtítulo corto en la tarjeta"
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-bold mb-2"
+                    />
+                    <textarea
+                      rows={6}
+                      value={policiesForm.privacy.content}
+                      onChange={e => setPoliciesForm({
+                        ...policiesForm,
+                        privacy: { ...policiesForm.privacy, content: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 bg-white border rounded-xl font-medium leading-relaxed"
+                    />
+                  </div>
                 </div>
               </div>
 
               <button type="submit" className="px-8 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-colors">
-                Guardar Ajustes
+                Guardar Todos los Ajustes
               </button>
             </form>
           </div>

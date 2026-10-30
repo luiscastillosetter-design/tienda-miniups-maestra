@@ -8,10 +8,11 @@ import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { OffersCarousel } from '@/components/OffersCarousel';
+import TrustAndPolicies from '@/components/TrustAndPolicies';
 import { useCartStore } from '@/store/cartStore';
 import { 
   Home as HomeIcon, Cpu, Utensils, Car, Sparkles, Flame, 
-  ShoppingBag, ShieldCheck, Truck, CreditCard, Star, ArrowRight
+  ShoppingBag, ArrowRight
 } from 'lucide-react';
 
 const categoriesList = [
@@ -28,7 +29,6 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const { addItem } = useCartStore();
 
-  // Lectura síncrona inmediata de la memoria local para cargar en 0ms sin saltos
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -299,47 +299,8 @@ function HomeContent() {
           </div>
         </section>
 
-        {/* 6. BLOQUE DE CONFIANZA */}
-        <section className="w-full bg-white rounded-3xl p-6 md:p-12 border border-gray-200/80 shadow-sm">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-            <div className="flex items-center gap-4 group">
-              <div className="p-4 bg-orange-50 text-orange-500 rounded-2xl group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all">
-                <Truck className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-black text-slate-900">Envíos Nacionales</h4>
-                <p className="text-xs text-gray-500">Por {siteConfig.shipping.companies.slice(0, 3).join(', ')}.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 group">
-              <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                <CreditCard className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-black text-slate-900">Pagos Seguros</h4>
-                <p className="text-xs text-gray-500">Zelle, Pago Móvil y USDT.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 group">
-              <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-black text-slate-900">Garantía Directa</h4>
-                <p className="text-xs text-gray-500">Importadora con soporte.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 group">
-              <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl group-hover:scale-110 group-hover:bg-amber-600 group-hover:text-white transition-all">
-                <Star className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-black text-slate-900">+1,500 Clientes</h4>
-                <p className="text-xs text-gray-500">Opiniones verificadas.</p>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* 6. BLOQUE DE CONFIANZA Y POLÍTICAS DINÁMICAS */}
+        <TrustAndPolicies />
 
       </div>
     </div>
