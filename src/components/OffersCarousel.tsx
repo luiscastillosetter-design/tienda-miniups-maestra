@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, ShoppingBag } from 'lucide-react';
 
-// Exportación requerida por el panel administrativo (/admin/page.tsx)
 export const defaultOffers: any[] = [];
 
 function filterValidAdminOffers(rawOffers: any[]): any[] {
@@ -14,11 +13,7 @@ function filterValidAdminOffers(rawOffers: any[]): any[] {
   return rawOffers.filter((o) => {
     const dImg = String(o?.desktopImg || '').trim();
     const mImg = String(o?.mobileImg || '').trim();
-    const isLegacyFakePath =
-      dImg.startsWith('/ofertas/') ||
-      mImg.startsWith('/ofertas/');
-    const hasRealImage = Boolean(dImg || mImg);
-    return hasRealImage && !isLegacyFakePath;
+    return Boolean(dImg || mImg);
   });
 }
 
@@ -27,7 +22,6 @@ export function OffersCarousel() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Inicialización síncrona inmediata con localStorage para carga instantánea en 0ms
   const [offers, setOffers] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -36,7 +30,7 @@ export function OffersCarousel() {
           const parsed = filterValidAdminOffers(JSON.parse(saved));
           if (parsed.length > 0) return parsed;
         }
-      } catch (error) {}
+      } catch (_) {}
     }
     return [];
   });
@@ -47,20 +41,17 @@ export function OffersCarousel() {
       .then((json) => {
         if (json && Array.isArray(json.data)) {
           const cleanOffers = filterValidAdminOffers(json.data);
-          if (cleanOffers.length > 0) {
-            setOffers(cleanOffers);
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
-              } catch (e) {}
-            }
+          setOffers(cleanOffers);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+            } catch (_) {}
           }
         }
       })
       .catch(() => {});
   }, []);
 
-  // Recálculo y reactivación inmediata del carrusel en cuanto hay ofertas listas
   useEffect(() => {
     if (!emblaApi) return;
     const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
@@ -145,16 +136,20 @@ export function OffersCarousel() {
                           {offer.desc}
                         </p>
                       )}
+                    </div>
+                  )}
 
-                      <div className="pt-2 pointer-events-auto">
-                        <Link
-                          href={offer.link || '/catalogo'}
-                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs md:text-sm py-3.5 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
-                        >
-                          <span>Aprovechar Oferta</span>
-                          <ArrowRight className="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" />
-                        </Link>
-                      </div>
+                  {/* Botón CTA esquina inferior izquierda */}
+                  {offer.showBtn !== false && (
+                    <div className="absolute bottom-6 left-6 md:bottom-8 md:left-12 z-20 pointer-events-auto">
+                      <Link
+                        href={offer.link || '/catalogo'}
+                        className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs md:text-sm py-2.5 px-5 md:py-3.5 md:px-6 rounded-2xl shadow-lg shadow-orange-500/40 hover:shadow-orange-500/60 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
+                      >
+                        <ShoppingBag className="w-4 h-4 text-white group-hover/btn:scale-110 transition-transform" />
+                        <span>{offer.btnText || 'Aprovechar Oferta'}</span>
+                        <ArrowRight className="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" />
+                      </Link>
                     </div>
                   )}
                 </div>

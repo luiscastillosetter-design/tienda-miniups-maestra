@@ -13,6 +13,7 @@ import { siteConfig } from '@/config/site';
 import { products as initialProducts, Product } from '@/data/products';
 import { defaultHeroSlides } from '@/components/HeroCarousel';
 import { defaultOffers } from '@/components/OffersCarousel';
+import { supabase } from '@/lib/supabase';
 
 type UserRole = 'Super Admin' | 'Logística y Pagos' | 'Marketing y Afiliados';
 
@@ -113,17 +114,78 @@ export default function AdminPage() {
   const [registeredAffiliates, setRegisteredAffiliates] = useState<AffiliateUser[]>([]);
   const [paidAffiliateMap, setPaidAffiliateMap] = useState<Record<string, number>>({});
 
-  const [heroSlides, setHeroSlides] = useState<any[]>(defaultHeroSlides);
+  // Carga síncrona desde localStorage para que los banners preestablecidos se vean de inmediato en el Admin
+  const [heroSlides, setHeroSlides] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_hero_slides');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (_) {}
+    }
+    return defaultHeroSlides;
+  });
   const [editingHeroId, setEditingHeroId] = useState<any>(null);
-  const [heroForm, setHeroForm] = useState({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
+  const [heroForm, setHeroForm] = useState({ 
+    title: '', 
+    subtitle: '', 
+    badge: '', 
+    btnText: 'Comprar Ahora', 
+    btnLink: '/catalogo', 
+    desktopImg: '', 
+    mobileImg: '',
+    showBtn: true 
+  });
 
-  const [offers, setOffers] = useState<any[]>(defaultOffers);
+  const [offers, setOffers] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_offers');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (_) {}
+    }
+    return defaultOffers;
+  });
   const [editingOfferId, setEditingOfferId] = useState<any>(null);
-  const [offerForm, setOfferForm] = useState({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
+  const [offerForm, setOfferForm] = useState({ 
+    tag: '', 
+    title: '', 
+    desc: '', 
+    discount: '', 
+    link: '/catalogo', 
+    gradient: 'from-slate-900 via-slate-800 to-orange-950', 
+    desktopImg: '', 
+    mobileImg: '',
+    btnText: 'Aprovechar Oferta',
+    showBtn: true 
+  });
 
-  const [catBanners, setCatBanners] = useState<any[]>([]);
+  const [catBanners, setCatBanners] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('store_cat_slides');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (_) {}
+    }
+    return [];
+  });
   const [editingCatBannerId, setEditingCatBannerId] = useState<any>(null);
-  const [catBannerForm, setCatBannerForm] = useState({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
+  const [catBannerForm, setCatBannerForm] = useState({ 
+    category: 'Todos', 
+    link: '/catalogo', 
+    desktopImg: '', 
+    mobileImg: '',
+    btnText: 'Ver Departamento',
+    showBtn: true 
+  });
 
   const [adSpendInput, setAdSpendInput] = useState<number>(0);
   const [metaPixelId, setMetaPixelId] = useState(siteConfig.metaPixelId || '');
@@ -173,7 +235,7 @@ export default function AdminPage() {
         body: JSON.stringify(updatedProducts),
       });
     } catch (err) {
-      console.error('Error sincronizando productos con Redis:', err);
+      console.error('Error sincronizando productos:', err);
     }
   };
 
@@ -182,55 +244,85 @@ export default function AdminPage() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  // Carga multimedia con preservación de nitidez Full HD y compresión segura
-  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
+  // Subida directa a Supabase Storage con URL corta
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type.includes('video') || file.name.toLowerCase().endsWith('.mp4')) {
-      if (file.size > 8 * 1024 * 1024) {
-        alert('El video supera los 8MB. Te recomendamos usar un video corto y optimizado.');
+    notify('Subiendo archivo a Supabase Storage...');
+
+    const isVideo = file.type.includes('video') || file.name.toLowerCase().endsWith('.mp4');
+    const fileExt = isVideo ? 'mp4' : 'webp';
+    const filePath = `uploads/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+
+    try {
+      let uploadPayload: Blob | File = file;
+
+      if (!isVideo) {
+        uploadPayload = await new Promise<Blob>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new window.Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 1920;
+              const MAX_HEIGHT = 1080;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+                const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                  (blob) => resolve(blob || file),
+                  'image/webp',
+                  0.85
+                );
+              } else {
+                resolve(file);
+              }
+            };
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(filePath, uploadPayload, {
+          contentType: isVideo ? 'video/mp4' : 'image/webp',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('Error en Supabase Storage:', uploadError);
+        alert('Error al subir a Supabase Storage: ' + uploadError.message);
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => callback(reader.result as string);
-      reader.readAsDataURL(file);
-      return;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('media')
+        .getPublicUrl(filePath);
+
+      if (publicUrlData?.publicUrl) {
+        callback(publicUrlData.publicUrl);
+        notify('¡Archivo subido a Supabase con éxito!');
+      }
+    } catch (err: any) {
+      console.error('Error inesperado subiendo archivo:', err);
+      alert('Error inesperado al subir archivo: ' + (err?.message || err));
     }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1920;
-        const MAX_HEIGHT = 1080;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-          const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, width, height);
-          // 0.82 mantiene nitidez fotográfica y tipografías nítidas ocupando 70% menos memoria
-          const optimizedUrl = canvas.toDataURL('image/webp', 0.82);
-          callback(optimizedUrl);
-        } else {
-          callback(event.target?.result as string);
-        }
-      };
-    };
-    reader.readAsDataURL(file);
   };
 
   useEffect(() => {
@@ -308,6 +400,15 @@ export default function AdminPage() {
           if (Array.isArray(jHero.data) && jHero.data.length > 0) {
             setHeroSlides(jHero.data);
             safeLocalStorageSet('store_hero_slides', jHero.data);
+          } else if (!jHero.data || jHero.data.length === 0) {
+            const local = localStorage.getItem('store_hero_slides');
+            if (local) {
+              const parsed = JSON.parse(local);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setHeroSlides(parsed);
+                await syncStoreKey('store_hero_slides', parsed);
+              }
+            }
           }
         }
       } catch (e) {}
@@ -319,6 +420,15 @@ export default function AdminPage() {
           if (Array.isArray(jOff.data) && jOff.data.length > 0) {
             setOffers(jOff.data);
             safeLocalStorageSet('store_offers', jOff.data);
+          } else if (!jOff.data || jOff.data.length === 0) {
+            const local = localStorage.getItem('store_offers');
+            if (local) {
+              const parsed = JSON.parse(local);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setOffers(parsed);
+                await syncStoreKey('store_offers', parsed);
+              }
+            }
           }
         }
       } catch (e) {}
@@ -330,6 +440,15 @@ export default function AdminPage() {
           if (Array.isArray(jCat.data) && jCat.data.length > 0) {
             setCatBanners(jCat.data);
             safeLocalStorageSet('store_cat_slides', jCat.data);
+          } else if (!jCat.data || jCat.data.length === 0) {
+            const local = localStorage.getItem('store_cat_slides');
+            if (local) {
+              const parsed = JSON.parse(local);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setCatBanners(parsed);
+                await syncStoreKey('store_cat_slides', parsed);
+              }
+            }
           }
         }
       } catch (e) {}
@@ -572,7 +691,7 @@ export default function AdminPage() {
     }
     setHeroSlides(updated);
     await syncStoreKey('store_hero_slides', updated);
-    setHeroForm({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '' });
+    setHeroForm({ title: '', subtitle: '', badge: '', btnText: 'Comprar Ahora', btnLink: '/catalogo', desktopImg: '', mobileImg: '', showBtn: true });
   };
 
   const handleSaveOffer = async (e: React.FormEvent) => {
@@ -589,7 +708,7 @@ export default function AdminPage() {
     }
     setOffers(updated);
     await syncStoreKey('store_offers', updated);
-    setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '' });
+    setOfferForm({ tag: '', title: '', desc: '', discount: '', link: '/catalogo', gradient: 'from-slate-900 via-slate-800 to-orange-950', desktopImg: '', mobileImg: '', btnText: 'Aprovechar Oferta', showBtn: true });
   };
 
   const handleSaveCatBanner = async (e: React.FormEvent) => {
@@ -610,14 +729,16 @@ export default function AdminPage() {
         link: catBannerForm.link || '/catalogo',
         desktopImg: catBannerForm.desktopImg || '',
         mobileImg: catBannerForm.mobileImg || '',
+        btnText: catBannerForm.btnText || 'Ver Departamento',
+        showBtn: catBannerForm.showBtn,
       };
       updated = [...catBanners, newItem];
-      notify(`Banner de Catálogo para "${catBannerForm.category}" agregado con éxito`);
+      notify(`Banner para "${catBannerForm.category}" agregado con éxito`);
     }
 
     setCatBanners(updated);
     await syncStoreKey('store_cat_slides', updated);
-    setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '' });
+    setCatBannerForm({ category: 'Todos', link: '/catalogo', desktopImg: '', mobileImg: '', btnText: 'Ver Departamento', showBtn: true });
   };
 
   const handleSaveMarketingConfig = async () => {
@@ -893,12 +1014,298 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* TAB PUBLICIDAD / BANNERS */}
+        {activeTab === 'publicidad' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* HERO BANNERS */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-orange-500"/>
+                  <h3 className="text-lg font-black text-slate-900">Banners Principales (Hero)</h3>
+                </div>
+                {heroSlides.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm('¿Deseas eliminar TODOS los banners Hero antiguos para crearlos de nuevo limpios?')) {
+                        setHeroSlides([]);
+                        await syncStoreKey('store_hero_slides', []);
+                        notify('Banners Hero eliminados por completo.');
+                      }
+                    }}
+                    className="text-[11px] font-bold text-red-500 hover:underline cursor-pointer"
+                  >
+                    Borrar todos los viejos
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveHero} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu banner ya tiene textos" /></div>
+                <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                
+                <div className="flex items-center gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="heroShowBtn"
+                    checked={heroForm.showBtn}
+                    onChange={e => setHeroForm({...heroForm, showBtn: e.target.checked})}
+                  />
+                  <label htmlFor="heroShowBtn" className="font-bold text-slate-700 cursor-pointer">
+                    Mostrar botón en la esquina inferior izquierda
+                  </label>
+                </div>
+
+                {heroForm.showBtn && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className="block font-bold uppercase mb-1">Texto Botón</label><input type="text" value={heroForm.btnText} onChange={e => setHeroForm({...heroForm, btnText: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Comprar Ahora" /></div>
+                    <div><label className="block font-bold uppercase mb-1">Enlace Botón</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="/catalogo" /></div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Imagen PC (Full HD)</label>
+                    <input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} />
+                  </div>
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Imagen Móvil</label>
+                    <input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, mobileImg: url}))} />
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                  {editingHeroId ? 'Actualizar Banner Hero' : 'Agregar Banner Hero'}
+                </button>
+              </form>
+
+              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
+                {heroSlides.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4 font-bold">No hay banners activos en el Hero.</p>
+                ) : (
+                  heroSlides.map(s => (
+                    <div key={s.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border flex-shrink-0">
+                          {s.desktopImg ? <img src={s.desktopImg} alt="Hero" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-black text-slate-800 text-[11px]">{s.title || s.badge || 'Banner Hero'}</span>
+                          <span className="text-[9px] text-slate-500">{s.btnText || 'Comprar Ahora'} • {s.btnLink || '/catalogo'}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => { setEditingHeroId(s.id); setHeroForm({ title: s.title || '', subtitle: s.subtitle || '', badge: s.badge || '', btnText: s.btnText || 'Comprar Ahora', btnLink: s.btnLink || '/catalogo', desktopImg: s.desktopImg || '', mobileImg: s.mobileImg || '', showBtn: s.showBtn !== false }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
+                          <Pencil className="w-4 h-4"/>
+                        </button>
+                        <button type="button" onClick={async () => { if(confirm('¿Eliminar banner?')){ const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); await syncStoreKey('store_hero_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* OFFERS BANNERS */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-orange-500"/>
+                  <h3 className="text-lg font-black text-slate-900">Promociones y Combos</h3>
+                </div>
+                {offers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm('¿Deseas eliminar TODAS las promociones antiguas?')) {
+                        setOffers([]);
+                        await syncStoreKey('store_offers', []);
+                        notify('Ofertas eliminadas por completo.');
+                      }
+                    }}
+                    className="text-[11px] font-bold text-red-500 hover:underline cursor-pointer"
+                  >
+                    Borrar todas las viejas
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveOffer} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div><label className="block font-bold uppercase mb-1">Título (Opcional)</label><input type="text" value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu imagen ya tiene textos" /></div>
+                <div><label className="block font-bold uppercase mb-1">Descripción</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="block font-bold uppercase mb-1">Tag</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                  <div><label className="block font-bold uppercase mb-1">Descuento</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="offerShowBtn"
+                    checked={offerForm.showBtn}
+                    onChange={e => setOfferForm({...offerForm, showBtn: e.target.checked})}
+                  />
+                  <label htmlFor="offerShowBtn" className="font-bold text-slate-700 cursor-pointer">
+                    Mostrar botón en la esquina inferior izquierda
+                  </label>
+                </div>
+
+                {offerForm.showBtn && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className="block font-bold uppercase mb-1">Texto Botón</label><input type="text" value={offerForm.btnText} onChange={e => setOfferForm({...offerForm, btnText: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Aprovechar Oferta" /></div>
+                    <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={offerForm.link} onChange={e => setOfferForm({...offerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="/catalogo" /></div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC (Full HD)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, mobileImg: url}))} /></div>
+                </div>
+
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                  {editingOfferId ? 'Actualizar Oferta' : 'Agregar Oferta'}
+                </button>
+              </form>
+
+              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
+                {offers.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4 font-bold">No hay ofertas activas.</p>
+                ) : (
+                  offers.map(o => (
+                    <div key={o.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border flex-shrink-0">
+                          {o.desktopImg ? <img src={o.desktopImg} alt="Oferta" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-black text-slate-800 text-[11px]">{o.title || 'Oferta'}</span>
+                          <span className="text-[9px] text-orange-600 font-bold">{o.btnText || 'Aprovechar Oferta'} • {o.discount || 'Promo'}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => { setEditingOfferId(o.id); setOfferForm({ tag: o.tag || '', title: o.title || '', desc: o.desc || '', discount: o.discount || '', link: o.link || '/catalogo', gradient: o.gradient || 'from-slate-900 via-slate-800 to-orange-950', desktopImg: o.desktopImg || '', mobileImg: o.mobileImg || '', btnText: o.btnText || 'Aprovechar Oferta', showBtn: o.showBtn !== false }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
+                          <Pencil className="w-4 h-4"/>
+                        </button>
+                        <button type="button" onClick={async () => { if(confirm('¿Eliminar oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); await syncStoreKey('store_offers', u); notify('Oferta eliminada'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* CATALOG BANNERS */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-orange-500" />
+                  <h3 className="text-lg font-black text-slate-900">Banners del Catálogo (Rotan en el Hero Superior)</h3>
+                </div>
+                {catBanners.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm('¿Deseas eliminar TODOS los banners de catálogo antiguos?')) {
+                        setCatBanners([]);
+                        await syncStoreKey('store_cat_slides', []);
+                        notify('Banners de catálogo eliminados por completo.');
+                      }
+                    }}
+                    className="text-[11px] font-bold text-red-500 hover:underline cursor-pointer"
+                  >
+                    Borrar todos los viejos
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveCatBanner} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Categoría</label>
+                    <select required value={catBannerForm.category} onChange={e => setCatBannerForm({...catBannerForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white">
+                      <option value="Todos">Todos (General)</option>
+                      <option value="Hogar">Hogar</option>
+                      <option value="Tecnología">Tecnología</option>
+                      <option value="Cocina">Cocina</option>
+                      <option value="Automóvil">Automóvil</option>
+                      <option value="Belleza">Belleza</option>
+                      <option value="Productos Virales">Productos Virales</option>
+                    </select>
+                  </div>
+                  <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="/catalogo" /></div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="catShowBtn"
+                    checked={catBannerForm.showBtn}
+                    onChange={e => setCatBannerForm({...catBannerForm, showBtn: e.target.checked})}
+                  />
+                  <label htmlFor="catShowBtn" className="font-bold text-slate-700 cursor-pointer">
+                    Mostrar botón en la esquina inferior izquierda
+                  </label>
+                </div>
+
+                {catBannerForm.showBtn && (
+                  <div>
+                    <label className="block font-bold uppercase mb-1">Texto del Botón</label>
+                    <input type="text" value={catBannerForm.btnText} onChange={e => setCatBannerForm({...catBannerForm, btnText: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Ej. Ver Departamento" />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div><label className="block font-bold uppercase mb-1">Imagen PC (Full HD)</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
+                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
+                </div>
+                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
+                  {editingCatBannerId ? 'Actualizar Banner Catálogo' : 'Agregar Banner Catálogo'}
+                </button>
+              </form>
+
+              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
+                {catBanners.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4 font-bold">No hay banners de catálogo registrados.</p>
+                ) : (
+                  catBanners.map(c => (
+                    <div key={c.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white">
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-10 bg-slate-100 rounded-lg overflow-hidden border flex-shrink-0">
+                          {c.desktopImg || c.mobileImg ? <img src={c.desktopImg || c.mobileImg} alt="CatBanner" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-black text-slate-800 text-[11px]">{c.category}</span>
+                          <span className="text-[9px] text-slate-500">{c.btnText || 'Ver Departamento'} • {c.link}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '', btnText: c.btnText || 'Ver Departamento', showBtn: c.showBtn !== false }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
+                          <Pencil className="w-4 h-4"/>
+                        </button>
+                        <button type="button" onClick={async () => { if(confirm('¿Eliminar banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); await syncStoreKey('store_cat_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESTO DE TABS (Pedidos, Inventario, Afiliados, CRM, Finanzas, Ajustes) */}
         {activeTab === 'pedidos' && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black text-slate-900">Gestión Central de Pedidos</h2>
-                <p className="text-xs text-slate-500 font-medium">Valida comprobantes de pago, descuenta stock en la nube y registra números de guía.</p>
+                <p className="text-xs text-slate-500 font-medium">Valida comprobantes de pago y registra números de guía.</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -929,83 +1336,77 @@ export default function AdminPage() {
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-black tracking-wider text-[10px]">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-black tracking-wider text-[10px]">
+                  <tr>
+                    <th className="p-4">Orden</th>
+                    <th className="p-4">Cliente</th>
+                    <th className="p-4">Productos</th>
+                    <th className="p-4">Total</th>
+                    <th className="p-4">Pago / Ref</th>
+                    <th className="p-4">Estado</th>
+                    <th className="p-4">Canal / Afiliado</th>
+                    <th className="p-4 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {filteredOrders.length === 0 ? (
                     <tr>
-                      <th className="p-4">Orden</th>
-                      <th className="p-4">Cliente</th>
-                      <th className="p-4">Productos</th>
-                      <th className="p-4">Total</th>
-                      <th className="p-4">Pago / Ref</th>
-                      <th className="p-4">Estado</th>
-                      <th className="p-4">Canal / Afiliado</th>
-                      <th className="p-4 text-right">Acción</th>
+                      <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
+                        No hay pedidos con el filtro actual.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                    {filteredOrders.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
-                          No hay pedidos con el filtro actual.
+                  ) : (
+                    filteredOrders.map(order => (
+                      <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-4 font-black text-slate-900 whitespace-nowrap">
+                          {order.id}
+                          <span className="block text-[10px] text-slate-400 font-normal">
+                            {new Date(order.date).toLocaleDateString()}
+                          </span>
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          <span className="font-bold text-slate-800 block">{order.customer.nombre} {order.customer.apellido}</span>
+                          <span className="text-[10px] text-slate-400">{order.customer.cedula} • {order.customer.telefono}</span>
+                        </td>
+                        <td className="p-4">
+                          <div className="max-w-[200px] truncate">
+                            {order.items.map(it => `${it.quantity}x ${it.title}`).join(', ')}
+                          </div>
+                        </td>
+                        <td className="p-4 font-black text-slate-900 whitespace-nowrap">
+                          ${order.financials.total.toFixed(2)}
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          <span className="font-bold block text-slate-800">{order.payment.method}</span>
+                          <span className="text-[10px] text-slate-500">Ref: {order.payment.reference}</span>
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            order.status === 'Pendiente de verificación' ? 'bg-amber-100 text-amber-700' :
+                            order.status === 'Pago Aprobado' ? 'bg-blue-100 text-blue-700' :
+                            order.status === 'Despachado' ? 'bg-purple-100 text-purple-700' :
+                            order.status === 'Entregado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          <span className="font-bold text-orange-600 block">{order.attribution?.affiliateCode || 'DIRECTO'}</span>
+                        </td>
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                          >
+                            Administrar
+                          </button>
                         </td>
                       </tr>
-                    ) : (
-                      filteredOrders.map(order => (
-                        <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-4 font-black text-slate-900 whitespace-nowrap">
-                            {order.id}
-                            <span className="block text-[10px] text-slate-400 font-normal">
-                              {new Date(order.date).toLocaleDateString()}
-                            </span>
-                          </td>
-                          <td className="p-4 whitespace-nowrap">
-                            <span className="font-bold text-slate-800 block">{order.customer.nombre} {order.customer.apellido}</span>
-                            <span className="text-[10px] text-slate-400">{order.customer.cedula} • {order.customer.telefono}</span>
-                          </td>
-                          <td className="p-4">
-                            <div className="max-w-[200px] truncate">
-                              {order.items.map(it => `${it.quantity}x ${it.title}`).join(', ')}
-                            </div>
-                          </td>
-                          <td className="p-4 font-black text-slate-900 whitespace-nowrap">
-                            ${order.financials.total.toFixed(2)}
-                            {order.shipping.isFreeShipping && (
-                              <span className="block text-[9px] text-emerald-600 font-bold uppercase">Envío Gratis</span>
-                            )}
-                          </td>
-                          <td className="p-4 whitespace-nowrap">
-                            <span className="font-bold block text-slate-800">{order.payment.method}</span>
-                            <span className="text-[10px] text-slate-500">Ref: {order.payment.reference}</span>
-                          </td>
-                          <td className="p-4 whitespace-nowrap">
-                            <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                              order.status === 'Pendiente de verificación' ? 'bg-amber-100 text-amber-700' :
-                              order.status === 'Pago Aprobado' ? 'bg-blue-100 text-blue-700' :
-                              order.status === 'Despachado' ? 'bg-purple-100 text-purple-700' :
-                              order.status === 'Entregado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                            }`}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td className="p-4 whitespace-nowrap">
-                            <span className="font-bold text-orange-600 block">{order.attribution?.affiliateCode || 'DIRECTO'}</span>
-                            <span className="text-[10px] text-slate-400">{order.attribution?.channel || 'Directo'}</span>
-                          </td>
-                          <td className="p-4 text-right whitespace-nowrap">
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                            >
-                              Administrar
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
 
             {selectedOrder && (
@@ -1038,18 +1439,6 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Artículos en la orden</h4>
-                    <div className="space-y-2">
-                      {selectedOrder.items.map((it, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded-xl">
-                          <span className="font-bold text-slate-800">{it.quantity}x {it.title}</span>
-                          <span className="font-black text-slate-900">${(it.price * it.quantity).toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   {selectedOrder.payment?.receiptImage && (
                     <div>
                       <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Comprobante de Pago Adjunto</h4>
@@ -1060,8 +1449,6 @@ export default function AdminPage() {
                   )}
 
                   <div className="space-y-3 pt-2">
-                    <h4 className="text-xs font-black uppercase text-slate-900">Acciones de Despacho y Pagos</h4>
-                    
                     <div className="flex flex-wrap gap-2">
                       {selectedOrder.status === 'Pendiente de verificación' && (
                         <button
@@ -1107,7 +1494,7 @@ export default function AdminPage() {
                           onClick={() => actualizarEstadoPedido(selectedOrder.id, 'Entregado')}
                           className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl transition-colors cursor-pointer"
                         >
-                          Marcar como Entregado (Liberar Comisión)
+                          Marcar como Entregado
                         </button>
                       )}
 
@@ -1116,27 +1503,9 @@ export default function AdminPage() {
                           onClick={() => actualizarEstadoPedido(selectedOrder.id, 'Cancelado')}
                           className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                         >
-                          Cancelar Pedido (Devolver Stock)
+                          Cancelar Pedido
                         </button>
                       )}
-
-                      <button
-                        onClick={async () => {
-                          const clave = prompt('Ingresa la contraseña de administración para eliminar este pedido:');
-                          if (clave === 'Admin1234.') {
-                            const updatedOrders = orders.filter(o => o.id !== selectedOrder.id);
-                            setOrders(updatedOrders);
-                            await syncStoreKey('store_orders', updatedOrders);
-                            setSelectedOrder(null);
-                            notify('Pedido eliminado permanentemente de la nube');
-                          } else if (clave !== null) {
-                            alert('Contraseña incorrecta');
-                          }
-                        }}
-                        className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl transition-colors cursor-pointer ml-auto"
-                      >
-                        🗑️ Eliminar Pedido
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1176,7 +1545,6 @@ export default function AdminPage() {
                       value={productForm.price}
                       onChange={e => setProductForm({ ...productForm, price: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
-                      placeholder="35"
                     />
                   </div>
                   <div>
@@ -1187,7 +1555,6 @@ export default function AdminPage() {
                       value={productForm.originalPrice}
                       onChange={e => setProductForm({ ...productForm, originalPrice: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
-                      placeholder="45"
                     />
                   </div>
                   <div>
@@ -1199,7 +1566,6 @@ export default function AdminPage() {
                       value={productForm.cost}
                       onChange={e => setProductForm({ ...productForm, cost: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
-                      placeholder="18"
                     />
                   </div>
                 </div>
@@ -1213,7 +1579,6 @@ export default function AdminPage() {
                       value={productForm.stock}
                       onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
-                      placeholder="50"
                     />
                   </div>
                   <div>
@@ -1233,70 +1598,13 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block font-bold text-slate-500 uppercase mb-1">Comisión Afiliado (%)</label>
-                    <input
-                      type="number"
-                      value={productForm.affiliateCommission}
-                      onChange={e => setProductForm({ ...productForm, affiliateCommission: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
-                      placeholder="10"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-500 uppercase mb-1">Etiqueta (Badge)</label>
-                    <input
-                      type="text"
-                      value={productForm.badge}
-                      onChange={e => setProductForm({ ...productForm, badge: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-semibold"
-                      placeholder="Oferta / Envío Gratis"
-                    />
-                  </div>
-                </div>
-
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Descripción corta</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Descripción</label>
                   <textarea
                     rows={2}
                     value={productForm.description}
                     onChange={e => setProductForm({ ...productForm, description: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="Detalles para la ficha de producto..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Características (1 por línea)</label>
-                  <textarea
-                    rows={3}
-                    value={productForm.features}
-                    onChange={e => setProductForm({ ...productForm, features: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="Voltaje: 12V&#10;Capacidad: 2000mAh"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Beneficios (1 por línea)</label>
-                  <textarea
-                    rows={3}
-                    value={productForm.benefits}
-                    onChange={e => setProductForm({ ...productForm, benefits: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="Internet sin cortes&#10;Protege tu router"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Texto Afiliados (AdCopy)</label>
-                  <textarea
-                    rows={2}
-                    value={productForm.adCopy}
-                    onChange={e => setProductForm({ ...productForm, adCopy: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
-                    placeholder="¿Se fue la luz?..."
                   />
                 </div>
 
@@ -1317,7 +1625,7 @@ export default function AdminPage() {
                             <div className="flex flex-col items-center justify-center h-24 space-y-1">
                               <label className="cursor-pointer flex flex-col items-center">
                                 <div className="flex items-center gap-1 text-slate-400"><ImageIcon size={16} /><Video size={16} /></div>
-                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Subir Foto</span>
+                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Subir a Supabase</span>
                                 <input type="file" accept="image/*,video/mp4" className="hidden" onChange={(e) => handleMediaUpload(e, (url) => { const updated = [...productForm.images]; updated[index] = url; setProductForm({ ...productForm, images: updated }); })} />
                               </label>
                             </div>
@@ -1328,24 +1636,12 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="bestSeller"
-                    checked={productForm.isBestSeller}
-                    onChange={e => setProductForm({ ...productForm, isBestSeller: e.target.checked })}
-                  />
-                  <label htmlFor="bestSeller" className="font-bold text-slate-700 cursor-pointer">
-                    Marcar como &quot;Más Vendido&quot;
-                  </label>
-                </div>
-
                 <div className="flex gap-2 pt-2">
                   <button
                     type="submit"
                     className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl transition-colors cursor-pointer"
                   >
-                    {editingProductId ? 'Actualizar en Nube' : 'Guardar Producto'}
+                    {editingProductId ? 'Actualizar Producto' : 'Guardar Producto'}
                   </button>
                   {editingProductId && (
                     <button
@@ -1368,68 +1664,31 @@ export default function AdminPage() {
             </div>
 
             <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-black text-slate-900">Control de Existencias ({products.length})</h3>
-                <span className="text-xs text-slate-500">Alerta roja cuando stock ≤ 5</span>
-              </div>
-
+              <h3 className="text-base font-black text-slate-900">Control de Existencias ({products.length})</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b text-[10px] uppercase font-black text-slate-500">
                     <tr>
                       <th className="p-3">Producto</th>
                       <th className="p-3">Categoría</th>
-                      <th className="p-3">Costo</th>
                       <th className="p-3">Precio</th>
-                      <th className="p-3">Margen</th>
                       <th className="p-3">Stock</th>
                       <th className="p-3 text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {products.map(p => {
-                      const margen = p.price - (p.cost || 0);
-                      const isLowStock = p.stock <= 5;
-                      return (
-                        <tr key={p.id} className="hover:bg-slate-50">
-                          <td className="p-3 font-bold text-slate-800 max-w-[180px] truncate">
-                            <div className="flex items-center gap-2">
-                               {p.images && p.images[0] && (
-                                  <div className="w-8 h-8 bg-slate-100 rounded overflow-hidden flex-shrink-0">
-                                     {isVideoSource(p.images[0]) ? <video src={p.images[0]} className="w-full h-full object-cover" /> : <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />}
-                                  </div>
-                               )}
-                               <span className="truncate">{p.title}</span>
-                            </div>
-                          </td>
-                          <td className="p-3 text-slate-500">{p.category}</td>
-                          <td className="p-3 text-slate-500">${(p.cost || 0).toFixed(2)}</td>
-                          <td className="p-3 font-black text-slate-900">${p.price.toFixed(2)}</td>
-                          <td className="p-3 font-bold text-emerald-600">+${margen.toFixed(2)}</td>
-                          <td className="p-3">
-                            <span className={`px-2.5 py-1 rounded-full font-black text-[10px] ${
-                              isLowStock ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-slate-100 text-slate-700'
-                            }`}>
-                              {p.stock} unid.
-                            </span>
-                          </td>
-                          <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                            <button
-                              onClick={() => handleEditProduct(p)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProduct(p.id)}
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {products.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-800 max-w-[180px] truncate">{p.title}</td>
+                        <td className="p-3 text-slate-500">{p.category}</td>
+                        <td className="p-3 font-black text-slate-900">${p.price.toFixed(2)}</td>
+                        <td className="p-3">{p.stock} unid.</td>
+                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          <button onClick={() => handleEditProduct(p)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -1439,304 +1698,64 @@ export default function AdminPage() {
 
         {activeTab === 'afiliados' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900">Rendimiento del Programa de Afiliados</h2>
-              <p className="text-xs text-slate-500">Listado completo de embajadores registrados, volumen facturado y liquidación real de comisiones.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Afiliados Registrados</p>
-                <p className="text-3xl font-black text-slate-900 mt-2">{affiliateStats.length}</p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Ventas Entregadas por Afiliados</p>
-                <p className="text-3xl font-black text-orange-500 mt-2">
-                  ${affiliateStats.reduce((s, a) => s + a.totalVendido, 0).toFixed(2)}
-                </p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <p className="text-xs font-bold text-slate-400 uppercase">Comisiones Pendientes de Pago</p>
-                <p className="text-3xl font-black text-emerald-600 mt-2">
-                  ${affiliateStats.reduce((sum, a) => sum + a.comisionDisponible, 0).toFixed(2)}
-                </p>
-              </div>
-            </div>
-
+            <h2 className="text-2xl font-black text-slate-900">Programa de Afiliados</h2>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-[10px] font-black uppercase text-slate-500">
                   <tr>
                     <th className="p-4">Embajador / Código</th>
-                    <th className="p-4">Órdenes Totales</th>
-                    <th className="p-4">Entregadas</th>
-                    <th className="p-4">Volumen Facturado</th>
+                    <th className="p-4">Órdenes</th>
+                    <th className="p-4">Volumen</th>
                     <th className="p-4">Comisión Pendiente</th>
-                    <th className="p-4">Total Ya Pagado</th>
-                    <th className="p-4">Estatus</th>
                     <th className="p-4 text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {affiliateStats.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
-                        Aún no hay afiliados registrados ni ventas con código.
+                  {affiliateStats.map(af => (
+                    <tr key={af.codigo} className="hover:bg-slate-50">
+                      <td className="p-4 font-black">{af.nombre} ({af.codigo})</td>
+                      <td className="p-4">{af.totalOrdenes} pedidos</td>
+                      <td className="p-4 font-black">${af.totalVendido.toFixed(2)}</td>
+                      <td className="p-4 font-black text-emerald-600">${af.comisionDisponible.toFixed(2)}</td>
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleMarcarPagadoAfiliado(af.codigo, af.comisionAcumulada)}
+                          disabled={af.comisionDisponible <= 0}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                        >
+                          Liquidar
+                        </button>
                       </td>
                     </tr>
-                  ) : (
-                    affiliateStats.map(af => (
-                      <tr key={af.codigo} className="hover:bg-slate-50">
-                        <td className="p-4">
-                          <span className="font-black text-slate-900 block">{af.nombre}</span>
-                          <span className="text-[10px] text-orange-600 font-bold">Código: {af.codigo}</span>
-                        </td>
-                        <td className="p-4">{af.totalOrdenes} pedidos</td>
-                        <td className="p-4 text-emerald-600 font-bold">{af.entregadas} entregados</td>
-                        <td className="p-4 font-black">${af.totalVendido.toFixed(2)}</td>
-                        <td className="p-4 font-black text-emerald-600">${af.comisionDisponible.toFixed(2)}</td>
-                        <td className="p-4 text-slate-400">${af.totalPagado.toFixed(2)}</td>
-                        <td className="p-4">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                            af.isPaid ? 'bg-emerald-100 text-emerald-700' : (af.comisionDisponible > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')
-                          }`}>
-                            {af.isPaid ? 'Al Día' : (af.comisionDisponible > 0 ? 'Por Liquidar' : 'Sin Saldo')}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <button
-                            onClick={() => handleMarcarPagadoAfiliado(af.codigo, af.comisionAcumulada)}
-                            disabled={af.comisionDisponible <= 0}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
-                          >
-                            {af.comisionDisponible <= 0 ? (af.totalPagado > 0 ? 'Liquidado' : 'Sin Saldo') : 'Liquidar Pago'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {activeTab === 'publicidad' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-orange-500"/>
-                <h3 className="text-lg font-black text-slate-900">Banners Principales (Hero)</h3>
-              </div>
-              <form onSubmit={handleSaveHero} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título Grande (Opcional)</label><input type="text" value={heroForm.title} onChange={e => setHeroForm({...heroForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu banner ya tiene textos" /></div>
-                <div><label className="block font-bold uppercase mb-1">Subtítulo (Opcional)</label><input type="text" value={heroForm.subtitle} onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div><label className="block font-bold uppercase mb-1">Etiqueta</label><input type="text" value={heroForm.badge} onChange={e => setHeroForm({...heroForm, badge: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Texto Botón</label><input type="text" value={heroForm.btnText} onChange={e => setHeroForm({...heroForm, btnText: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={heroForm.btnLink} onChange={e => setHeroForm({...heroForm, btnLink: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, desktopImg: url}))} /></div>
-                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setHeroForm({...heroForm, mobileImg: url}))} /></div>
-                </div>
-                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingHeroId ? 'Actualizar Banner Hero' : 'Agregar Banner Hero'}
-                </button>
-              </form>
-              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
-                {heroSlides.map(s => (
-                  <div key={s.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border flex-shrink-0">
-                         {s.desktopImg ? <img src={s.desktopImg} alt="Hero" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-black text-slate-800 text-[11px]">{s.title || s.badge || 'Banner Hero'}</span>
-                        <span className="text-[9px] text-slate-500">{s.btnLink}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingHeroId(s.id); setHeroForm({ title: s.title || '', subtitle: s.subtitle || '', badge: s.badge || '', btnText: s.btnText || 'Comprar Ahora', btnLink: s.btnLink || '/catalogo', desktopImg: s.desktopImg || '', mobileImg: s.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
-                        <Pencil className="w-4 h-4"/>
-                      </button>
-                      <button type="button" onClick={async () => { if(confirm('¿Eliminar banner?')){ const u = heroSlides.filter(x => x.id !== s.id); setHeroSlides(u); await syncStoreKey('store_hero_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
-                        <Trash2 className="w-4 h-4"/>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-orange-500"/>
-                <h3 className="text-lg font-black text-slate-900">Promociones y Combos</h3>
-              </div>
-              <form onSubmit={handleSaveOffer} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div><label className="block font-bold uppercase mb-1">Título (Opcional)</label><input type="text" value={offerForm.title} onChange={e => setOfferForm({...offerForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="Deja en blanco si tu imagen ya tiene textos" /></div>
-                <div><label className="block font-bold uppercase mb-1">Descripción</label><input type="text" value={offerForm.desc} onChange={e => setOfferForm({...offerForm, desc: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><label className="block font-bold uppercase mb-1">Tag</label><input type="text" value={offerForm.tag} onChange={e => setOfferForm({...offerForm, tag: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                  <div><label className="block font-bold uppercase mb-1">Descuento</label><input type="text" value={offerForm.discount} onChange={e => setOfferForm({...offerForm, discount: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                </div>
-                <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={offerForm.link} onChange={e => setOfferForm({...offerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, desktopImg: url}))} /></div>
-                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setOfferForm({...offerForm, mobileImg: url}))} /></div>
-                </div>
-                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingOfferId ? 'Actualizar Oferta' : 'Agregar Oferta'}
-                </button>
-              </form>
-              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
-                {offers.map(o => (
-                  <div key={o.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-10 bg-slate-200 rounded-lg overflow-hidden border flex-shrink-0">
-                         {o.desktopImg ? <img src={o.desktopImg} alt="Oferta" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-black text-slate-800 text-[11px]">{o.title || 'Oferta'}</span>
-                        <span className="text-[9px] text-orange-600 font-bold">{o.discount || 'Promo'}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingOfferId(o.id); setOfferForm({ tag: o.tag || '', title: o.title || '', desc: o.desc || '', discount: o.discount || '', link: o.link || '/catalogo', gradient: o.gradient || 'from-slate-900 via-slate-800 to-orange-950', desktopImg: o.desktopImg || '', mobileImg: o.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
-                        <Pencil className="w-4 h-4"/>
-                      </button>
-                      <button type="button" onClick={async () => { if(confirm('¿Eliminar oferta?')){ const u = offers.filter(x => x.id !== o.id); setOffers(u); await syncStoreKey('store_offers', u); notify('Oferta eliminada'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
-                        <Trash2 className="w-4 h-4"/>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-orange-500" />
-                <h3 className="text-lg font-black text-slate-900">Banners del Catálogo</h3>
-              </div>
-              <form onSubmit={handleSaveCatBanner} className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block font-bold uppercase mb-1">Categoría</label>
-                    <select required value={catBannerForm.category} onChange={e => setCatBannerForm({...catBannerForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white">
-                      <option value="Todos">Todos (General)</option>
-                      <option value="Hogar">Hogar</option>
-                      <option value="Tecnología">Tecnología</option>
-                      <option value="Cocina">Cocina</option>
-                      <option value="Automóvil">Automóvil</option>
-                      <option value="Belleza">Belleza</option>
-                      <option value="Productos Virales">Productos Virales</option>
-                    </select>
-                  </div>
-                  <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div><label className="block font-bold uppercase mb-1">Imagen PC</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, desktopImg: url}))} /></div>
-                  <div><label className="block font-bold uppercase mb-1">Imagen Móvil</label><input type="file" accept="image/*" onChange={e => handleMediaUpload(e, url => setCatBannerForm({...catBannerForm, mobileImg: url}))} /></div>
-                </div>
-                <button type="submit" className="w-full py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                  {editingCatBannerId ? 'Actualizar Banner Catálogo' : 'Agregar Banner Catálogo'}
-                </button>
-              </form>
-              <div className="space-y-3 mt-6 max-h-[350px] overflow-y-auto pr-2">
-                {catBanners.map(c => (
-                  <div key={c.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white">
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-10 bg-slate-100 rounded-lg overflow-hidden border flex-shrink-0">
-                         {c.desktopImg || c.mobileImg ? <img src={c.desktopImg || c.mobileImg} alt="CatBanner" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-400">Sin Foto</div>}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-black text-slate-800 text-[11px]">{c.category}</span>
-                        <span className="text-[9px] text-slate-500">{c.link}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditingCatBannerId(c.id); setCatBannerForm({ category: c.category || 'Todos', link: c.link || '/catalogo', desktopImg: c.desktopImg || '', mobileImg: c.mobileImg || '' }); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer">
-                        <Pencil className="w-4 h-4"/>
-                      </button>
-                      <button type="button" onClick={async () => { if(confirm('¿Eliminar banner?')){ const u = catBanners.filter(x => x.id !== c.id); setCatBanners(u); await syncStoreKey('store_cat_slides', u); notify('Banner eliminado'); } }} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
-                        <Trash2 className="w-4 h-4"/>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-              <h3 className="text-lg font-black text-slate-900">Píxeles y Gasto Publicitario</h3>
-              <div className="flex flex-col md:flex-row gap-4 text-xs">
-                <div className="flex-1">
-                  <label className="block font-bold uppercase text-slate-500 mb-1">Meta Pixel ID</label>
-                  <input type="text" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
-                </div>
-                <div className="w-full md:w-64">
-                  <label className="block font-bold uppercase text-slate-500 mb-1">Inversión Mensual Ads ($)</label>
-                  <input type="number" value={adSpendInput} onChange={e => setAdSpendInput(Number(e.target.value))} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold" />
-                </div>
-                <div className="flex items-end">
-                  <button onClick={handleSaveMarketingConfig} className="w-full md:w-auto px-8 py-3 bg-slate-900 hover:bg-orange-500 text-white font-black rounded-xl cursor-pointer transition-colors">
-                    Guardar en Nube
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'crm' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900">Directorio CRM de Clientes</h2>
-              <p className="text-xs text-slate-500">Historial de compradores, recurrencia y contacto directo.</p>
-            </div>
-
+            <h2 className="text-2xl font-black text-slate-900">Directorio CRM</h2>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-[10px] font-black uppercase text-slate-500">
                   <tr>
                     <th className="p-4">Cliente</th>
-                    <th className="p-4">Cédula / RIF</th>
-                    <th className="p-4">Ubicación</th>
-                    <th className="p-4">Pedidos Realizados</th>
+                    <th className="p-4">Cédula</th>
+                    <th className="p-4">Teléfono</th>
                     <th className="p-4">Total Comprado</th>
-                    <th className="p-4 text-right">WhatsApp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {crmCustomers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 font-bold">
-                        Aún no hay clientes registrados a través de compras.
-                      </td>
+                  {crmCustomers.map(cl => (
+                    <tr key={cl.cedula} className="hover:bg-slate-50">
+                      <td className="p-4 font-black">{cl.nombre}</td>
+                      <td className="p-4 text-slate-500">{cl.cedula}</td>
+                      <td className="p-4">{cl.telefono}</td>
+                      <td className="p-4 font-black">${cl.totalSpent.toFixed(2)}</td>
                     </tr>
-                  ) : (
-                    crmCustomers.map(cl => (
-                      <tr key={cl.cedula} className="hover:bg-slate-50">
-                        <td className="p-4 font-black text-slate-800">{cl.nombre}</td>
-                        <td className="p-4 text-slate-500">{cl.cedula}</td>
-                        <td className="p-4 text-slate-600">{cl.ciudad}</td>
-                        <td className="p-4 font-bold">{cl.pedidosCount} pedido(s)</td>
-                        <td className="p-4 font-black text-slate-900">${cl.totalSpent.toFixed(2)}</td>
-                        <td className="p-4 text-right">
-                          <a
-                            href={`https://wa.me/${cl.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${cl.nombre}, te contactamos de TodoMax.`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" /> Escribir
-                          </a>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -1745,36 +1764,19 @@ export default function AdminPage() {
 
         {activeTab === 'finanzas' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900">Estado Financiero y Rentabilidad Real</h2>
-              <p className="text-xs text-slate-500">Cruza ingresos brutos, costos de importación, gasto publicitario y comisiones.</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+            <h2 className="text-2xl font-black text-slate-900">Finanzas</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-3xl border shadow-xs">
                 <span className="text-xs font-bold text-slate-400 uppercase">Facturación Bruta</span>
                 <p className="text-3xl font-black text-slate-900 mt-2">${totalVentasConfirmadas.toFixed(2)}</p>
-                <span className="text-[10px] text-slate-500 mt-1 block">Pedidos confirmados y despachados</span>
               </div>
-
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <span className="text-xs font-bold text-slate-400 uppercase">Costo de Mercancía</span>
+              <div className="bg-white p-6 rounded-3xl border shadow-xs">
+                <span className="text-xs font-bold text-slate-400 uppercase">Costo Mercancía</span>
                 <p className="text-3xl font-black text-slate-700 mt-2">${totalCostoMercancia.toFixed(2)}</p>
-                <span className="text-[10px] text-slate-500 mt-1 block">Costo de reposición de inventario</span>
               </div>
-
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                <span className="text-xs font-bold text-slate-400 uppercase">Gastos Ads + Comisiones</span>
-                <p className="text-3xl font-black text-amber-600 mt-2">${(totalComisionesAfiliados + adSpendInput).toFixed(2)}</p>
-                <span className="text-[10px] text-slate-500 mt-1 block">Publicidad: ${adSpendInput} • Afiliados: ${totalComisionesAfiliados.toFixed(2)}</span>
-              </div>
-
               <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-lg">
-                <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">Utilidad Neta Estimada</span>
+                <span className="text-xs font-bold text-orange-400 uppercase">Utilidad Neta</span>
                 <p className="text-3xl font-black mt-2 text-emerald-400">${utilidadNetaEstimada.toFixed(2)}</p>
-                <span className="text-[10px] text-white/70 mt-1 block">
-                  Margen Neto: {totalVentasConfirmadas > 0 ? ((utilidadNetaEstimada / totalVentasConfirmadas) * 100).toFixed(1) : 0}%
-                </span>
               </div>
             </div>
           </div>
@@ -1782,235 +1784,36 @@ export default function AdminPage() {
 
         {activeTab === 'ajustes' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900">Ajustes Generales de la Tienda</h2>
-              <p className="text-xs text-slate-500">Modifica contactos, condiciones de envío y datos bancarios sin tocar código.</p>
-            </div>
-
+            <h2 className="text-2xl font-black text-slate-900">Ajustes Generales de la Tienda</h2>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 await syncStoreKey('store_site_config', storeSettings);
-                notify('Ajustes de tienda guardados en la nube con éxito');
+                notify('Ajustes de tienda guardados en Supabase con éxito');
               }}
-              className="space-y-8"
+              className="space-y-6 bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs"
             >
-              {/* Bloque 1: Contacto y Marca */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                <h3 className="text-base font-black text-slate-900">1. Datos de Contacto y Tienda</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block font-bold uppercase text-slate-500 mb-1">Nombre Comercial de la Tienda</label>
-                    <input
-                      type="text"
-                      required
-                      value={storeSettings.storeName}
-                      onChange={e => setStoreSettings({ ...storeSettings, storeName: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold uppercase text-slate-500 mb-1">Número de WhatsApp (con código de país, ej. +58 o +1)</label>
-                    <input
-                      type="text"
-                      required
-                      value={storeSettings.whatsappNumber}
-                      onChange={e => setStoreSettings({ ...storeSettings, whatsappNumber: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold uppercase text-slate-500 mb-1">Correo Electrónico de Contacto</label>
-                    <input
-                      type="email"
-                      required
-                      value={storeSettings.email}
-                      onChange={e => setStoreSettings({ ...storeSettings, email: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold uppercase text-slate-500 mb-1">Ubicación / Ciudad</label>
-                    <input
-                      type="text"
-                      required
-                      value={storeSettings.location}
-                      onChange={e => setStoreSettings({ ...storeSettings, location: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block font-bold uppercase text-slate-500 mb-1">WhatsApp</label>
+                  <input type="text" value={storeSettings.whatsappNumber} onChange={e => setStoreSettings({...storeSettings, whatsappNumber: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase text-slate-500 mb-1">Envío Gratis Desde ($)</label>
+                  <input type="number" value={storeSettings.freeShippingThreshold} onChange={e => setStoreSettings({...storeSettings, freeShippingThreshold: Number(e.target.value)})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase text-slate-500 mb-1">Pay ID Binance</label>
+                  <input type="text" value={storeSettings.binancePayId} onChange={e => setStoreSettings({...storeSettings, binancePayId: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
+                </div>
+                <div>
+                  <label className="block font-bold uppercase text-slate-500 mb-1">Correo Binance</label>
+                  <input type="email" value={storeSettings.binanceEmail} onChange={e => setStoreSettings({...storeSettings, binanceEmail: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold" />
                 </div>
               </div>
 
-              {/* Bloque 2: Políticas de Envío */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                <h3 className="text-base font-black text-slate-900">2. Envíos y Despacho</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block font-bold uppercase text-slate-500 mb-1">Monto Mínimo para Envío Gratis ($)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      required
-                      value={storeSettings.freeShippingThreshold}
-                      onChange={e => setStoreSettings({ ...storeSettings, freeShippingThreshold: Number(e.target.value) })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold uppercase text-slate-500 mb-1">Empresas de Envío (separadas por coma)</label>
-                    <input
-                      type="text"
-                      required
-                      value={storeSettings.shippingCompanies}
-                      onChange={e => setStoreSettings({ ...storeSettings, shippingCompanies: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
-                      placeholder="MRW, Zoom, Tealca, Delivery Local"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bloque 3: Datos Bancarios */}
-              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-                <h3 className="text-base font-black text-slate-900">3. Datos Bancarios y Formas de Pago</h3>
-
-                {/* Pago Móvil */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                  <h4 className="text-xs font-black uppercase text-orange-600">Pago Móvil</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Banco y Código</label>
-                      <input
-                        type="text"
-                        value={storeSettings.pagoMovilBanco}
-                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilBanco: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Teléfono</label>
-                      <input
-                        type="text"
-                        value={storeSettings.pagoMovilTelefono}
-                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilTelefono: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Cédula / RIF</label>
-                      <input
-                        type="text"
-                        value={storeSettings.pagoMovilCedula}
-                        onChange={e => setStoreSettings({ ...storeSettings, pagoMovilCedula: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Transferencia */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                  <h4 className="text-xs font-black uppercase text-orange-600">Transferencia Bancaria</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Banco</label>
-                      <input
-                        type="text"
-                        value={storeSettings.transfBanco}
-                        onChange={e => setStoreSettings({ ...storeSettings, transfBanco: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Número de Cuenta</label>
-                      <input
-                        type="text"
-                        value={storeSettings.transfCuenta}
-                        onChange={e => setStoreSettings({ ...storeSettings, transfCuenta: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Titular</label>
-                      <input
-                        type="text"
-                        value={storeSettings.transfTitular}
-                        onChange={e => setStoreSettings({ ...storeSettings, transfTitular: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">RIF</label>
-                      <input
-                        type="text"
-                        value={storeSettings.transfRif}
-                        onChange={e => setStoreSettings({ ...storeSettings, transfRif: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Zelle y Binance */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                    <h4 className="text-xs font-black uppercase text-orange-600">Zelle</h4>
-                    <div className="space-y-2 text-xs">
-                      <div>
-                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Correo Zelle</label>
-                        <input
-                          type="email"
-                          value={storeSettings.zelleEmail}
-                          onChange={e => setStoreSettings({ ...storeSettings, zelleEmail: e.target.value })}
-                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Titular de Cuenta</label>
-                        <input
-                          type="text"
-                          value={storeSettings.zelleTitular}
-                          onChange={e => setStoreSettings({ ...storeSettings, zelleTitular: e.target.value })}
-                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                    <h4 className="text-xs font-black uppercase text-orange-600">Binance Pay</h4>
-                    <div className="space-y-2 text-xs">
-                      <div>
-                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Binance Pay ID (Números)</label>
-                        <input
-                          type="text"
-                          value={storeSettings.binancePayId}
-                          onChange={e => setStoreSettings({ ...storeSettings, binancePayId: e.target.value })}
-                          placeholder="Ej. 123456789"
-                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-bold uppercase text-slate-400 text-[10px] mb-1">Correo de la Cuenta Binance</label>
-                        <input
-                          type="email"
-                          value={storeSettings.binanceEmail}
-                          onChange={e => setStoreSettings({ ...storeSettings, binanceEmail: e.target.value })}
-                          placeholder="tu-correo-binance@email.com"
-                          className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full md:w-auto px-10 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-sm rounded-2xl shadow-lg transition-all cursor-pointer hover:shadow-orange-500/40"
-              >
-                Guardar Todos los Ajustes
+              <button type="submit" className="px-8 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-colors">
+                Guardar Ajustes
               </button>
             </form>
           </div>

@@ -1660,6 +1660,10 @@ declare global {
   var __redisUnavailableUntil: number | undefined;
   // eslint-disable-next-line no-var
   var __memoryDb: Record<string, any> | undefined;
+  // eslint-disable-next-line no-var
+  var __memoryDbExpiry: Record<string, number> | undefined;
+  // eslint-disable-next-line no-var
+  var __redisConnectingPromise: Promise<any> | null | undefined;
 }
 
 function getMemoryDb(): Record<string, any> {
@@ -1667,6 +1671,13 @@ function getMemoryDb(): Record<string, any> {
     global.__memoryDb = {};
   }
   return global.__memoryDb;
+}
+
+function getMemoryExpiry(): Record<string, number> {
+  if (!global.__memoryDbExpiry) {
+    global.__memoryDbExpiry = {};
+  }
+  return global.__memoryDbExpiry;
 }
 
 async function getClient() {
@@ -1678,37 +1689,54 @@ async function getClient() {
     return null;
   }
 
-  try {
-    if (global.__redisClient && global.__redisClient.isOpen) {
-      return global.__redisClient;
-    }
-
-    const client = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        connectTimeout: 5000,
-        reconnectStrategy: false,
-      },
-    });
-
-    client.on('error', () => {
-      global.__redisUnavailableUntil = Date.now() + 60000;
-    });
-
-    await client.connect();
-    global.__redisClient = client;
-    global.__redisUnavailableUntil = 0;
-    return client;
-  } catch (error) {
-    global.__redisUnavailableUntil = Date.now() + 60000;
-    global.__redisClient = null;
-    return null;
+  if (global.__redisClient && global.__redisClient.isOpen) {
+    return global.__redisClient;
   }
+
+  if (global.__redisConnectingPromise) {
+    return await global.__redisConnectingPromise;
+  }
+
+  global.__redisConnectingPromise = (async () => {
+    try {
+      const client = createClient({
+        url: process.env.REDIS_URL,
+        socket: {
+          connectTimeout: 1200, // Timeout ágil de 1.2s para evitar congelamientos de 5 segundos
+          reconnectStrategy: false,
+        },
+      });
+
+      client.on('error', () => {
+        global.__redisUnavailableUntil = Date.now() + 30000;
+      });
+
+      await client.connect();
+      global.__redisClient = client;
+      global.__redisUnavailableUntil = 0;
+      return client;
+    } catch (error) {
+      global.__redisUnavailableUntil = Date.now() + 30000;
+      global.__redisClient = null;
+      return null;
+    } finally {
+      global.__redisConnectingPromise = null;
+    }
+  })();
+
+  return await global.__redisConnectingPromise;
 }
 
 export const dbService = {
   async get(key: string) {
     const memoryDb = getMemoryDb();
+    const memoryExpiry = getMemoryExpiry();
+    const now = Date.now();
+
+    // 1. Si el dato ya está en memoria RAM del servidor y es reciente (30s), responder en 0ms
+    if (memoryDb[key] !== undefined && memoryExpiry[key] && now < memoryExpiry[key]) {
+      return memoryDb[key];
+    }
 
     try {
       const client = await getClient();
@@ -1717,11 +1745,12 @@ export const dbService = {
         if (data) {
           const parsed = JSON.parse(data);
           memoryDb[key] = parsed;
+          memoryExpiry[key] = now + 30000;
           return parsed;
         }
       }
     } catch (error) {
-      global.__redisUnavailableUntil = Date.now() + 60000;
+      global.__redisUnavailableUntil = Date.now() + 30000;
     }
 
     return memoryDb[key] !== undefined ? memoryDb[key] : null;
@@ -1730,7 +1759,10 @@ export const dbService = {
   async set(key: string, value: any): Promise<boolean> {
     let saved = false;
     const memoryDb = getMemoryDb();
+    const memoryExpiry = getMemoryExpiry();
+
     memoryDb[key] = value;
+    memoryExpiry[key] = Date.now() + 30000;
 
     try {
       const client = await getClient();
@@ -1739,76 +1771,10 @@ export const dbService = {
         saved = true;
       }
     } catch (error) {
-      global.__redisUnavailableUntil = Date.now() + 60000;
+      global.__redisUnavailableUntil = Date.now() + 30000;
     }
 
     return saved || !!memoryDb[key];
-  },
-};
-</file>
-
-<file path="src/services/productService.ts">
-import { Product, products as defaultProducts } from '@/data/products';
-
-function safeSetLocalStorage(key: string, value: any) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    try {
-      localStorage.removeItem(key);
-    } catch (_) {}
-  }
-}
-
-export const productService = {
-  async getProducts(): Promise<Product[]> {
-    try {
-      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          safeSetLocalStorage('store_products', data);
-          return data;
-        }
-      }
-    } catch (e) {
-      console.error('Error consultando /api/products en la nube:', e);
-    }
-
-    if (typeof window !== 'undefined') {
-      try {
-        const localData = localStorage.getItem('store_products');
-        if (localData) {
-          const parsed = JSON.parse(localData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      } catch (e) {}
-    }
-
-    return defaultProducts;
-  },
-
-  async saveProducts(products: Product[]): Promise<boolean> {
-    safeSetLocalStorage('store_products', products);
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(products),
-      });
-      return res.ok;
-    } catch (e) {
-      console.error('Error guardando productos en la nube:', e);
-      return false;
-    }
-  },
-
-  async getProductById(id: string): Promise<Product | undefined> {
-    const allProducts = await this.getProducts();
-    return allProducts.find((product) => String(product.id) === String(id));
   },
 };
 </file>
@@ -1949,6 +1915,100 @@ export const siteConfig = {
   },
   roles: ["Super Admin", "Logística y Pagos", "Marketing y Afiliados"],
   metaPixelId: "",
+};
+</file>
+
+<file path="src/services/productService.ts">
+import { Product, products as defaultProducts } from '@/data/products';
+
+function safeSetLocalStorage(key: string, value: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    try {
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+}
+
+// Variables en memoria para deduplicar peticiones simultáneas y evitar ráfagas de red
+let inFlightProductsPromise: Promise<Product[]> | null = null;
+let memoryProductsCache: { data: Product[]; timestamp: number } | null = null;
+
+export const productService = {
+  async getProducts(): Promise<Product[]> {
+    const now = Date.now();
+
+    // 1. Si ya se consultó hace menos de 10 segundos, responder en 0ms desde la RAM
+    if (memoryProductsCache && now - memoryProductsCache.timestamp < 10000) {
+      return memoryProductsCache.data;
+    }
+
+    // 2. Si ya hay una petición de productos viajando por la red, reutilizarla
+    if (inFlightProductsPromise) {
+      return await inFlightProductsPromise;
+    }
+
+    inFlightProductsPromise = (async () => {
+      try {
+        const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            safeSetLocalStorage('store_products', data);
+            memoryProductsCache = { data, timestamp: Date.now() };
+            return data;
+          }
+        }
+      } catch (e) {
+        console.error('Error consultando /api/products en la nube:', e);
+      } finally {
+        inFlightProductsPromise = null;
+      }
+
+      // Respaldo secundario: caché local del navegador
+      if (typeof window !== 'undefined') {
+        try {
+          const localData = localStorage.getItem('store_products');
+          if (localData) {
+            const parsed = JSON.parse(localData);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              memoryProductsCache = { data: parsed, timestamp: Date.now() };
+              return parsed;
+            }
+          }
+        } catch (_) {}
+      }
+
+      return defaultProducts;
+    })();
+
+    return await inFlightProductsPromise;
+  },
+
+  async saveProducts(products: Product[]): Promise<boolean> {
+    // Limpiar caché en memoria para que los cambios del Admin se vean en el acto
+    memoryProductsCache = { data: products, timestamp: Date.now() };
+    safeSetLocalStorage('store_products', products);
+
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(products),
+      });
+      return res.ok;
+    } catch (e) {
+      console.error('Error guardando productos en la nube:', e);
+      return false;
+    }
+  },
+
+  async getProductById(id: string): Promise<Product | undefined> {
+    const allProducts = await this.getProducts();
+    return allProducts.find((product) => String(product.id) === String(id));
+  },
 };
 </file>
 
@@ -4142,186 +4202,6 @@ export function HeroCarousel() {
 }
 </file>
 
-<file path="src/components/OffersCarousel.tsx">
-'use client';
-
-import { useState, useEffect } from 'react';
-import useEmblaCarousel from 'embla-carousel-react';
-import Autoplay from 'embla-carousel-autoplay';
-import Link from 'next/link';
-import { ArrowRight, Sparkles } from 'lucide-react';
-
-// Exportación requerida por el panel administrativo (/admin/page.tsx)
-export const defaultOffers: any[] = [];
-
-function filterValidAdminOffers(rawOffers: any[]): any[] {
-  if (!Array.isArray(rawOffers)) return [];
-  return rawOffers.filter((o) => {
-    const dImg = String(o?.desktopImg || '').trim();
-    const mImg = String(o?.mobileImg || '').trim();
-    const isLegacyFakePath =
-      dImg.startsWith('/ofertas/') ||
-      mImg.startsWith('/ofertas/');
-    const hasRealImage = Boolean(dImg || mImg);
-    return hasRealImage && !isLegacyFakePath;
-  });
-}
-
-export function OffersCarousel() {
-  const autoplayOptions = { delay: 6000, stopOnInteraction: false };
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  // Inicialización síncrona inmediata con localStorage para carga instantánea en 0ms
-  const [offers, setOffers] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('store_offers');
-        if (saved) {
-          const parsed = filterValidAdminOffers(JSON.parse(saved));
-          if (parsed.length > 0) return parsed;
-        }
-      } catch (error) {}
-    }
-    return [];
-  });
-
-  useEffect(() => {
-    fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json && Array.isArray(json.data)) {
-          const cleanOffers = filterValidAdminOffers(json.data);
-          if (cleanOffers.length > 0) {
-            setOffers(cleanOffers);
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
-              } catch (e) {}
-            }
-          }
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
-  }, [emblaApi]);
-
-  if (offers.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="w-full py-4 md:py-6" id="ofertas">
-      <div className="flex items-center justify-between mb-4 md:mb-6">
-        <div>
-          <span className="text-orange-500 font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" /> Oportunidades de la semana
-          </span>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900">Promociones y Combos</h2>
-        </div>
-      </div>
-
-      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
-        <div ref={emblaRef} className="overflow-hidden w-full">
-          <div className="flex w-full">
-            {offers.map((offer, idx) => {
-              const dImg = offer.desktopImg || offer.mobileImg || '';
-              const mImg = offer.mobileImg || offer.desktopImg || '';
-
-              return (
-                <div
-                  key={offer.id || idx}
-                  className="flex-[0_0_100%] min-w-0 relative h-[38vh] md:h-[48vh] min-h-[280px] md:min-h-[380px] py-10 pb-14 md:py-14 md:pb-16 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
-                >
-                  {dImg && (
-                    <img
-                      src={dImg}
-                      alt={offer.title || 'Oferta'}
-                      loading={idx === 0 ? 'eager' : 'lazy'}
-                      fetchPriority={idx === 0 ? 'high' : 'auto'}
-                      className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
-                    />
-                  )}
-                  {mImg && (
-                    <img
-                      src={mImg}
-                      alt={offer.title || 'Oferta'}
-                      loading={idx === 0 ? 'eager' : 'lazy'}
-                      fetchPriority={idx === 0 ? 'high' : 'auto'}
-                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
-                    />
-                  )}
-
-                  <Link
-                    href={offer.link || '/catalogo'}
-                    className="absolute inset-0 z-10 cursor-pointer"
-                    aria-label={offer.title || 'Oferta'}
-                  />
-
-                  {offer.title && offer.title.trim() !== '' && (
-                    <div className="px-6 sm:px-10 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none my-auto">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        {offer.tag && (
-                          <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
-                            {offer.tag}
-                          </span>
-                        )}
-                        {offer.discount && (
-                          <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
-                            {offer.discount}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight drop-shadow-md">
-                        {offer.title}
-                      </h3>
-                      {offer.desc && (
-                        <p className="text-xs sm:text-sm md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">
-                          {offer.desc}
-                        </p>
-                      )}
-
-                      <div className="pt-2 pointer-events-auto">
-                        <Link
-                          href={offer.link || '/catalogo'}
-                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs md:text-sm py-3.5 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
-                        >
-                          <span>Aprovechar Oferta</span>
-                          <ArrowRight className="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" />
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {offers.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
-            {offers.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => emblaApi?.scrollTo(i)}
-                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                  i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'
-                }`}
-                aria-label={`Ir a oferta ${i + 1}`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="src/app/page.tsx">
 'use client';
 
@@ -4680,6 +4560,192 @@ export default function Home() {
 }
 </file>
 
+<file path="src/components/OffersCarousel.tsx">
+'use client';
+
+import { useState, useEffect } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
+import Link from 'next/link';
+import { ArrowRight, Sparkles } from 'lucide-react';
+
+// Exportación requerida por el panel administrativo (/admin/page.tsx)
+export const defaultOffers: any[] = [];
+
+function filterValidAdminOffers(rawOffers: any[]): any[] {
+  if (!Array.isArray(rawOffers)) return [];
+  return rawOffers.filter((o) => {
+    const dImg = String(o?.desktopImg || '').trim();
+    const mImg = String(o?.mobileImg || '').trim();
+    const isLegacyFakePath =
+      dImg.startsWith('/ofertas/') ||
+      mImg.startsWith('/ofertas/');
+    const hasRealImage = Boolean(dImg || mImg);
+    return hasRealImage && !isLegacyFakePath;
+  });
+}
+
+export function OffersCarousel() {
+  const autoplayOptions = { delay: 6000, stopOnInteraction: false };
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Inicialización síncrona inmediata con localStorage para carga instantánea en 0ms
+  const [offers, setOffers] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('store_offers');
+        if (saved) {
+          const parsed = filterValidAdminOffers(JSON.parse(saved));
+          if (parsed.length > 0) return parsed;
+        }
+      } catch (error) {}
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && Array.isArray(json.data)) {
+          const cleanOffers = filterValidAdminOffers(json.data);
+          if (cleanOffers.length > 0) {
+            setOffers(cleanOffers);
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('store_offers', JSON.stringify(cleanOffers));
+              } catch (e) {}
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Recálculo y reactivación inmediata del carrusel en cuanto hay ofertas listas
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    emblaApi.reInit();
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, offers.length]);
+
+  if (offers.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="w-full py-4 md:py-6" id="ofertas">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <div>
+          <span className="text-orange-500 font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4" /> Oportunidades de la semana
+          </span>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900">Promociones y Combos</h2>
+        </div>
+      </div>
+
+      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
+        <div ref={emblaRef} className="overflow-hidden w-full">
+          <div className="flex w-full">
+            {offers.map((offer, idx) => {
+              const dImg = offer.desktopImg || offer.mobileImg || '';
+              const mImg = offer.mobileImg || offer.desktopImg || '';
+
+              return (
+                <div
+                  key={offer.id || idx}
+                  className="flex-[0_0_100%] min-w-0 relative h-[38vh] md:h-[48vh] min-h-[280px] md:min-h-[380px] py-10 pb-14 md:py-14 md:pb-16 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
+                >
+                  {dImg && (
+                    <img
+                      src={dImg}
+                      alt={offer.title || 'Oferta'}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
+                      className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    />
+                  )}
+                  {mImg && (
+                    <img
+                      src={mImg}
+                      alt={offer.title || 'Oferta'}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={idx === 0 ? 'high' : 'auto'}
+                      className="block md:hidden absolute inset-0 w-full h-full object-cover z-0"
+                    />
+                  )}
+
+                  <Link
+                    href={offer.link || '/catalogo'}
+                    className="absolute inset-0 z-10 cursor-pointer"
+                    aria-label={offer.title || 'Oferta'}
+                  />
+
+                  {offer.title && offer.title.trim() !== '' && (
+                    <div className="px-6 sm:px-10 md:px-16 space-y-3 relative z-20 w-full max-w-3xl pointer-events-none my-auto">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {offer.tag && (
+                          <span className="bg-white/20 backdrop-blur-md text-white font-black text-[10px] px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">
+                            {offer.tag}
+                          </span>
+                        )}
+                        {offer.discount && (
+                          <span className="text-xs font-black text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-400/30">
+                            {offer.discount}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight drop-shadow-md">
+                        {offer.title}
+                      </h3>
+                      {offer.desc && (
+                        <p className="text-xs sm:text-sm md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">
+                          {offer.desc}
+                        </p>
+                      )}
+
+                      <div className="pt-2 pointer-events-auto">
+                        <Link
+                          href={offer.link || '/catalogo'}
+                          className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs md:text-sm py-3.5 px-6 rounded-xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1 transition-all duration-300 ease-out active:scale-95 cursor-pointer group/btn"
+                        >
+                          <span>Aprovechar Oferta</span>
+                          <ArrowRight className="w-4 h-4 text-white group-hover/btn:translate-x-1 transition-transform" />
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {offers.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
+            {offers.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => emblaApi?.scrollTo(i)}
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  i === selectedIndex ? 'w-8 bg-white shadow-md' : 'w-2 bg-white/40 hover:bg-white/70'
+                }`}
+                aria-label={`Ir a oferta ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="src/app/catalogo/page.tsx">
 'use client';
 
@@ -4730,7 +4796,6 @@ function CatalogoContent() {
   const router = useRouter();
   const { addItem } = useCartStore();
 
-  // Inicialización limpia: lee caché de productos reales, NUNCA los cuadros naranjas por defecto
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -4773,6 +4838,7 @@ function CatalogoContent() {
   ]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  // Filtrado instantáneo en memoria al cambiar de categoría
   useEffect(() => {
     const categoryParam = searchParams.get('category');
     const currentCat = categoryParam || 'Todos';
@@ -4786,37 +4852,29 @@ function CatalogoContent() {
     }
   }, [searchParams, products]);
 
+  // Descarga en paralelo ultra rápida al entrar a la página (sin cascadas bloqueantes)
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const prods = await productService.getProducts();
-        if (Array.isArray(prods) && prods.length > 0) {
-          setProducts(prods);
-          const currentCat = searchParams.get('category') || 'Todos';
-          if (!currentCat || currentCat.toLowerCase() === 'todos') {
-            setFilteredProducts(prods);
-          } else {
-            const targetNorm = normalizeCatName(currentCat);
-            setFilteredProducts(prods.filter((p) => normalizeCatName(p.category) === targetNorm));
-          }
-        }
+    productService.getProducts().then((prods) => {
+      if (Array.isArray(prods) && prods.length > 0) {
+        setProducts(prods);
+      }
+    });
 
-        const res = await fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (json && Array.isArray(json.data)) {
-            const cleanSlides = filterValidCatBanners(json.data);
-            setCatSlides(cleanSlides);
-            if (typeof window !== 'undefined') {
+    fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && Array.isArray(json.data)) {
+          const cleanSlides = filterValidCatBanners(json.data);
+          setCatSlides(cleanSlides);
+          if (typeof window !== 'undefined') {
+            try {
               localStorage.setItem('store_cat_slides', JSON.stringify(cleanSlides));
-            }
+            } catch (_) {}
           }
         }
-      } catch (e) {}
-    };
-
-    loadData();
-  }, [searchParams]);
+      })
+      .catch(() => {});
+  }, []);
 
   const activeCategorySlides = (() => {
     const normalizedActive = normalizeCatName(activeCategory);
@@ -4928,6 +4986,8 @@ function CatalogoContent() {
                         <img
                           src={dImg}
                           alt={`Banner ${slide.category || activeCategory}`}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          fetchPriority={idx === 0 ? 'high' : 'auto'}
                           className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
                         />
                       )}

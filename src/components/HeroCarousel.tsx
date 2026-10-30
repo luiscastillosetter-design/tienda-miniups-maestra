@@ -6,20 +6,14 @@ import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 
-// Array vacío para que ni la tienda ni el Admin carguen parchos naranjas por defecto
 export const defaultHeroSlides: any[] = [];
 
-// Filtra cualquier slide viejo que apunte a rutas locales inexistentes (/hero/...)
 function filterValidAdminSlides(rawSlides: any[]): any[] {
   if (!Array.isArray(rawSlides)) return [];
   return rawSlides.filter((s) => {
     const dImg = String(s?.desktopImg || '').trim();
     const mImg = String(s?.mobileImg || '').trim();
-    const isLegacyFakePath =
-      dImg.startsWith('/hero/') ||
-      mImg.startsWith('/hero/');
-    const hasRealImage = Boolean(dImg || mImg);
-    return hasRealImage && !isLegacyFakePath;
+    return Boolean(dImg || mImg);
   });
 }
 
@@ -28,7 +22,6 @@ export function HeroCarousel() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Inicialización síncrona inmediata con localStorage para carga en 0ms sin parpadeos
   const [slides, setSlides] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -37,7 +30,7 @@ export function HeroCarousel() {
           const parsed = filterValidAdminSlides(JSON.parse(local));
           if (parsed.length > 0) return parsed;
         }
-      } catch (e) {}
+      } catch (_) {}
     }
     return [];
   });
@@ -52,18 +45,15 @@ export function HeroCarousel() {
           const json = await res.json();
           if (Array.isArray(json.data)) {
             const cleanSlides = filterValidAdminSlides(json.data);
-            if (cleanSlides.length > 0) {
-              setSlides(cleanSlides);
-              if (typeof window !== 'undefined') {
-                try {
-                  localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
-                } catch (e) {}
-              }
+            setSlides(cleanSlides);
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('store_hero_slides', JSON.stringify(cleanSlides));
+              } catch (_) {}
             }
           }
         }
-      } catch (e) {}
-
+      } catch (_) {}
       setIsLoaded(true);
     };
 
@@ -72,17 +62,20 @@ export function HeroCarousel() {
 
   useEffect(() => {
     if (!emblaApi) return;
-    emblaApi.on('select', () => setSelectedIndex(emblaApi.selectedScrollSnap()));
-  }, [emblaApi]);
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    emblaApi.reInit();
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, slides.length]);
 
-  // Mientras carga desde el servidor: esqueleto neutro (CERO parcho naranja)
-  if (!isLoaded) {
+  if (!isLoaded && slides.length === 0) {
     return (
       <div className="w-full h-[42vh] md:h-[58vh] min-h-[320px] md:min-h-[460px] rounded-2xl md:rounded-3xl bg-slate-200/70 animate-pulse" />
     );
   }
 
-  // Si aún no se ha subido ningún banner en el Admin, no muestra parchos rotos
   if (slides.length === 0) {
     return null;
   }
@@ -126,7 +119,6 @@ export function HeroCarousel() {
                   aria-label={slide.title || 'Ver catálogo'}
                 />
 
-                {/* Solo muestra textos superpuestos si el Admin escribió un título explícitamente */}
                 {slide.title && slide.title.trim() !== '' && (
                   <div className="max-w-3xl space-y-3.5 md:space-y-5 relative z-20 pointer-events-none my-auto">
                     {slide.badge && (
@@ -145,17 +137,20 @@ export function HeroCarousel() {
                         {slide.subtitle}
                       </p>
                     )}
+                  </div>
+                )}
 
-                    <div className="pt-2 pointer-events-auto">
-                      <Link
-                        href={slide.btnLink || '/catalogo'}
-                        className="inline-flex items-center gap-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black px-6 md:px-7 py-3.5 md:py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:-translate-y-1.5 transition-all duration-300 ease-out text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
-                      >
-                        <ShoppingBag className="w-4 h-4 text-white group-hover/btn:scale-110 transition-transform" />
-                        <span>{slide.btnText || 'Comprar Ahora'}</span>
-                        <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                      </Link>
-                    </div>
+                {/* Botón CTA esquina inferior izquierda */}
+                {slide.showBtn !== false && (
+                  <div className="absolute bottom-6 left-6 md:bottom-8 md:left-12 z-20 pointer-events-auto">
+                    <Link
+                      href={slide.btnLink || '/catalogo'}
+                      className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black px-5 py-2.5 md:px-7 md:py-3.5 rounded-2xl shadow-lg shadow-orange-500/40 hover:shadow-orange-500/60 hover:-translate-y-1 transition-all duration-300 text-xs md:text-sm active:scale-95 cursor-pointer group/btn"
+                    >
+                      <ShoppingBag className="w-4 h-4 text-white group-hover/btn:scale-110 transition-transform" />
+                      <span>{slide.btnText || 'Comprar Ahora'}</span>
+                      <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                    </Link>
                   </div>
                 )}
               </div>
