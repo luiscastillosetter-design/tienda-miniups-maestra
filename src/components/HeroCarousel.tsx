@@ -19,7 +19,7 @@ function filterValidAdminSlides(rawSlides: any[]): any[] {
 
 export function HeroCarousel() {
   const autoplayOptions = { delay: 6500, stopOnInteraction: false };
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [Autoplay(autoplayOptions)]);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay(autoplayOptions)]);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const [slides, setSlides] = useState<any[]>(() => {
@@ -91,7 +91,7 @@ export function HeroCarousel() {
             return (
               <div
                 key={slide.id || idx}
-                className={`flex-[0_0_100%] ${slides.length > 1 ? 'md:flex-[0_0_50%]' : ''} min-w-0 md:px-1.5`}
+                className={`flex-[0_0_100%] ${slides.length === 2 ? 'md:flex-[0_0_50%]' : slides.length >= 3 ? 'md:flex-[0_0_50%] lg:flex-[0_0_33.3333%]' : ''} min-w-0 md:px-1.5`}
               >
               <div
                 className="w-full rounded-2xl md:rounded-3xl relative h-[42vh] md:h-[44vh] min-h-[320px] md:min-h-[340px] py-10 pb-16 md:py-12 md:pb-16 px-6 md:px-10 text-white bg-slate-950 flex flex-col justify-center items-start overflow-hidden group"

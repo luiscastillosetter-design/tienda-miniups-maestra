@@ -41,7 +41,7 @@ export default function CategoryBar({ products }: { products: Product[] }) {
 
   return (
     <section className="w-full" onMouseLeave={() => setHover(null)}>
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide bg-white border border-gray-200/80 rounded-2xl px-2 py-1.5 shadow-xs">
+      <div className="flex items-center justify-start md:justify-center gap-2 overflow-x-auto scrollbar-hide bg-white border border-gray-200/80 rounded-2xl px-2 py-1.5 shadow-xs">
         {categories.map((cat) => {
           const Icon = cat.icon;
           return (

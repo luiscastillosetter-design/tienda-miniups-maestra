@@ -135,7 +135,7 @@ export default function ProductPage() {
         <div className="bg-white rounded-3xl border border-gray-200/80 shadow-sm p-6 md:p-12 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
           
           {/* LADO IZQUIERDO: Gran Visor Multimedia con Lupa Interactiva (7 de 12 cols) */}
-          <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
+          <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4 self-start md:sticky md:top-6">
             
             {/* Tira de Miniaturas */}
             {product.images && product.images.length > 1 && (

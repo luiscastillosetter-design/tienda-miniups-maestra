@@ -11,6 +11,7 @@ import { OffersCarousel } from '@/components/OffersCarousel';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
 import ProductRail from '@/components/ProductRail';
 import CategoryBar from '@/components/CategoryBar';
+import StoreLocationSection from '@/components/StoreLocationSection';
 import ProductCover from '@/components/ProductCover';
 import { useCartStore } from '@/store/cartStore';
 import { Flame, ShoppingBag, ArrowRight } from 'lucide-react';
@@ -79,7 +80,12 @@ function HomeContent() {
         {/* 1. BARRA FINA DE CATEGORÍAS */}
         <CategoryBar products={products} />
 
-        {/* 2. CATÁLOGO EN 2 FILAS */}
+        {/* 2. CARRUSEL PRINCIPAL (3 segmentos) */}
+        <section className="w-full">
+          <HeroCarousel />
+        </section>
+
+        {/* 3. CATÁLOGO EN 2 FILAS */}
         <section className="w-full" id="catalogo-grilla">
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
@@ -150,16 +156,12 @@ function HomeContent() {
           </ProductRail>
         </section>
 
-        {/* 3. BANNERS: HERO + OFERTAS (2 segmentos en escritorio) */}
-        <section className="w-full">
-          <HeroCarousel />
-        </section>
-
+        {/* 4. OFERTAS (2 segmentos) */}
         <section className="w-full">
           <OffersCarousel />
         </section>
 
-        {/* 4. PRODUCTOS MÁS VENDIDOS */}
+        {/* 5. MÁS VENDIDOS */}
         <section className="w-full">
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
@@ -229,9 +231,11 @@ function HomeContent() {
           </ProductRail>
         </section>
 
+        {/* 6. UBICACIÓN Y HORARIOS */}
+        <StoreLocationSection />
+
         {/* 5. BLOQUE DE CONFIANZA Y POLÍTICAS DINÁMICAS */}
         <TrustAndPolicies />
-
       </div>
     </div>
   );

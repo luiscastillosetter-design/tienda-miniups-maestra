@@ -155,7 +155,7 @@ export default function ProductPreviewModal({ data, tasaBcv, isEditing, onClose,
             </div>
           ) : (
             <div className="bg-white rounded-3xl border border-gray-200/80 shadow-sm p-5 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
-              <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
+              <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4 self-start md:sticky md:top-6">
                 {data.images.length > 1 && (
                   <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto max-h-[420px] pb-2 md:pb-0">
                     {data.images.map((m, i) => (

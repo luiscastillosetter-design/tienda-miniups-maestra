@@ -231,6 +231,7 @@ export default function AdminPage() {
     pagoMovilBanco: siteConfig.paymentMethods.pagoMovil.banco,
     pagoMovilTelefono: siteConfig.paymentMethods.pagoMovil.telefono,
     pagoMovilCedula: siteConfig.paymentMethods.pagoMovil.cedula,
+    pago_movil_qr_url: '',
     transfBanco: siteConfig.paymentMethods.transferencia.banco,
     transfCuenta: siteConfig.paymentMethods.transferencia.cuenta,
     transfTitular: siteConfig.paymentMethods.transferencia.titular,
@@ -2300,6 +2301,40 @@ export default function AdminPage() {
                         onChange={e => setStoreSettings({ ...storeSettings, pagoMovilCedula: e.target.value })}
                         className="w-full px-3 py-2 bg-white border rounded-xl font-semibold"
                       />
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-200">
+                    <label className="block font-bold uppercase text-slate-400 text-[10px] mb-2">Código QR de Pago Móvil</label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-32 h-32 shrink-0 bg-white border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center overflow-hidden">
+                        {storeSettings.pago_movil_qr_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={storeSettings.pago_movil_qr_url} alt="QR Pago Móvil" className="w-full h-full object-contain p-1" />
+                        ) : (
+                          <span className="text-[10px] text-slate-300 font-bold uppercase text-center px-2">Sin QR</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2 text-xs">
+                        <label className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold cursor-pointer text-center hover:bg-slate-700">
+                          {storeSettings.pago_movil_qr_url ? 'Reemplazar imagen' : 'Subir imagen'}
+                          <input
+                            type="file"
+                            accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            onChange={e => handleMediaUpload(e, url => setStoreSettings(prev => ({ ...prev, pago_movil_qr_url: url })))}
+                          />
+                        </label>
+                        {storeSettings.pago_movil_qr_url && (
+                          <button
+                            type="button"
+                            onClick={() => setStoreSettings(prev => ({ ...prev, pago_movil_qr_url: '' }))}
+                            className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100"
+                          >
+                            Quitar QR
+                          </button>
+                        )}
+                        <p className="text-[10px] text-slate-400">PNG, JPG o WEBP. Recuerda pulsar «Guardar» para aplicar.</p>
+                      </div>
                     </div>
                   </div>
                 </div>

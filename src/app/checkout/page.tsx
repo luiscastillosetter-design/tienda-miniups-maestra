@@ -19,7 +19,7 @@ export default function CheckoutPage() {
     whatsappNumber: siteConfig.whatsappNumber,
     freeShippingThreshold: siteConfig.shipping.freeShippingThreshold,
     shippingCompanies: siteConfig.shipping.companies,
-    pagoMovil: siteConfig.paymentMethods.pagoMovil,
+    pagoMovil: { ...siteConfig.paymentMethods.pagoMovil, qrUrl: '' },
     transferencia: siteConfig.paymentMethods.transferencia,
     zelle: siteConfig.paymentMethods.zelle,
     binance: {
@@ -74,6 +74,7 @@ export default function CheckoutPage() {
               banco: cfg.pagoMovilBanco || siteConfig.paymentMethods.pagoMovil.banco,
               telefono: cfg.pagoMovilTelefono || siteConfig.paymentMethods.pagoMovil.telefono,
               cedula: cfg.pagoMovilCedula || siteConfig.paymentMethods.pagoMovil.cedula,
+              qrUrl: cfg.pago_movil_qr_url || '',
             },
             transferencia: {
               banco: cfg.transfBanco || siteConfig.paymentMethods.transferencia.banco,
@@ -524,6 +525,25 @@ export default function CheckoutPage() {
                           <p>
                             <span className="text-slate-400">Cédula/RIF:</span> {liveSettings.pagoMovil.cedula}
                           </p>
+                          {liveSettings.pagoMovil.qrUrl && (
+                            <div className="pt-3 flex flex-col items-center gap-2">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={liveSettings.pagoMovil.qrUrl}
+                                alt="Código QR de Pago Móvil"
+                                className="w-44 h-44 object-contain bg-white p-2 rounded-xl border"
+                              />
+                              <a
+                                href={liveSettings.pagoMovil.qrUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download="qr-pago-movil"
+                                className="text-xs font-bold text-orange-400 hover:text-orange-300 underline"
+                              >
+                                Ampliar / descargar QR
+                              </a>
+                            </div>
+                          )}
                         </>
                       )}
                       {metodoPago === 'Transferencia' && (
