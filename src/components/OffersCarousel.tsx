@@ -77,9 +77,9 @@ export function OffersCarousel() {
         </div>
       </div>
 
-      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
+      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950 md:bg-transparent md:shadow-none">
         <div ref={emblaRef} className="overflow-hidden w-full">
-          <div className="flex w-full">
+          <div className="flex w-full md:-mx-1.5 md:w-[calc(100%+0.75rem)]">
             {offers.map((offer, idx) => {
               const dImg = offer.desktopImg || offer.mobileImg || '';
               const mImg = offer.mobileImg || offer.desktopImg || '';
@@ -87,7 +87,10 @@ export function OffersCarousel() {
               return (
                 <div
                   key={offer.id || idx}
-                  className="flex-[0_0_100%] min-w-0 relative h-[38vh] md:h-[48vh] min-h-[280px] md:min-h-[380px] py-10 pb-14 md:py-14 md:pb-16 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
+                  className={`flex-[0_0_100%] ${offers.length > 1 ? 'md:flex-[0_0_50%]' : ''} min-w-0 md:px-1.5`}
+                >
+                <div
+                  className="w-full rounded-2xl md:rounded-3xl relative h-[38vh] md:h-[38vh] min-h-[280px] md:min-h-[300px] py-10 pb-14 md:py-10 md:pb-14 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
                 >
                   {dImg && (
                     <img
@@ -128,11 +131,11 @@ export function OffersCarousel() {
                           </span>
                         )}
                       </div>
-                      <h3 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight drop-shadow-md">
+                      <h3 className="text-2xl sm:text-3xl md:text-2xl lg:text-3xl font-black leading-tight drop-shadow-md">
                         {offer.title}
                       </h3>
                       {offer.desc && (
-                        <p className="text-xs sm:text-sm md:text-lg text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">
+                        <p className="text-xs sm:text-sm md:text-sm lg:text-base text-white/90 font-medium leading-relaxed drop-shadow-md max-w-xl">
                           {offer.desc}
                         </p>
                       )}
@@ -152,6 +155,7 @@ export function OffersCarousel() {
                       </Link>
                     </div>
                   )}
+                </div>
                 </div>
               );
             })}

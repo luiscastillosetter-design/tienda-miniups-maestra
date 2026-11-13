@@ -3,6 +3,7 @@ import { dbService } from '@/services/dbService';
 import { products as defaultProducts, type Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
 import { obtenerTasaBcv } from '@/lib/tasaBcv';
+import { normalizeSearchText } from '@/lib/search';
 
 export const dynamic = 'force-dynamic';
 
@@ -192,9 +193,9 @@ function fallbackReply(ctx: Ctx, lastUser: string) {
       ? `La tasa oficial BCV hoy es **Bs. ${ctx.bcv.tasa.toFixed(2)}** por dólar.`
       : 'No pude consultar la tasa BCV ahora mismo; la verás en la barra superior de la web.';
   }
-  const words = q.split(/\W+/).filter((w) => w.length > 3);
+  const words = normalizeSearchText(lastUser).split(/\W+/).filter((w) => w.length > 3);
   let found = ctx.catalogo.filter((p) =>
-    words.some((w) => `${p.nombre} ${p.categoria}`.toLowerCase().includes(w))
+    words.some((w) => normalizeSearchText(`${p.nombre} ${p.categoria}`).includes(w))
   );
   const intro = found.length > 0 ? 'Mira lo que tengo disponible para ti:' : 'Estos son algunos de nuestros productos disponibles:';
   if (found.length === 0) found = ctx.catalogo;

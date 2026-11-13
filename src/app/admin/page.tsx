@@ -274,6 +274,17 @@ export default function AdminPage() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
+  const insertImageInDescription = (url: string) => {
+    const snippet = `\n![imagen](${url})\n`;
+    const ta = document.getElementById('product-description') as HTMLTextAreaElement | null;
+    const at = ta ? ta.selectionStart : null;
+    setProductForm((prev) => {
+      const text = prev.description || '';
+      const pos = at === null || at > text.length ? text.length : at;
+      return { ...prev, description: text.slice(0, pos) + snippet + text.slice(pos) };
+    });
+  };
+
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1732,11 +1743,37 @@ export default function AdminPage() {
                 <div>
                   <label className="block font-bold text-slate-500 uppercase mb-1">Descripción</label>
                   <textarea
-                    rows={2}
+                    id="product-description"
+                    rows={4}
                     value={productForm.description}
                     onChange={e => setProductForm({ ...productForm, description: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
                   />
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <label className="cursor-pointer bg-slate-900 hover:bg-orange-500 text-white font-bold px-3 py-1.5 rounded-lg transition-colors">
+                      Insertar imagen en descripción
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          handleMediaUpload(e, insertImageInDescription);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = window.prompt('Pega la URL de la imagen (https://...)')?.trim();
+                        if (url && /^https?:\/\//.test(url)) insertImageInDescription(url);
+                      }}
+                      className="border border-slate-300 hover:border-orange-500 text-slate-700 font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                    >
+                      Pegar URL
+                    </button>
+                    <span className="text-[10px] text-slate-400">Se inserta como ![imagen](url) en su propia línea.</span>
+                  </div>
                 </div>
 
                 <div>

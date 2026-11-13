@@ -10,8 +10,9 @@ import { HeroCarousel } from '@/components/HeroCarousel';
 import { OffersCarousel } from '@/components/OffersCarousel';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
 import ProductRail from '@/components/ProductRail';
+import CategoryBar from '@/components/CategoryBar';
+import ProductCover from '@/components/ProductCover';
 import { useCartStore } from '@/store/cartStore';
-import { useCategories } from '@/hooks/useCategories';
 import { Flame, ShoppingBag, ArrowRight } from 'lucide-react';
 
 function HomeContent() {
@@ -31,9 +32,6 @@ function HomeContent() {
     }
     return [];
   });
-
-  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
-  const categoriesList = useCategories(products.map(p => p.category));
 
   useEffect(() => {
     const load = async () => {
@@ -73,68 +71,95 @@ function HomeContent() {
   };
 
   const bestSellers = products.filter(p => p.isBestSeller);
-  const filteredProducts = selectedCategory === 'Todos'
-    ? products
-    : products.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
 
   return (
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-28">
       <div className="w-full px-4 md:px-10 lg:px-16 space-y-12 md:space-y-16">
-        
-        {/* 1. HERO CAROUSEL */}
+
+        {/* 1. BARRA FINA DE CATEGORÍAS */}
+        <CategoryBar products={products} />
+
+        {/* 2. CATÁLOGO EN 2 FILAS */}
+        <section className="w-full" id="catalogo-grilla">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
+            <div>
+              <span className="text-orange-500 font-black text-xs uppercase tracking-wider">Inventario Disponible</span>
+              <h2 className="text-2xl md:text-3xl font-black text-slate-900">
+                Catálogo ({products.length})
+              </h2>
+            </div>
+            <Link href="/catalogo" className="text-xs font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1">
+              Ver todos <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <ProductRail count={products.length === 0 ? 6 : products.length}>
+            {products.length === 0 ? (
+              [1, 2, 3, 4, 5, 6].map(idx => (
+                <div key={idx} className="w-full aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
+              ))
+            ) : (
+              products.map((product) => {
+                const outOfStock = product.stock <= 0;
+                return (
+                  <div
+                    key={product.id}
+                    className="snap-start h-full bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                  >
+                    <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
+                      <ProductCover images={product.images} title={product.title} />
+                      {outOfStock ? (
+                        <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                          Agotado
+                        </span>
+                      ) : product.badge ? (
+                        <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase">
+                          {product.badge}
+                        </span>
+                      ) : null}
+                    </Link>
+
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
+                        <Link href={`/product/${product.id}`}>
+                          <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
+                            {product.title}
+                          </h3>
+                        </Link>
+                      </div>
+
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-base md:text-lg font-black text-slate-900">
+                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
+                        </span>
+                        <button
+                          onClick={(e) => handleBuyNow(product, e)}
+                          disabled={outOfStock}
+                          title={outOfStock ? 'Sin stock disponible' : 'Comprar'}
+                          className="bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          {outOfStock ? 'Agotado' : 'Comprar'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </ProductRail>
+        </section>
+
+        {/* 3. BANNERS: HERO + OFERTAS (2 segmentos en escritorio) */}
         <section className="w-full">
           <HeroCarousel />
         </section>
 
-        {/* 2. CATEGORÍAS MULTIPRODUCTO */}
         <section className="w-full">
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <div>
-              <span className="text-orange-500 font-black text-xs uppercase tracking-wider">Departamentos TodoMax</span>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900">Explora por Categoría</h2>
-            </div>
-            {selectedCategory !== 'Todos' && (
-              <button
-                onClick={() => setSelectedCategory('Todos')}
-                className="text-xs font-bold text-orange-500 hover:underline cursor-pointer"
-              >
-                Limpiar Filtro
-              </button>
-            )}
-          </div>
-
-          <div className="flex overflow-x-auto md:grid md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-5 snap-x pb-4 pt-3 scrollbar-hide px-1">
-            {categoriesList.map((cat) => {
-              const Icon = cat.icon;
-              const isSelected = selectedCategory.toLowerCase() === cat.name.toLowerCase();
-              return (
-                <button
-                  key={cat.name}
-                  onClick={() => {
-                    setSelectedCategory(isSelected ? 'Todos' : cat.name);
-                    document.getElementById('catalogo-grilla')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className={`flex-shrink-0 w-[140px] md:w-auto snap-start p-4 md:p-5 rounded-3xl border text-center transition-all duration-300 ease-out flex flex-col items-center justify-center gap-3 cursor-pointer group hover:-translate-y-2 hover:shadow-2xl hover:shadow-slate-300/50 ${
-                    isSelected
-                      ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-300/60 scale-105'
-                      : 'bg-white border-gray-200/80 text-slate-800 hover:border-orange-200'
-                  }`}
-                >
-                  <div className={`p-4 rounded-2xl transition-all duration-300 group-hover:scale-110 ${
-                    isSelected ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-500 group-hover:bg-orange-500 group-hover:text-white'
-                  }`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-black block">{cat.name}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <OffersCarousel />
         </section>
 
-        {/* 3. PRODUCTOS MÁS VENDIDOS */}
+        {/* 4. PRODUCTOS MÁS VENDIDOS */}
         <section className="w-full">
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <div>
@@ -153,18 +178,13 @@ function HomeContent() {
             ) : (
               bestSellers.map((product) => {
                 const outOfStock = product.stock <= 0;
-                const coverMedia = product.images?.[0] || '';
                 return (
                   <div
                     key={product.id}
                     className="snap-start h-full bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
                   >
                     <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                      {isVideo(coverMedia) ? (
-                        <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
-                      ) : (
-                        <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
-                      )}
+                      <ProductCover images={product.images} title={product.title} />
                       {outOfStock ? (
                         <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shadow-sm">
                           Agotado
@@ -209,88 +229,7 @@ function HomeContent() {
           </ProductRail>
         </section>
 
-        {/* 4. PROMOCIONES Y COMBOS */}
-        <section className="w-full">
-          <OffersCarousel />
-        </section>
-
-        {/* 5. CATÁLOGO GENERAL */}
-        <section className="w-full" id="catalogo-grilla">
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-            <div>
-              <span className="text-orange-500 font-black text-xs uppercase tracking-wider">Inventario Disponible</span>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900">
-                Catálogo: {selectedCategory} ({filteredProducts.length})
-              </h2>
-            </div>
-            <Link href="/catalogo" className="text-xs font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1">
-              Ver todos <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <ProductRail count={products.length === 0 ? 6 : filteredProducts.length}>
-            {products.length === 0 ? (
-              [1, 2, 3, 4, 5, 6].map(idx => (
-                <div key={idx} className="w-full aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
-              ))
-            ) : (
-              filteredProducts.map((product) => {
-                const outOfStock = product.stock <= 0;
-                const coverMedia = product.images?.[0] || '';
-                return (
-                  <div
-                    key={product.id}
-                    className="snap-start h-full bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-                  >
-                    <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
-                      {isVideo(coverMedia) ? (
-                        <video src={coverMedia} muted loop autoPlay playsInline className="w-full h-full object-cover rounded-xl" />
-                      ) : (
-                        <img src={coverMedia} alt={product.title} className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500" />
-                      )}
-                      {outOfStock ? (
-                        <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
-                          Agotado
-                        </span>
-                      ) : product.badge ? (
-                        <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-0.5 rounded-md uppercase">
-                          {product.badge}
-                        </span>
-                      ) : null}
-                    </Link>
-
-                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-gray-400">{product.category}</span>
-                        <Link href={`/product/${product.id}`}>
-                          <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">
-                            {product.title}
-                          </h3>
-                        </Link>
-                      </div>
-
-                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                        <span className="text-base md:text-lg font-black text-slate-900">
-                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                        </span>
-                        <button
-                          onClick={(e) => handleBuyNow(product, e)}
-                          disabled={outOfStock}
-                          title={outOfStock ? 'Sin stock disponible' : 'Comprar'}
-                          className="bg-slate-900 hover:bg-orange-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all duration-300 hover:-translate-y-1 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
-                        >
-                          {outOfStock ? 'Agotado' : 'Comprar'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </ProductRail>
-        </section>
-
-        {/* 6. BLOQUE DE CONFIANZA Y POLÍTICAS DINÁMICAS */}
+        {/* 5. BLOQUE DE CONFIANZA Y POLÍTICAS DINÁMICAS */}
         <TrustAndPolicies />
 
       </div>

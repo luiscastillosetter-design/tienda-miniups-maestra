@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import DescriptionContent from '@/components/DescriptionContent';
 import { 
   ShoppingCart, ChevronLeft, Truck, CheckCircle2, 
   CreditCard, Play, Flame, ListChecks, Search 
@@ -252,9 +253,10 @@ export default function ProductPage() {
                     <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">
                       Descripción del Producto
                     </h3>
-                    <div className="text-xs md:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-line">
-                      {product.description}
-                    </div>
+                    <DescriptionContent
+                      description={product.description}
+                      className="text-xs md:text-sm text-slate-700 leading-relaxed font-normal"
+                    />
                   </div>
                 </div>
               )}

@@ -108,11 +108,73 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
+  const BUBBLE = 56;
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [hidden, setHidden] = useState(false);
+  const drag = useRef({ active: false, moved: false, sx: 0, sy: 0, ox: 0, oy: 0 });
+  const bubbleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('maria_hidden') === '1') setHidden(true);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const onResize = () =>
+      setPos((p) =>
+        p
+          ? {
+              x: Math.min(Math.max(0, p.x), window.innerWidth - BUBBLE),
+              y: Math.min(Math.max(0, p.y), window.innerHeight - BUBBLE),
+            }
+          : p
+      );
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, open]);
 
-  if (pathname?.startsWith('/admin')) return null;
+  if (pathname?.startsWith('/admin') || hidden) return null;
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const rect = bubbleRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    drag.current = { active: true, moved: false, sx: e.clientX, sy: e.clientY, ox: rect.left, oy: rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    if (!d.active) return;
+    const dx = e.clientX - d.sx;
+    const dy = e.clientY - d.sy;
+    if (!d.moved && Math.hypot(dx, dy) <= 5) return;
+    d.moved = true;
+    setPos({
+      x: Math.min(Math.max(0, d.ox + dx), window.innerWidth - BUBBLE),
+      y: Math.min(Math.max(0, d.oy + dy), window.innerHeight - BUBBLE),
+    });
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    if (!d.active) return;
+    d.active = false;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (!d.moved) setOpen((o) => !o);
+  };
+
+  const hideBubble = () => {
+    setOpen(false);
+    setHidden(true);
+    try {
+      sessionStorage.setItem('maria_hidden', '1');
+    } catch {}
+  };
 
   const send = async (text: string) => {
     const content = text.trim();
@@ -228,14 +290,33 @@ export default function ChatWidget() {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label={open ? 'Cerrar chat con María' : 'Abrir chat con María'}
-        className="fixed z-50 bottom-20 md:bottom-5 right-3 md:right-5 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-xl shadow-orange-500/40 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+      <div
+        ref={bubbleRef}
+        style={pos ? { left: pos.x, top: pos.y } : undefined}
+        className={`fixed z-50 w-14 h-14 ${pos ? '' : 'bottom-20 md:bottom-5 right-3 md:right-5'}`}
       >
-        {open ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
-      </button>
+        <button
+          type="button"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          aria-label={open ? 'Cerrar chat con María' : 'Abrir chat con María'}
+          style={{ touchAction: 'none' }}
+          className="w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-xl shadow-orange-500/40 flex items-center justify-center transition-colors active:scale-95 cursor-grab active:cursor-grabbing select-none"
+        >
+          {open ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+        </button>
+        <button
+          type="button"
+          onClick={hideBubble}
+          aria-label="Ocultar a María"
+          title="Ocultar"
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-800/80 hover:bg-slate-900 text-white flex items-center justify-center cursor-pointer"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
     </>
   );
 }

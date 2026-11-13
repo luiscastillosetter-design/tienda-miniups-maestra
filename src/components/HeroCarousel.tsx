@@ -81,9 +81,9 @@ export function HeroCarousel() {
   }
 
   return (
-    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950">
+    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950 md:bg-transparent md:shadow-none">
       <div ref={emblaRef} className="overflow-hidden w-full">
-        <div className="flex w-full">
+        <div className="flex w-full md:-mx-1.5 md:w-[calc(100%+0.75rem)]">
           {slides.map((slide, idx) => {
             const dImg = slide.desktopImg || slide.mobileImg || '';
             const mImg = slide.mobileImg || slide.desktopImg || '';
@@ -91,7 +91,10 @@ export function HeroCarousel() {
             return (
               <div
                 key={slide.id || idx}
-                className="flex-[0_0_100%] min-w-0 relative h-[42vh] md:h-[58vh] min-h-[320px] md:min-h-[460px] py-10 pb-16 md:py-16 md:pb-20 px-6 md:px-20 text-white bg-slate-950 flex flex-col justify-center items-start overflow-hidden group"
+                className={`flex-[0_0_100%] ${slides.length > 1 ? 'md:flex-[0_0_50%]' : ''} min-w-0 md:px-1.5`}
+              >
+              <div
+                className="w-full rounded-2xl md:rounded-3xl relative h-[42vh] md:h-[44vh] min-h-[320px] md:min-h-[340px] py-10 pb-16 md:py-12 md:pb-16 px-6 md:px-10 text-white bg-slate-950 flex flex-col justify-center items-start overflow-hidden group"
               >
                 {dImg && (
                   <img
@@ -128,12 +131,12 @@ export function HeroCarousel() {
                       </span>
                     )}
 
-                    <h1 className="text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-md">
+                    <h1 className="text-3xl sm:text-4xl md:text-3xl lg:text-4xl font-black leading-tight tracking-tight drop-shadow-md">
                       {slide.title}
                     </h1>
 
                     {slide.subtitle && (
-                      <p className="text-xs sm:text-sm md:text-lg text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
+                      <p className="text-xs sm:text-sm md:text-sm lg:text-base text-white/95 font-medium max-w-2xl leading-relaxed drop-shadow-md">
                         {slide.subtitle}
                       </p>
                     )}
@@ -153,6 +156,7 @@ export function HeroCarousel() {
                     </Link>
                   </div>
                 )}
+              </div>
               </div>
             );
           })}

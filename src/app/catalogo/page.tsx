@@ -12,13 +12,11 @@ import { useCategories } from '@/hooks/useCategories';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
+import ProductCover from '@/components/ProductCover';
+import { normalizeSearchText } from '@/lib/search';
 
 function normalizeCatName(val: string) {
-  return (val || 'Todos')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
+  return normalizeSearchText(val || 'Todos').trim();
 }
 
 function filterValidCatBanners(rawSlides: any[]): any[] {
@@ -310,7 +308,6 @@ function CatalogoContent() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
               {filteredProducts.map((product) => {
                 const outOfStock = product.stock <= 0;
-                const coverMedia = product.images?.[0] || '';
                 return (
                   <div
                     key={product.id}
@@ -320,22 +317,7 @@ function CatalogoContent() {
                       href={`/product/${product.id}`}
                       className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden"
                     >
-                      {isVideo(coverMedia) ? (
-                        <video
-                          src={coverMedia}
-                          muted
-                          loop
-                          autoPlay
-                          playsInline
-                          className="w-full h-full object-cover rounded-xl"
-                        />
-                      ) : (
-                        <img
-                          src={coverMedia}
-                          alt={product.title}
-                          className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
-                        />
-                      )}
+                      <ProductCover images={product.images} title={product.title} />
                       {outOfStock ? (
                         <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
                           Agotado

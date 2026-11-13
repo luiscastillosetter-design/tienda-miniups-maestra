@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { Menu, Search, ShoppingCart, X, CircleDollarSign, Truck } from 'lucide-react';
+import { normalizeSearchText } from '@/lib/search';
 import { useCartStore } from '@/store/cartStore';
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
@@ -94,8 +95,8 @@ function HeaderContent() {
     ? []
     : liveProducts.filter(
         (p) =>
-          p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.category?.toLowerCase().includes(searchQuery.toLowerCase())
+          normalizeSearchText(p.title).includes(normalizeSearchText(searchQuery.trim())) ||
+          normalizeSearchText(p.category || '').includes(normalizeSearchText(searchQuery.trim()))
       );
 
   if (pathname?.startsWith('/admin')) {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, ShoppingBag, ShoppingCart, Truck, CheckCircle2, ListChecks, Play } from 'lucide-react';
 import { siteConfig } from '@/config/site';
+import DescriptionContent from '@/components/DescriptionContent';
 
 export interface PreviewData {
   title: string;
@@ -224,7 +225,7 @@ export default function ProductPreviewModal({ data, tasaBcv, isEditing, onClose,
                 {data.description && (
                   <div className="bg-slate-50/70 rounded-2xl p-5 border border-slate-200/80 space-y-2">
                     <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">Descripción del Producto</h3>
-                    <div className="text-xs md:text-sm text-slate-700 leading-relaxed whitespace-pre-line">{data.description}</div>
+                    <DescriptionContent description={data.description} className="text-xs md:text-sm text-slate-700 leading-relaxed" />
                   </div>
                 )}
 
