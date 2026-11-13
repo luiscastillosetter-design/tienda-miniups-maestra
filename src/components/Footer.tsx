@@ -12,6 +12,7 @@ export default function Footer() {
     email: siteConfig.email,
     location: siteConfig.location,
     shippingCompanies: siteConfig.shipping.companies,
+    whatsappNumbers: [] as { numero: string; etiqueta: string; relevancia: string }[],
   });
 
   useEffect(() => {
@@ -30,6 +31,15 @@ export default function Footer() {
             email: cfg.email || siteConfig.email,
             location: cfg.location || siteConfig.location,
             shippingCompanies: companies.length > 0 ? companies : siteConfig.shipping.companies,
+            whatsappNumbers: Array.isArray(cfg.whatsappNumbers)
+              ? cfg.whatsappNumbers
+                  .filter((w: any) => w?.activo && String(w?.numero || '').replace(/\D/g, ''))
+                  .map((w: any) => ({
+                    numero: String(w.numero).replace(/\D/g, ''),
+                    etiqueta: String(w.etiqueta || 'WhatsApp'),
+                    relevancia: String(w.relevancia || ''),
+                  }))
+              : [],
           });
         }
       })
@@ -135,12 +145,34 @@ export default function Footer() {
         <div className="flex flex-col items-start text-left">
           <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Contacto</h3>
           <ul className="space-y-4">
-            <li className="flex items-center gap-3">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-500">
-                <Phone className="w-4 h-4" />
-              </div>
-              <span className="text-sm text-gray-600 font-medium">{footerSettings.whatsappNumber}</span>
-            </li>
+            {footerSettings.whatsappNumbers.length > 0 ? (
+              footerSettings.whatsappNumbers.map((w) => (
+                <li key={w.numero}>
+                  <a
+                    href={`https://wa.me/${w.numero}?text=${encodeURIComponent('Hola, vengo de Importadora TodoMax')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-3 group"
+                  >
+                    <div className="p-2 bg-orange-50 rounded-full text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <span className="flex flex-col">
+                      <span className="text-sm text-gray-800 font-bold group-hover:text-orange-500 transition-colors">{w.etiqueta}</span>
+                      <span className="text-xs text-gray-600 font-medium">+{w.numero}</span>
+                      {w.relevancia && <span className="text-[11px] text-gray-400 font-medium leading-snug max-w-[220px]">{w.relevancia}</span>}
+                    </span>
+                  </a>
+                </li>
+              ))
+            ) : (
+              <li className="flex items-center gap-3">
+                <div className="p-2 bg-orange-50 rounded-full text-orange-500">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <span className="text-sm text-gray-600 font-medium">{footerSettings.whatsappNumber}</span>
+              </li>
+            )}
             <li className="flex items-center gap-3">
               <div className="p-2 bg-orange-50 rounded-full text-orange-500">
                 <Mail className="w-4 h-4" />

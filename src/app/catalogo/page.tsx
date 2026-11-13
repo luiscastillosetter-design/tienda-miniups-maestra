@@ -7,22 +7,11 @@ import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
-import { 
-  ShoppingBag, ArrowRight, Home as HomeIcon, Cpu, 
-  Utensils, Car, Sparkles, Flame 
-} from 'lucide-react';
+import { ShoppingBag, ArrowRight } from 'lucide-react';
+import { useCategories } from '@/hooks/useCategories';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
-
-const categoriesList = [
-  { name: 'Hogar', icon: HomeIcon, desc: 'Espacios modernos' },
-  { name: 'Tecnología', icon: Cpu, desc: 'Energía y gadgets' },
-  { name: 'Cocina', icon: Utensils, desc: 'Equipos prácticos' },
-  { name: 'Automóvil', icon: Car, desc: 'Accesorios y cuidado' },
-  { name: 'Belleza', icon: Sparkles, desc: 'Cuidado personal' },
-  { name: 'Productos Virales', icon: Flame, desc: 'Tendencia en redes' },
-];
 
 function normalizeCatName(val: string) {
   return (val || 'Todos')
@@ -48,6 +37,7 @@ function CatalogoContent() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const categoriesList = useCategories(products.map((p) => p.category));
 
   const [catSlides, setCatSlides] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {

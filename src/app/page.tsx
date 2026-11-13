@@ -9,20 +9,10 @@ import type { Product } from '@/data/products';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { OffersCarousel } from '@/components/OffersCarousel';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
+import ProductRail from '@/components/ProductRail';
 import { useCartStore } from '@/store/cartStore';
-import { 
-  Home as HomeIcon, Cpu, Utensils, Car, Sparkles, Flame, 
-  ShoppingBag, ArrowRight
-} from 'lucide-react';
-
-const categoriesList = [
-  { name: 'Hogar', icon: HomeIcon, desc: 'Espacios modernos' },
-  { name: 'Tecnología', icon: Cpu, desc: 'Energía y gadgets' },
-  { name: 'Cocina', icon: Utensils, desc: 'Equipos prácticos' },
-  { name: 'Automóvil', icon: Car, desc: 'Accesorios y cuidado' },
-  { name: 'Belleza', icon: Sparkles, desc: 'Cuidado personal' },
-  { name: 'Productos Virales', icon: Flame, desc: 'Tendencia en redes' },
-];
+import { useCategories } from '@/hooks/useCategories';
+import { Flame, ShoppingBag, ArrowRight } from 'lucide-react';
 
 function HomeContent() {
   const router = useRouter();
@@ -43,6 +33,7 @@ function HomeContent() {
   });
 
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const categoriesList = useCategories(products.map(p => p.category));
 
   useEffect(() => {
     const load = async () => {
@@ -154,10 +145,10 @@ function HomeContent() {
             </div>
           </div>
 
-          <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
+          <ProductRail count={products.length === 0 ? 4 : bestSellers.length}>
             {products.length === 0 ? (
               [1, 2, 3, 4].map(idx => (
-                <div key={idx} className="flex-shrink-0 w-[240px] md:w-[260px] aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
+                <div key={idx} className="w-full aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
               ))
             ) : (
               bestSellers.map((product) => {
@@ -166,7 +157,7 @@ function HomeContent() {
                 return (
                   <div
                     key={product.id}
-                    className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                    className="snap-start h-full bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
                   >
                     <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
                       {isVideo(coverMedia) ? (
@@ -215,7 +206,7 @@ function HomeContent() {
                 );
               })
             )}
-          </div>
+          </ProductRail>
         </section>
 
         {/* 4. PROMOCIONES Y COMBOS */}
@@ -237,10 +228,10 @@ function HomeContent() {
             </Link>
           </div>
 
-          <div className="flex overflow-x-auto gap-4 md:gap-6 snap-x pb-6 scrollbar-hide px-1">
+          <ProductRail count={products.length === 0 ? 6 : filteredProducts.length}>
             {products.length === 0 ? (
               [1, 2, 3, 4, 5, 6].map(idx => (
-                <div key={idx} className="flex-shrink-0 w-[240px] md:w-[260px] aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
+                <div key={idx} className="w-full aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
               ))
             ) : (
               filteredProducts.map((product) => {
@@ -249,7 +240,7 @@ function HomeContent() {
                 return (
                   <div
                     key={product.id}
-                    className="flex-shrink-0 w-[240px] md:w-[260px] snap-start bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
+                    className="snap-start h-full bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
                   >
                     <Link href={`/product/${product.id}`} className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden">
                       {isVideo(coverMedia) ? (
@@ -296,7 +287,7 @@ function HomeContent() {
                 );
               })
             )}
-          </div>
+          </ProductRail>
         </section>
 
         {/* 6. BLOQUE DE CONFIANZA Y POLÍTICAS DINÁMICAS */}

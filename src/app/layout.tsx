@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CartDrawer from "@/components/CartDrawer";
 import BottomNav from "@/components/BottomNav";
+import ChatWidget from "@/components/ChatWidget";
 import { siteConfig } from '@/config/site';
 
 const geistSans = Geist({
@@ -47,6 +48,7 @@ export default function RootLayout({
         <Footer />
         <BottomNav />
         <CartDrawer />
+        <ChatWidget />
       </body>
     </html>
   );

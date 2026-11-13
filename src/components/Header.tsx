@@ -4,12 +4,14 @@ import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams, usePathname } from 'next/navigation';
-import { Menu, Search, ShoppingCart, X, Home, Cpu, Utensils, Car, Sparkles, Flame, CircleDollarSign, Truck } from 'lucide-react';
+import { Menu, Search, ShoppingCart, X, CircleDollarSign, Truck } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import { products as defaultProducts, Product } from '@/data/products';
 import AuthModal from './AuthModal';
+import TasaBcv from './TasaBcv';
+import { useCategories } from '@/hooks/useCategories';
 
 function HeaderContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -86,14 +88,7 @@ function HeaderContent() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  const categories = [
-    { name: 'Hogar', icon: Home },
-    { name: 'Tecnología', icon: Cpu },
-    { name: 'Cocina', icon: Utensils },
-    { name: 'Automóvil', icon: Car },
-    { name: 'Belleza', icon: Sparkles },
-    { name: 'Productos Virales', icon: Flame },
-  ];
+  const categories = useCategories(liveProducts.map((p) => p.category));
 
   const filteredProducts = searchQuery.trim() === ''
     ? []
@@ -120,6 +115,7 @@ function HeaderContent() {
                 <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{headerSettings.freeShippingThreshold} por {headerSettings.shippingCompanies.slice(0, 3).join(', ')}
               </span>
             </div>
+            <TasaBcv />
             <Link
               href="/afiliados"
               className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"

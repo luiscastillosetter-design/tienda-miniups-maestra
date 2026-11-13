@@ -15,6 +15,8 @@ import { defaultHeroSlides } from '@/components/HeroCarousel';
 import { defaultOffers } from '@/components/OffersCarousel';
 import { supabase } from '@/lib/supabase';
 import { defaultPolicies, StorePolicies } from '@/components/TrustAndPolicies';
+import { mergeCategories } from '@/hooks/useCategories';
+import ProductPreviewModal from '@/components/ProductPreviewModal';
 
 type UserRole = 'Super Admin' | 'Logística y Pagos' | 'Marketing y Afiliados';
 
@@ -81,6 +83,15 @@ function safeLocalStorageSet(key: string, value: any) {
   }
 }
 
+interface WhatsAppEntry {
+  id: string;
+  numero: string;
+  etiqueta: string;
+  relevancia: string;
+  activo: boolean;
+  es_principal_admin: boolean;
+}
+
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -111,6 +122,13 @@ export default function AdminPage() {
     isBestSeller: false,
     images: ['', '', '', ''],
   });
+
+  const [categories, setCategories] = useState<string[]>(() => mergeCategories(null, []));
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [editingCat, setEditingCat] = useState<{ old: string; name: string } | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [tasaBcv, setTasaBcv] = useState<number | null>(null);
 
   const [registeredAffiliates, setRegisteredAffiliates] = useState<AffiliateUser[]>([]);
   const [paidAffiliateMap, setPaidAffiliateMap] = useState<Record<string, number>>({});
@@ -196,6 +214,16 @@ export default function AdminPage() {
   const [storeSettings, setStoreSettings] = useState({
     storeName: siteConfig.storeName,
     whatsappNumber: siteConfig.whatsappNumber,
+    whatsappNumbers: [
+      {
+        id: 'wa-principal',
+        numero: siteConfig.whatsappNumber.replace(/\D/g, ''),
+        etiqueta: 'Oficina / Administración',
+        relevancia: 'Atención humana directa, confirmación de pagos y soporte de pedidos',
+        activo: true,
+        es_principal_admin: true,
+      },
+    ] as WhatsAppEntry[],
     email: siteConfig.email,
     location: siteConfig.location,
     freeShippingThreshold: siteConfig.shipping.freeShippingThreshold,
@@ -326,6 +354,24 @@ export default function AdminPage() {
     }
   };
 
+  // Carga la lista de categorías de Supabase y migra las que ya existen en los productos
+  const initCategories = async (prods: Product[]) => {
+    const productCats = Array.from(new Set(prods.map(p => p.category).filter(Boolean)));
+    let stored: string[] | null = null;
+    try {
+      const res = await fetch(`/api/store?key=store_categories&t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const j = await res.json();
+        if (Array.isArray(j.data)) stored = j.data;
+      }
+    } catch (_) {}
+    const merged = mergeCategories(stored, productCats);
+    setCategories(merged);
+    if (!stored || merged.length !== stored.length) {
+      await syncStoreKey('store_categories', merged);
+    }
+  };
+
   useEffect(() => {
     const savedAuth = localStorage.getItem('todomax_admin_auth');
     const savedRole = localStorage.getItem('todomax_admin_role') as UserRole | null;
@@ -338,10 +384,12 @@ export default function AdminPage() {
     fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+        const hasData = Array.isArray(data) && data.length > 0;
+        if (hasData) {
           setProducts(data);
           safeLocalStorageSet('store_products', data);
         }
+        initCategories(hasData ? data : initialProducts);
       })
       .catch(e => console.error('Error cargando inventario:', e));
 
@@ -470,7 +518,15 @@ export default function AdminPage() {
         if (resCfg.ok) {
           const jCfg = await resCfg.json();
           if (jCfg.data) {
-            setStoreSettings(prev => ({ ...prev, ...jCfg.data }));
+            setStoreSettings(prev => {
+              const merged = { ...prev, ...jCfg.data };
+              // Migración: si no hay lista guardada, se usa el número único anterior como principal
+              if (!Array.isArray(jCfg.data.whatsappNumbers) || jCfg.data.whatsappNumbers.length === 0) {
+                const legacy = String(jCfg.data.whatsappNumber || prev.whatsappNumber || '').replace(/\D/g, '');
+                merged.whatsappNumbers = [{ ...prev.whatsappNumbers[0], numero: legacy }];
+              }
+              return merged;
+            });
           }
         }
       } catch (e) {}
@@ -590,8 +646,70 @@ export default function AdminPage() {
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveCategories = async (list: string[]) => {
+    setCategories(list);
+    await syncStoreKey('store_categories', list);
+  };
+
+  const handleAddCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    if (categories.some(c => c.toLowerCase() === name.toLowerCase())) {
+      notify('Esa categoría ya existe');
+      return;
+    }
+    await saveCategories([...categories, name]);
+    setNewCatName('');
+    notify(`Categoría "${name}" creada`);
+  };
+
+  const handleRenameCategory = async () => {
+    if (!editingCat) return;
+    const name = editingCat.name.trim();
+    if (!name) return;
+    if (name !== editingCat.old && categories.some(c => c.toLowerCase() === name.toLowerCase())) {
+      notify('Ya existe una categoría con ese nombre');
+      return;
+    }
+    if (name !== editingCat.old) {
+      await saveCategories(categories.map(c => (c === editingCat.old ? name : c)));
+      if (products.some(p => p.category === editingCat.old)) {
+        await syncProducts(products.map(p => (p.category === editingCat.old ? { ...p, category: name } : p)));
+      }
+      if (productForm.category === editingCat.old) setProductForm({ ...productForm, category: name });
+      notify('Categoría renombrada y productos actualizados');
+    }
+    setEditingCat(null);
+  };
+
+  const handleDeleteCategory = async (name: string) => {
+    const count = products.filter(p => p.category === name).length;
+    if (count > 0) {
+      notify(`No se puede eliminar: tiene ${count} producto(s) asignado(s)`);
+      return;
+    }
+    if (!confirm(`¿Eliminar la categoría "${name}"?`)) return;
+    await saveCategories(categories.filter(c => c !== name));
+    notify('Categoría eliminada');
+  };
+
+  const openPreview = async () => {
+    if (!productForm.title || !productForm.price) {
+      notify('Completa al menos título y precio para ver la vista previa');
+      return;
+    }
+    setShowPreview(true);
+    try {
+      const r = await fetch('/api/tasa-bcv');
+      const j = r.ok ? await r.json() : null;
+      setTasaBcv(j?.tasa ? Number(j.tasa) : null);
+    } catch (_) {
+      setTasaBcv(null);
+    }
+  };
+
+  const handleSaveProduct = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!productForm.title || !productForm.price) return;
 
     const benefitsArray = productForm.benefits.split('\n').map(b => b.trim()).filter(Boolean);
@@ -1240,12 +1358,9 @@ export default function AdminPage() {
                     <label className="block font-bold uppercase mb-1">Categoría</label>
                     <select required value={catBannerForm.category} onChange={e => setCatBannerForm({...catBannerForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white">
                       <option value="Todos">Todos (General)</option>
-                      <option value="Hogar">Hogar</option>
-                      <option value="Tecnología">Tecnología</option>
-                      <option value="Cocina">Cocina</option>
-                      <option value="Automóvil">Automóvil</option>
-                      <option value="Belleza">Belleza</option>
-                      <option value="Productos Virales">Productos Virales</option>
+                      {categories.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
                   <div><label className="block font-bold uppercase mb-1">Enlace</label><input type="text" value={catBannerForm.link} onChange={e => setCatBannerForm({...catBannerForm, link: e.target.value})} className="w-full px-3 py-2 border rounded-xl bg-white" placeholder="/catalogo" /></div>
@@ -1594,18 +1709,22 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-500 uppercase mb-1">Categoría</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-bold text-slate-500 uppercase">Categoría</label>
+                      {currentRole === 'Super Admin' && (
+                        <button type="button" onClick={() => setShowCatModal(true)} className="text-[10px] font-black text-orange-500 hover:underline cursor-pointer">
+                          Gestionar
+                        </button>
+                      )}
+                    </div>
                     <select
                       value={productForm.category}
                       onChange={e => setProductForm({ ...productForm, category: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
                     >
-                      <option value="Hogar">Hogar</option>
-                      <option value="Tecnología">Tecnología</option>
-                      <option value="Cocina">Cocina</option>
-                      <option value="Automóvil">Automóvil</option>
-                      <option value="Belleza">Belleza</option>
-                      <option value="Productos Virales">Productos Virales</option>
+                      {(categories.includes(productForm.category) ? categories : [...categories, productForm.category]).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1649,6 +1768,13 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={openPreview}
+                    className="px-4 py-3 bg-slate-900 hover:bg-slate-700 text-white font-black rounded-xl transition-colors cursor-pointer"
+                  >
+                    Vista Previa
+                  </button>
                   <button
                     type="submit"
                     className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl transition-colors cursor-pointer"
@@ -1797,6 +1923,102 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* MODAL VISTA PREVIA DE PRODUCTO */}
+        {showPreview && (
+          <ProductPreviewModal
+            data={{
+              title: productForm.title,
+              price: Number(productForm.price) || 0,
+              originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
+              stock: Number(productForm.stock) || 0,
+              category: productForm.category,
+              description: productForm.description,
+              features: productForm.features.split('\n').map(f => f.trim()).filter(Boolean),
+              benefits: productForm.benefits.split('\n').map(b => b.trim()).filter(Boolean),
+              badge: productForm.badge || undefined,
+              images: productForm.images.filter(i => i.trim() !== ''),
+            }}
+            tasaBcv={tasaBcv}
+            isEditing={!!editingProductId}
+            onClose={() => setShowPreview(false)}
+            onConfirm={async () => {
+              setShowPreview(false);
+              await handleSaveProduct();
+            }}
+          />
+        )}
+
+        {/* MODAL GESTIONAR CATEGORÍAS */}
+        {showCatModal && (
+          <div className="fixed inset-0 z-[200] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl">
+              <div className="flex items-center justify-between p-5 border-b">
+                <h3 className="text-base font-black text-slate-900">Gestionar Categorías</h3>
+                <button type="button" onClick={() => { setShowCatModal(false); setEditingCat(null); }} className="p-2 rounded-full hover:bg-slate-100 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4 overflow-y-auto text-xs">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newCatName}
+                    onChange={e => setNewCatName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
+                    placeholder='Nueva categoría (ej. "Calzado")'
+                    className="flex-1 px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                  />
+                  <button type="button" onClick={handleAddCategory} className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl cursor-pointer">
+                    Crear
+                  </button>
+                </div>
+                <ul className="space-y-2">
+                  {categories.map(c => {
+                    const count = products.filter(p => p.category === c).length;
+                    const isEditingThis = editingCat?.old === c;
+                    return (
+                      <li key={c} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border">
+                        {isEditingThis ? (
+                          <>
+                            <input
+                              type="text"
+                              autoFocus
+                              value={editingCat.name}
+                              onChange={e => setEditingCat({ old: c, name: e.target.value })}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleRenameCategory(); } }}
+                              className="flex-1 px-2 py-1 border rounded-lg font-semibold bg-white"
+                            />
+                            <button type="button" onClick={handleRenameCategory} className="px-2 py-1 bg-slate-900 text-white font-bold rounded-lg cursor-pointer">OK</button>
+                            <button type="button" onClick={() => setEditingCat(null)} className="px-2 py-1 text-slate-500 font-bold cursor-pointer">×</button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 font-bold text-slate-800">{c}</span>
+                            <span className="text-[10px] text-slate-400">{count} prod.</span>
+                            <button type="button" onClick={() => setEditingCat({ old: c, name: c })} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg cursor-pointer" title="Editar nombre">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={count > 0}
+                              onClick={() => handleDeleteCategory(c)}
+                              title={count > 0 ? 'Tiene productos asignados' : 'Eliminar'}
+                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-[11px] text-slate-500">Solo se pueden eliminar categorías sin productos. Al renombrar, los productos se actualizan automáticamente.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB AJUSTES */}
         {activeTab === 'ajustes' && (
           <div className="space-y-6">
@@ -1804,7 +2026,19 @@ export default function AdminPage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                await syncStoreKey('store_site_config', storeSettings);
+                const lista = storeSettings.whatsappNumbers
+                  .map(w => ({ ...w, numero: w.numero.replace(/\D/g, '') }))
+                  .filter(w => w.numero);
+                if (lista.length === 0) {
+                  notify('Agrega al menos un número de WhatsApp');
+                  return;
+                }
+                const principal = lista.find(w => w.es_principal_admin && w.activo) || lista.find(w => w.activo) || lista[0];
+                const listaFinal = lista.map(w => ({ ...w, es_principal_admin: w.id === principal.id }));
+                // whatsappNumber se mantiene sincronizado con el principal para compatibilidad (checkout, footer)
+                const cfgFinal = { ...storeSettings, whatsappNumbers: listaFinal, whatsappNumber: principal.numero };
+                setStoreSettings(cfgFinal);
+                await syncStoreKey('store_site_config', cfgFinal);
                 await syncStoreKey('store_policies', policiesForm);
                 notify('Ajustes de tienda y políticas guardados con éxito');
               }}
@@ -1825,13 +2059,12 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-bold uppercase text-slate-500 mb-1">Número de WhatsApp (con código de país)</label>
+                    <label className="block font-bold uppercase text-slate-500 mb-1">WhatsApp principal (se edita en la sección 1.1)</label>
                     <input
                       type="text"
-                      required
-                      value={storeSettings.whatsappNumber}
-                      onChange={e => setStoreSettings({ ...storeSettings, whatsappNumber: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
+                      readOnly
+                      value={(storeSettings.whatsappNumbers.find(w => w.es_principal_admin) || storeSettings.whatsappNumbers[0])?.numero || storeSettings.whatsappNumber}
+                      className="w-full px-4 py-2.5 bg-slate-100 border rounded-xl font-semibold text-slate-500"
                     />
                   </div>
                   <div>
@@ -1854,6 +2087,117 @@ export default function AdminPage() {
                       className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-semibold"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Bloque 1.1: Números de WhatsApp y Relevancia */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <h3 className="text-base font-black text-slate-900">1.1 Números de WhatsApp y Relevancia</h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStoreSettings({
+                        ...storeSettings,
+                        whatsappNumbers: [
+                          ...storeSettings.whatsappNumbers,
+                          { id: `wa-${Date.now()}`, numero: '', etiqueta: '', relevancia: '', activo: true, es_principal_admin: false },
+                        ],
+                      })
+                    }
+                    className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-700"
+                  >
+                    + Agregar número
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  El número marcado como principal de Administración es al que redirigen el checkout y los botones de contacto humano.
+                </p>
+                <div className="space-y-3">
+                  {storeSettings.whatsappNumbers.map((w, idx) => {
+                    const actualizar = (patch: Partial<WhatsAppEntry>) =>
+                      setStoreSettings({
+                        ...storeSettings,
+                        whatsappNumbers: storeSettings.whatsappNumbers.map((x, i) => (i === idx ? { ...x, ...patch } : x)),
+                      });
+                    return (
+                      <div key={w.id} className={`p-4 rounded-2xl border text-xs space-y-3 ${w.activo ? 'bg-slate-50' : 'bg-slate-100 opacity-70'}`}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block font-bold uppercase text-slate-500 mb-1">Número (formato internacional, ej. 58424...)</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={w.numero}
+                              onChange={e => actualizar({ numero: e.target.value.replace(/\D/g, '') })}
+                              className="w-full px-4 py-2.5 bg-white border rounded-xl font-semibold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold uppercase text-slate-500 mb-1">Etiqueta visible</label>
+                            <input
+                              type="text"
+                              value={w.etiqueta}
+                              onChange={e => actualizar({ etiqueta: e.target.value })}
+                              placeholder="Oficina / Administración, Bot María, Ventas al Mayor"
+                              className="w-full px-4 py-2.5 bg-white border rounded-xl font-semibold"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block font-bold uppercase text-slate-500 mb-1">Relevancia (para qué sirve / a dónde llega el cliente)</label>
+                          <textarea
+                            rows={2}
+                            value={w.relevancia}
+                            onChange={e => actualizar({ relevancia: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-white border rounded-xl font-semibold"
+                          />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <label className="flex items-center gap-2 font-bold text-slate-700">
+                            <input
+                              type="radio"
+                              name="wa-principal"
+                              checked={w.es_principal_admin}
+                              onChange={() =>
+                                setStoreSettings({
+                                  ...storeSettings,
+                                  whatsappNumbers: storeSettings.whatsappNumbers.map((x, i) => ({
+                                    ...x,
+                                    es_principal_admin: i === idx,
+                                    activo: i === idx ? true : x.activo,
+                                  })),
+                                })
+                              }
+                            />
+                            Principal de Administración
+                          </label>
+                          <label className="flex items-center gap-2 font-bold text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={w.activo}
+                              disabled={w.es_principal_admin}
+                              onChange={e => actualizar({ activo: e.target.checked })}
+                            />
+                            Activo
+                          </label>
+                          <button
+                            type="button"
+                            disabled={storeSettings.whatsappNumbers.length <= 1 || w.es_principal_admin}
+                            onClick={() =>
+                              setStoreSettings({
+                                ...storeSettings,
+                                whatsappNumbers: storeSettings.whatsappNumbers.filter((_, i) => i !== idx),
+                              })
+                            }
+                            className="ml-auto px-3 py-1.5 text-red-600 font-bold border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
