@@ -24,37 +24,65 @@ interface Provider {
   key: string;
   model: string;
   extraHeaders?: Record<string, string>;
+  timeoutMs: number;
 }
 
-/** Proveedor de IA según la primera variable de entorno disponible (compatible con la API de OpenAI). */
-function resolveProvider(): Provider | null {
+/**
+ * Cadena de proveedores compatibles con OpenAI, en orden de prioridad:
+ * 1) OmniRoute, 2) Groq, 3) OpenRouter / OpenAI / Gemini.
+ */
+function resolveProviders(): Provider[] {
   const model = process.env.AI_MODEL;
+  const chain: Provider[] = [];
+
+  const omni = process.env.OMNIROUTE_BASE_URL?.trim().replace(/\/+$/, '');
+  if (omni) {
+    chain.push({
+      name: 'omniroute',
+      url: `${omni}/chat/completions`,
+      key: process.env.OMNIROUTE_API_KEY || 'sk-local',
+      model: process.env.OMNIROUTE_MODEL || 'auto/best-free',
+      timeoutMs: 10000,
+    });
+  }
+  if (process.env.GROQ_API_KEY) {
+    chain.push({
+      name: 'groq',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      key: process.env.GROQ_API_KEY,
+      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+      timeoutMs: 15000,
+    });
+  }
   if (process.env.OPENROUTER_API_KEY) {
-    return {
+    chain.push({
       name: 'openrouter',
       url: 'https://openrouter.ai/api/v1/chat/completions',
       key: process.env.OPENROUTER_API_KEY,
       model: model || 'openai/gpt-4o-mini',
       extraHeaders: { 'X-Title': siteConfig.storeName },
-    };
+      timeoutMs: 25000,
+    });
   }
   if (process.env.OPENAI_API_KEY) {
-    return {
+    chain.push({
       name: 'openai',
       url: 'https://api.openai.com/v1/chat/completions',
       key: process.env.OPENAI_API_KEY,
       model: model || 'gpt-4o-mini',
-    };
+      timeoutMs: 25000,
+    });
   }
   if (process.env.GEMINI_API_KEY) {
-    return {
+    chain.push({
       name: 'gemini',
       url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
       key: process.env.GEMINI_API_KEY,
       model: model || 'gemini-2.0-flash',
-    };
+      timeoutMs: 25000,
+    });
   }
-  return null;
+  return chain;
 }
 
 const digits = (s: string) => String(s || '').replace(/\D/g, '');
@@ -197,9 +225,9 @@ export async function POST(request: NextRequest) {
   }
 
   const ctx = await loadContext();
-  const provider = resolveProvider();
+  const systemPrompt = buildSystemPrompt(ctx);
 
-  if (provider) {
+  for (const provider of resolveProviders()) {
     try {
       const res = await fetch(provider.url, {
         method: 'POST',
@@ -212,9 +240,9 @@ export async function POST(request: NextRequest) {
           model: provider.model,
           temperature: 0.4,
           max_tokens: 500,
-          messages: [{ role: 'system', content: buildSystemPrompt(ctx) }, ...messages],
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
         }),
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(provider.timeoutMs),
       });
       if (res.ok) {
         const json = await res.json();
@@ -226,7 +254,7 @@ export async function POST(request: NextRequest) {
         console.error(`[/api/chat] ${provider.name} respondió ${res.status}`);
       }
     } catch (err) {
-      console.error('[/api/chat] Error consultando proveedor de IA:', err);
+      console.error(`[/api/chat] Error consultando ${provider.name}:`, err);
     }
   }
 
