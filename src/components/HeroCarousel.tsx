@@ -40,7 +40,7 @@ export function HeroCarousel() {
   useEffect(() => {
     const loadSlides = async () => {
       try {
-        const res = await fetch(`/api/store?key=store_hero_slides&t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`/api/store?key=store_hero_slides`);
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {

@@ -268,6 +268,24 @@ export default function AdminPage() {
     binanceUsdtAddress: siteConfig.paymentMethods.binance.usdtAddress,
   });
 
+  // Abre el detalle y descarga el comprobante Base64 solo de este pedido.
+  const openOrder = async (order: Order) => {
+    setSelectedOrder(order);
+    if (!order.payment?.hasReceipt || order.payment.receiptImage) return;
+    try {
+      const res = await fetch(`/api/store?key=store_orders&orderId=${encodeURIComponent(order.id)}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (typeof json.data === 'string') {
+        setSelectedOrder((prev) =>
+          prev && prev.id === order.id
+            ? { ...prev, payment: { ...prev.payment, receiptImage: json.data } }
+            : prev
+        );
+      }
+    } catch (e) {}
+  };
+
   const syncStoreKey = async (key: string, value: any) => {
     safeLocalStorageSet(key, value);
     try {
@@ -473,10 +491,13 @@ export default function AdminPage() {
       loadOrdersAndAffiliates();
     }
     const interval = setInterval(() => {
-      if (localStorage.getItem('todomax_admin_auth') === 'true') {
+      if (
+        document.visibilityState === 'visible' &&
+        localStorage.getItem('todomax_admin_auth') === 'true'
+      ) {
         loadOrdersAndAffiliates();
       }
-    }, 5000);
+    }, 60000);
 
     const loadMarketingData = async () => {
       try {
@@ -665,7 +686,12 @@ export default function AdminPage() {
     await syncStoreKey('store_orders', ordenesActualizadas);
 
     if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(ordenesActualizadas.find(o => o.id === orderId) || null);
+      const updated = ordenesActualizadas.find(o => o.id === orderId);
+      setSelectedOrder(
+        updated
+          ? { ...updated, payment: { ...updated.payment, receiptImage: updated.payment.receiptImage ?? selectedOrder.payment?.receiptImage } }
+          : null
+      );
     }
     notify(`Pedido ${orderId} actualizado a "${nuevoEstado}" en la nube`);
   };
@@ -1562,7 +1588,7 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4 text-right whitespace-nowrap">
                           <button
-                            onClick={() => setSelectedOrder(order)}
+                            onClick={() => openOrder(order)}
                             className="px-3 py-1.5 bg-slate-900 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
                           >
                             Administrar

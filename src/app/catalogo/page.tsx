@@ -71,7 +71,7 @@ function CatalogoContent() {
       }
     });
 
-    fetch(`/api/store?key=store_cat_slides&t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/store?key=store_cat_slides`)
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json && Array.isArray(json.data)) {

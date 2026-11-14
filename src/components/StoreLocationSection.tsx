@@ -13,7 +13,7 @@ export default function StoreLocationSection() {
   const [phone, setPhone] = useState(siteConfig.whatsappNumber);
 
   useEffect(() => {
-    fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/store?key=store_site_config`)
       .then((res) => res.json())
       .then((json) => {
         const cfg = json?.data;

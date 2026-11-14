@@ -46,7 +46,7 @@ export function useCategories(productCats: string[] = []) {
   const [stored, setStored] = useState<string[] | null>(null);
 
   useEffect(() => {
-    fetch(`/api/store?key=store_categories&t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/store?key=store_categories`)
       .then((r) => r.json())
       .then((j) => {
         if (Array.isArray(j?.data)) setStored(j.data.filter((x: unknown) => typeof x === 'string'));

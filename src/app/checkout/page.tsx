@@ -57,7 +57,7 @@ export default function CheckoutPage() {
     });
 
     // Cargar configuración de tienda en vivo desde Redis
-    fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/store?key=store_site_config`)
       .then((res) => res.json())
       .then((json) => {
         if (json?.data) {

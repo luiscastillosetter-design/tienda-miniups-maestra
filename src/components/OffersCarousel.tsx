@@ -36,7 +36,7 @@ export function OffersCarousel() {
   });
 
   useEffect(() => {
-    fetch(`/api/store?key=store_offers&t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/store?key=store_offers`)
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json && Array.isArray(json.data)) {

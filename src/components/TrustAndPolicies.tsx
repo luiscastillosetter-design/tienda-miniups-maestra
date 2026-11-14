@@ -87,7 +87,7 @@ export default function TrustAndPolicies() {
   const [activePolicyKey, setActivePolicyKey] = useState<keyof StorePolicies | null>(null);
 
   useEffect(() => {
-    fetch(`/api/store?key=store_policies&t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/store?key=store_policies`)
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json?.data) {

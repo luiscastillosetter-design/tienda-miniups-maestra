@@ -31,7 +31,7 @@ export const productService = {
 
     inFlightProductsPromise = (async () => {
       try {
-        const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`/api/products`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
