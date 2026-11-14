@@ -10,7 +10,7 @@ import {
   Image as ImageIcon, Video, Sliders, Zap, Settings
 } from 'lucide-react';
 import { siteConfig } from '@/config/site';
-import { products as initialProducts, Product } from '@/data/products';
+import { products as initialProducts, Product, ProductColor } from '@/data/products';
 import { defaultHeroSlides } from '@/components/HeroCarousel';
 import { defaultOffers } from '@/components/OffersCarousel';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +26,7 @@ interface OrderItem {
   price: number;
   quantity: number;
   image: string;
+  selectedColor?: string;
 }
 
 interface Order {
@@ -121,7 +122,31 @@ export default function AdminPage() {
     adCopy: '',
     isBestSeller: false,
     images: ['', '', '', ''],
+    colors: [] as ProductColor[],
   });
+  const [customColorName, setCustomColorName] = useState('');
+  const [customColorHex, setCustomColorHex] = useState('#2563EB');
+  const QUICK_COLORS: ProductColor[] = [
+    { name: 'Blanco', hex: '#FFFFFF' },
+    { name: 'Negro', hex: '#111827' },
+    { name: 'Gris / Plata', hex: '#9CA3AF' },
+    { name: 'Azul', hex: '#2563EB' },
+    { name: 'Rojo', hex: '#DC2626' },
+    { name: 'Verde', hex: '#16A34A' },
+    { name: 'Morado', hex: '#7C3AED' },
+    { name: 'Rosado', hex: '#EC4899' },
+    { name: 'Amarillo', hex: '#EAB308' },
+    { name: 'Dorado', hex: '#D97706' },
+  ];
+  const addProductColor = (c: ProductColor) => {
+    const name = c.name.trim();
+    if (!name) return;
+    setProductForm(prev =>
+      prev.colors.some(x => x.name.toLowerCase() === name.toLowerCase())
+        ? prev
+        : { ...prev, colors: [...prev.colors, { name, hex: c.hex }] }
+    );
+  };
 
   const [categories, setCategories] = useState<string[]>(() => mergeCategories(null, []));
   const [showCatModal, setShowCatModal] = useState(false);
@@ -307,13 +332,12 @@ export default function AdminPage() {
             img.src = event.target?.result as string;
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 1920;
-              const MAX_HEIGHT = 1080;
+              const maxWidthOrHeight = 1080;
               let width = img.width;
               let height = img.height;
 
-              if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-                const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+              if (width > maxWidthOrHeight || height > maxWidthOrHeight) {
+                const ratio = Math.min(maxWidthOrHeight / width, maxWidthOrHeight / height);
                 width = Math.round(width * ratio);
                 height = Math.round(height * ratio);
               }
@@ -328,7 +352,7 @@ export default function AdminPage() {
                 canvas.toBlob(
                   (blob) => resolve(blob || file),
                   'image/webp',
-                  0.85
+                  0.8
                 );
               } else {
                 resolve(file);
@@ -342,6 +366,7 @@ export default function AdminPage() {
       const { error: uploadError } = await supabase.storage
         .from('media')
         .upload(filePath, uploadPayload, {
+          cacheControl: '31536000',
           contentType: isVideo ? 'video/mp4' : 'image/webp',
           upsert: true,
         });
@@ -749,6 +774,7 @@ export default function AdminPage() {
             adCopy: productForm.adCopy,
             isBestSeller: productForm.isBestSeller,
             images: imagesArray.length > 0 ? imagesArray : p.images,
+            colors: productForm.colors,
           };
         }
         return p;
@@ -770,7 +796,8 @@ export default function AdminPage() {
         badge: productForm.badge || undefined,
         adCopy: productForm.adCopy,
         isBestSeller: productForm.isBestSeller,
-        images: imagesArray.length > 0 ? imagesArray : [`data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' style='background:%23f8fafc'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24' font-weight='bold' fill='%23f97316'%3ENUEVO PRODUCTO%3C/text%3E%3C/svg%3E`],
+        images: imagesArray.length > 0 ? imagesArray : ['/logo-todomax.png'],
+        colors: productForm.colors,
         paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
       };
       updated = [newProd, ...products];
@@ -783,7 +810,7 @@ export default function AdminPage() {
     setProductForm({
       title: '', price: '', originalPrice: '', cost: '', stock: '',
       category: 'Hogar', affiliateCommission: '10', description: '',
-      features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''],
+      features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
     });
   };
 
@@ -807,6 +834,7 @@ export default function AdminPage() {
       adCopy: p.adCopy || '',
       isBestSeller: !!p.isBestSeller,
       images: existingImgs,
+      colors: Array.isArray(p.colors) ? p.colors : [],
     });
   };
 
@@ -1509,7 +1537,7 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4">
                           <div className="max-w-[200px] truncate">
-                            {order.items.map(it => `${it.quantity}x ${it.title}`).join(', ')}
+                            {order.items.map(it => `${it.quantity}x ${it.title}${it.selectedColor ? ` (Color: ${it.selectedColor})` : ''}`).join(', ')}
                           </div>
                         </td>
                         <td className="p-4 font-black text-slate-900 whitespace-nowrap">
@@ -1742,6 +1770,63 @@ export default function AdminPage() {
                 </div>
 
                 <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Colores disponibles (opcional)</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {QUICK_COLORS.map(c => (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onClick={() => addProductColor(c)}
+                        className="flex items-center gap-1.5 border border-slate-300 hover:border-orange-500 px-2 py-1 rounded-lg font-bold text-slate-700 cursor-pointer"
+                      >
+                        <span className="w-4 h-4 rounded-full border border-slate-300" style={{ backgroundColor: c.hex }} />
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Otro color (ej. Turquesa)"
+                      value={customColorName}
+                      onChange={e => setCustomColorName(e.target.value)}
+                      className="flex-1 min-w-[140px] px-3 py-2 bg-slate-50 border rounded-xl font-medium"
+                    />
+                    <input
+                      type="color"
+                      value={customColorHex}
+                      onChange={e => setCustomColorHex(e.target.value)}
+                      className="w-10 h-9 p-0 border rounded-lg cursor-pointer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { addProductColor({ name: customColorName, hex: customColorHex }); setCustomColorName(''); }}
+                      className="bg-slate-900 hover:bg-orange-500 text-white font-bold px-3 py-2 rounded-lg cursor-pointer"
+                    >
+                      Agregar color
+                    </button>
+                  </div>
+                  {productForm.colors.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {productForm.colors.map(c => (
+                        <span key={c.name} className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-full pl-2 pr-1 py-1 font-bold text-slate-700">
+                          <span className="w-4 h-4 rounded-full border border-slate-300" style={{ backgroundColor: c.hex }} />
+                          {c.name}
+                          <button
+                            type="button"
+                            aria-label={`Quitar ${c.name}`}
+                            onClick={() => setProductForm(prev => ({ ...prev, colors: prev.colors.filter(x => x.name !== c.name) }))}
+                            className="w-5 h-5 rounded-full hover:bg-red-100 hover:text-red-600 cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
                   <label className="block font-bold text-slate-500 uppercase mb-1">Descripción</label>
                   <textarea
                     id="product-description"
@@ -1827,7 +1912,7 @@ export default function AdminPage() {
                         setProductForm({
                           title: '', price: '', originalPrice: '', cost: '', stock: '',
                           category: 'Hogar', affiliateCommission: '10', description: '',
-                          features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''],
+                          features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
                         });
                       }}
                       className="px-3 bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
@@ -1975,6 +2060,7 @@ export default function AdminPage() {
               benefits: productForm.benefits.split('\n').map(b => b.trim()).filter(Boolean),
               badge: productForm.badge || undefined,
               images: productForm.images.filter(i => i.trim() !== ''),
+              colors: productForm.colors,
             }}
             tasaBcv={tasaBcv}
             isEditing={!!editingProductId}

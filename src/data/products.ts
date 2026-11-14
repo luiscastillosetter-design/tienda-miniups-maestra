@@ -17,6 +17,12 @@ export interface Product {
   adCopy?: string; // Texto preaprobado para que el afiliado copie y pegue
   paymentMethods: string[];
   category: string;
+  colors?: ProductColor[];
+}
+
+export interface ProductColor {
+  name: string;
+  hex: string;
 }
 
 // Generador de Placeholder seguro (SVG en base64 con colores de la marca)

@@ -8,17 +8,22 @@ export type CartItem = {
   image: string;
   quantity: number;
   stock?: number;
+  selectedColor?: string;
 };
 
 type CartState = {
   items: CartItem[];
   isCartOpen: boolean;
   addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
+  removeItem: (id: string, selectedColor?: string) => void;
+  updateQuantity: (id: string, quantity: number, selectedColor?: string) => void;
   toggleCart: () => void;
   clearCart: () => void;
 };
+
+// Una línea del carrito = producto + color elegido
+const sameLine = (i: CartItem, id: string, color?: string) =>
+  i.id === id && (i.selectedColor || '') === (color || '');
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -28,13 +33,13 @@ export const useCartStore = create<CartState>()(
 
       addItem: (item, quantity) =>
         set((state) => {
-          const existing = state.items.find((i) => i.id === item.id);
+          const existing = state.items.find((i) => sameLine(i, item.id, item.selectedColor));
           if (existing) {
             const nextQuantity = existing.quantity + quantity;
             const maxQuantity = item.stock !== undefined ? Math.min(item.stock, nextQuantity) : nextQuantity;
             return {
               items: state.items.map((i) =>
-                i.id === item.id ? { ...i, quantity: maxQuantity, stock: item.stock ?? i.stock } : i
+                sameLine(i, item.id, item.selectedColor) ? { ...i, quantity: maxQuantity, stock: item.stock ?? i.stock } : i
               ),
             };
           }
@@ -42,15 +47,15 @@ export const useCartStore = create<CartState>()(
           return { items: [...state.items, { ...item, quantity: initialQuantity }] };
         }),
 
-      removeItem: (id) =>
+      removeItem: (id, selectedColor) =>
         set((state) => ({
-          items: state.items.filter((i) => i.id !== id),
+          items: state.items.filter((i) => !sameLine(i, id, selectedColor)),
         })),
 
-      updateQuantity: (id, quantity) =>
+      updateQuantity: (id, quantity, selectedColor) =>
         set((state) => ({
           items: state.items.map((i) => {
-            if (i.id === id) {
+            if (sameLine(i, id, selectedColor)) {
               const maxQuantity = i.stock ? Math.min(i.stock, quantity) : quantity;
               return { ...i, quantity: Math.max(1, maxQuantity) };
             }
@@ -59,7 +64,7 @@ export const useCartStore = create<CartState>()(
         })),
 
       toggleCart: () => set((state) => ({ isCartOpen: !state.isCartOpen })),
-      
+
       clearCart: () => set({ items: [] }),
     }),
     {

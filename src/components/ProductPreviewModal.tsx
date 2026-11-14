@@ -16,6 +16,7 @@ export interface PreviewData {
   benefits: string[];
   badge?: string;
   images: string[];
+  colors?: { name: string; hex: string }[];
 }
 
 interface Props {
@@ -42,6 +43,9 @@ function Media({ src, className }: { src: string; className: string }) {
 export default function ProductPreviewModal({ data, tasaBcv, isEditing, onClose, onConfirm }: Props) {
   const [view, setView] = useState<'card' | 'full'>('card');
   const [imgIdx, setImgIdx] = useState(0);
+  const [pickedColor, setPickedColor] = useState<string | null>(null);
+  const colors = data.colors ?? [];
+  const activeColor = colors.find(c => c.name === pickedColor) || colors[0];
 
   const cover = data.images[0] || '';
   const current = data.images[imgIdx] || cover;
@@ -257,7 +261,27 @@ export default function ProductPreviewModal({ data, tasaBcv, isEditing, onClose,
                   </div>
                 )}
 
-                <div className="pt-3 border-t border-gray-100">
+                <div className="pt-3 border-t border-gray-100 space-y-3">
+                  {colors.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-slate-700">Color: {activeColor?.name}</p>
+                      <div className="flex flex-wrap gap-2.5">
+                        {colors.map(c => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            title={c.name}
+                            aria-label={`Color ${c.name}`}
+                            onClick={() => setPickedColor(c.name)}
+                            className={`w-9 h-9 rounded-full border-2 cursor-pointer transition-all ${
+                              activeColor?.name === c.name ? 'border-orange-500 ring-2 ring-orange-300 scale-110' : 'border-slate-300'
+                            }`}
+                            style={{ backgroundColor: c.hex }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <span className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-2xl text-xs flex items-center justify-center gap-2">
                     <ShoppingCart className="w-4 h-4" /> Agregar al Carrito
                   </span>

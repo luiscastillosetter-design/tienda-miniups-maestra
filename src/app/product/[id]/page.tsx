@@ -25,6 +25,7 @@ export default function ProductPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [pickedColor, setPickedColor] = useState<string | null>(null);
 
   // Estado para el zoom óptico tipo Mercado Libre
   const [zoomPos, setZoomPos] = useState<{ x: number; y: number } | null>(null);
@@ -68,6 +69,8 @@ export default function ProductPage() {
   const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0];
   const firstImageForCart = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
   const isOutOfStock = product.stock <= 0;
+  const productColors = Array.isArray(product.colors) ? product.colors : [];
+  const activeColor = productColors.find(c => c.name === pickedColor) || productColors[0];
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 2) {
@@ -86,6 +89,7 @@ export default function ProductPage() {
         price: product.price,
         image: firstImageForCart,
         stock: product.stock,
+        selectedColor: activeColor?.name,
       },
       quantity
     );
@@ -101,6 +105,7 @@ export default function ProductPage() {
         price: product.price,
         image: firstImageForCart,
         stock: product.stock,
+        selectedColor: activeColor?.name,
       },
       quantity
     );
@@ -296,6 +301,26 @@ export default function ProductPage() {
 
             {/* Controles de Compra */}
             <div className="space-y-4 pt-4 border-t border-gray-100">
+              {productColors.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-700">Color: {activeColor?.name}</p>
+                  <div className="flex flex-wrap gap-2.5">
+                    {productColors.map(c => (
+                      <button
+                        key={c.name}
+                        type="button"
+                        title={c.name}
+                        aria-label={`Color ${c.name}`}
+                        onClick={() => setPickedColor(c.name)}
+                        className={`w-9 h-9 rounded-full border-2 cursor-pointer transition-all ${
+                          activeColor?.name === c.name ? 'border-orange-500 ring-2 ring-orange-300 scale-110' : 'border-slate-300 hover:border-slate-500'
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700">Cantidad:</span>
                 <div className="flex items-center border border-gray-200 rounded-2xl bg-slate-50 p-1">

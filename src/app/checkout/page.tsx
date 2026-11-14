@@ -285,7 +285,7 @@ export default function CheckoutPage() {
     const listaProductos = items
       .map(
         (item) =>
-          `▪ ${item.quantity}x ${item.title} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`
+          `▪ ${item.quantity}x ${item.title}${item.selectedColor ? ` - Color: ${encodeURIComponent(item.selectedColor)}` : ''} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`
       )
       .join('%0A');
 
@@ -657,7 +657,7 @@ export default function CheckoutPage() {
 
                 <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
                   {items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-4 py-2">
+                    <div key={`${item.id}::${item.selectedColor || ''}`} className="flex items-center justify-between gap-4 py-2">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100 flex items-center justify-center overflow-hidden">
                           {isVideo(item.image) ? (
@@ -670,6 +670,9 @@ export default function CheckoutPage() {
                           <span className="font-bold text-xs text-slate-800 line-clamp-2 leading-tight">
                             {item.title}
                           </span>
+                          {item.selectedColor && (
+                            <span className="text-[10px] text-slate-600 font-bold block">Color: {item.selectedColor}</span>
+                          )}
                           <span className="text-[10px] text-gray-500 font-medium block mt-0.5">
                             Cant: {item.quantity}
                           </span>

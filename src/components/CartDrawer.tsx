@@ -89,7 +89,7 @@ export default function CartDrawer() {
               {items.map((item) => {
                 const isMaxStock = item.stock !== undefined && item.quantity >= item.stock;
                 return (
-                  <div key={item.id} className="flex gap-4 items-center border-b border-gray-100 pb-4">
+                  <div key={`${item.id}::${item.selectedColor || ''}`} className="flex gap-4 items-center border-b border-gray-100 pb-4">
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-slate-50 border border-gray-100 flex-shrink-0 flex items-center justify-center p-1">
                       {isVideo(item.image) ? (
                         <video src={item.image} muted className="w-full h-full object-cover rounded-lg" />
@@ -100,6 +100,9 @@ export default function CartDrawer() {
                     <div className="flex-1 flex flex-col justify-between min-w-0">
                       <div>
                         <p className="text-sm font-semibold text-slate-800 line-clamp-1">{item.title}</p>
+                        {item.selectedColor && (
+                          <p className="text-xs text-slate-500 font-medium">Color: {item.selectedColor}</p>
+                        )}
                         <p className="text-sm font-extrabold text-orange-500 mt-0.5">
                           {siteConfig.currencySymbol}{Number(item.price).toFixed(2)}
                         </p>
@@ -107,7 +110,7 @@ export default function CartDrawer() {
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity - 1, item.selectedColor)}
                             className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 transition-colors cursor-pointer"
                             aria-label="Disminuir cantidad"
                           >
@@ -117,7 +120,7 @@ export default function CartDrawer() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity + 1, item.selectedColor)}
                             disabled={isMaxStock}
                             className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                             aria-label="Aumentar cantidad"
@@ -127,7 +130,7 @@ export default function CartDrawer() {
                           </button>
                         </div>
                         <button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.id, item.selectedColor)}
                           className="text-gray-400 hover:text-red-500 transition-colors p-1.5 cursor-pointer"
                           aria-label="Eliminar producto"
                         >
