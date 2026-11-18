@@ -221,10 +221,26 @@ function fallbackReply(ctx: Ctx, lastUser: string) {
   return `${intro}\n\n${lista}\n\nPara comprar, entra al producto y pulsa "Agregar al Carrito".`;
 }
 
+/** Historial válido para Anthropic: empieza con 'user', roles alternados, sin vacíos. */
+function sanitizeForAnthropic(messages: ChatMessage[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  for (const m of messages) {
+    const content = (m.content || '').trim();
+    if (!content) continue;
+    const prev = out[out.length - 1];
+    if (prev && prev.role === m.role) prev.content += `
+${content}`;
+    else if (prev || m.role === 'user') out.push({ role: m.role, content });
+  }
+  return out;
+}
+
 /** null = sin clave configurada; '' = Anthropic falló; texto = respuesta. */
 async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Promise<string | null> {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = (process.env.ANTHROPIC_API_KEY || '').trim().replace(/^["']+|["']+$/g, '').trim();
   if (!key) return null;
+  const clean = sanitizeForAnthropic(messages);
+  if (clean.length === 0) return '';
   try {
     // Sin 'temperature': Haiku 5.5 responde HTTP 400 si se envía.
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -238,12 +254,13 @@ async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Pro
         model: 'claude-haiku-5-5',
         max_tokens: 500,
         system: systemPrompt,
-        messages,
+        messages: clean,
       }),
       signal: AbortSignal.timeout(25000),
     });
     if (!res.ok) {
-      console.error(`[/api/chat] anthropic respondió ${res.status}`);
+      const errBody = await res.text().catch(() => '');
+      console.error(`[/api/chat] anthropic respondió ${res.status}: ${errBody.slice(0, 1000)}`);
       return '';
     }
     const json = await res.json();
