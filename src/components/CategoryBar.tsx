@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { siteConfig } from '@/config/site';
+import Price from '@/components/Price';
 import type { Product } from '@/data/products';
 import { useCategories } from '@/hooks/useCategories';
 
@@ -72,9 +72,7 @@ export default function CategoryBar({ products }: { products: Product[] }) {
             />
             <div className="min-w-0">
               <h3 className="text-xs font-bold text-slate-800 line-clamp-2">{hoverProduct.title}</h3>
-              <span className="text-base font-black text-slate-900">
-                {siteConfig.currencySymbol}{hoverProduct.price.toFixed(2)}
-              </span>
+              <Price value={hoverProduct.price} className="text-base font-black text-slate-900" />
               <span className="block text-[10px] font-bold text-orange-500">Ver producto →</span>
             </div>
           </Link>

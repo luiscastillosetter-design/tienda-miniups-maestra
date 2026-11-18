@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, Sparkles, ShoppingBag } from 'lucide-react';
+import { logBannerSizes } from '@/components/HeroCarousel';
 
 export const defaultOffers: any[] = [];
 
@@ -62,6 +63,19 @@ export function OffersCarousel() {
     };
   }, [emblaApi, offers.length]);
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (offers.length === 0) return;
+    const t = setTimeout(() => {
+      logBannerSizes('Carrusel de ofertas (2 divisiones)', wrapperRef.current, [
+        { label: 'Móvil', width: 900, height: 760 },
+        { label: 'Tablet', width: 1100, height: 760 },
+        { label: 'Escritorio (2 columnas)', width: 1200, height: 800 },
+      ]);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [offers.length]);
+
   if (offers.length === 0) {
     return null;
   }
@@ -77,7 +91,7 @@ export function OffersCarousel() {
         </div>
       </div>
 
-      <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950 md:bg-transparent md:shadow-none">
+      <div ref={wrapperRef} className="w-full relative rounded-2xl md:rounded-3xl">
         <div ref={emblaRef} className="overflow-hidden w-full">
           <div className="flex w-full md:-mx-1.5 md:w-[calc(100%+0.75rem)]">
             {offers.map((offer, idx) => {
@@ -87,10 +101,11 @@ export function OffersCarousel() {
               return (
                 <div
                   key={offer.id || idx}
-                  className={`flex-[0_0_100%] ${offers.length > 1 ? 'md:flex-[0_0_50%]' : ''} min-w-0 md:px-1.5`}
+                  className={`flex-[0_0_100%] ${offers.length > 1 ? 'md:flex-[0_0_50%]' : ''} min-w-0 md:px-1.5 pt-2 pb-4`}
                 >
                 <div
-                  className="w-full rounded-2xl md:rounded-3xl relative h-[38vh] md:h-[38vh] min-h-[280px] md:min-h-[300px] py-10 pb-14 md:py-10 md:pb-14 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden group"
+                  data-banner-card
+                  className="w-full rounded-2xl md:rounded-3xl relative aspect-[900/760] md:aspect-[3/2] py-10 pb-14 md:py-10 md:pb-14 bg-slate-950 text-white flex flex-col justify-center items-start overflow-hidden hover:-translate-y-1 hover:scale-[1.01] hover:shadow-xl transition-all duration-300 ease-out cursor-pointer"
                 >
                   {dImg && (
                     <img
@@ -98,7 +113,7 @@ export function OffersCarousel() {
                       alt={offer.title || 'Oferta'}
                       loading={idx === 0 ? 'eager' : 'lazy'}
                       fetchPriority={idx === 0 ? 'high' : 'auto'}
-                      className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                      className="hidden md:block absolute inset-0 w-full h-full object-cover z-0"
                     />
                   )}
                   {mImg && (

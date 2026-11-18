@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
+import { useCurrencyStore, convertirPrecio, formatearMonto } from '@/store/currencyStore';
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import { products as defaultProducts, Product } from '@/data/products';
@@ -11,6 +12,7 @@ import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } fro
 
 export default function CheckoutPage() {
   const { items, clearCart } = useCartStore();
+  const { tasaBcv, divisa } = useCurrencyStore();
   const router = useRouter();
 
   const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
@@ -47,6 +49,7 @@ export default function CheckoutPage() {
   const [refCode, setRefCode] = useState('DIRECTO');
   const [adChannel, setAdChannel] = useState('Directo');
   const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -163,7 +166,28 @@ export default function CheckoutPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCopyField = async (key: string, value: string) => {
+    const text = String(value || '').trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch {}
+      document.body.removeChild(ta);
+    }
+    setCopiedField(key);
+    setTimeout(() => setCopiedField((prev) => (prev === key ? null : prev)), 1500);
+  };
+
+  const handleImageUpload =(e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -519,11 +543,41 @@ export default function CheckoutPage() {
                           <p>
                             <span className="text-slate-400">Banco:</span> {liveSettings.pagoMovil.banco}
                           </p>
-                          <p>
-                            <span className="text-slate-400">Teléfono:</span> {liveSettings.pagoMovil.telefono}
+                          <p className="flex items-center gap-2 flex-wrap">
+                            <span>
+                              <span className="text-slate-400">Teléfono:</span> {liveSettings.pagoMovil.telefono}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyField('telefono', liveSettings.pagoMovil.telefono)}
+                              aria-label="Copiar teléfono de Pago Móvil"
+                              title={copiedField === 'telefono' ? 'Copiado' : 'Copiar teléfono'}
+                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
+                            >
+                              {copiedField === 'telefono' ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
                           </p>
-                          <p>
-                            <span className="text-slate-400">Cédula/RIF:</span> {liveSettings.pagoMovil.cedula}
+                          <p className="flex items-center gap-2 flex-wrap">
+                            <span>
+                              <span className="text-slate-400">Cédula/RIF:</span> {liveSettings.pagoMovil.cedula}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyField('cedula', liveSettings.pagoMovil.cedula)}
+                              aria-label="Copiar cédula o RIF de Pago Móvil"
+                              title={copiedField === 'cedula' ? 'Copiado' : 'Copiar cédula'}
+                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
+                            >
+                              {copiedField === 'cedula' ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
                           </p>
                           {liveSettings.pagoMovil.qrUrl && (
                             <div className="pt-3 flex flex-col items-center gap-2">
@@ -718,6 +772,12 @@ export default function CheckoutPage() {
                     {total.toFixed(2)}
                   </span>
                 </div>
+                {tasaBcv && (
+                  <p className="text-xs text-slate-500 font-bold text-right -mt-2">
+                    {divisa === 'VES' ? '≈ ' : 'Referencial: '}
+                    Bs. {formatearMonto(convertirPrecio(total, 'VES', tasaBcv), 'VES')} (Tasa BCV {formatearMonto(tasaBcv, 'VES')})
+                  </p>
+                )}
 
                 <button
                   onClick={procesarYEnviarPedido}

@@ -12,6 +12,9 @@ import { productService } from '@/services/productService';
 import { products as defaultProducts, Product } from '@/data/products';
 import AuthModal from './AuthModal';
 import TasaBcv from './TasaBcv';
+import CurrencySwitch from './CurrencySwitch';
+import Price from './Price';
+import { useCurrencyStore } from '@/store/currencyStore';
 import { useCategories } from '@/hooks/useCategories';
 
 function HeaderContent() {
@@ -31,6 +34,7 @@ function HeaderContent() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { items, toggleCart } = useCartStore();
+  const setTasaBcv = useCurrencyStore((s) => s.setTasaBcv);
   const cartItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   const showSearch = pathname === '/' || pathname === '/catalogo';
@@ -66,6 +70,23 @@ function HeaderContent() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    let activo = true;
+    const cargarTasa = () =>
+      fetch('/api/tasa-bcv')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (activo && j?.tasa) setTasaBcv(Number(j.tasa));
+        })
+        .catch(() => {});
+    cargarTasa();
+    const id = setInterval(cargarTasa, 15 * 60 * 1000);
+    return () => {
+      activo = false;
+      clearInterval(id);
+    };
+  }, [setTasaBcv]);
 
   useEffect(() => {
     if (searchParams?.get('auth') === 'register') {
@@ -116,7 +137,10 @@ function HeaderContent() {
                 <strong>¡Envío GRATIS!</strong> en compras mayores a {siteConfig.currencySymbol}{headerSettings.freeShippingThreshold} por {headerSettings.shippingCompanies.slice(0, 3).join(', ')}
               </span>
             </div>
-            <TasaBcv />
+            <div className="flex items-center gap-3">
+              <TasaBcv />
+              <CurrencySwitch />
+            </div>
             <Link
               href="/afiliados"
               className="hidden md:flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-bold transition-all hover:scale-105"
@@ -195,7 +219,7 @@ function HeaderContent() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-bold text-slate-800 truncate group-hover:text-orange-500">{p.title}</p>
-                              <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                              <Price value={p.price} className="text-xs font-black text-orange-500" />
                             </div>
                           </Link>
                         );
@@ -281,7 +305,7 @@ function HeaderContent() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-slate-800 truncate">{p.title}</p>
-                          <p className="text-xs font-black text-orange-500">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                          <Price value={p.price} className="text-xs font-black text-orange-500" />
                         </div>
                       </Link>
                     );

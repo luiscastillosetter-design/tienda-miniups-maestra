@@ -1,12 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import Link from 'next/link';
 import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 
 export const defaultHeroSlides: any[] = [];
+
+/** Registra en consola el tamaño real de cada banner y las medidas de diseño recomendadas. */
+export function logBannerSizes(
+  name: string,
+  wrapper: HTMLElement | null,
+  recommended: { label: string; width: number; height: number }[]
+) {
+  if (!wrapper) return;
+  const card = wrapper.querySelector<HTMLElement>('[data-banner-card]');
+  const rect = card?.getBoundingClientRect();
+  const measurable = rect && rect.width > 0;
+  const group = `[TodoMax] Medidas de banner · ${name}`;
+  console.groupCollapsed(group);
+  console.log(
+    'Medida medida en pantalla:',
+    measurable ? `${Math.round(rect!.width)} x ${Math.round(rect!.height)} px (CSS)` : 'no visible aún'
+  );
+  console.log('Recomendado para subir (2x retina):');
+  recommended.forEach((s) => console.log(`  ${s.label}: ${s.width} x ${s.height} px`));
+  console.groupEnd();
+}
 
 function filterValidAdminSlides(rawSlides: any[]): any[] {
   if (!Array.isArray(rawSlides)) return [];
@@ -70,6 +91,19 @@ export function HeroCarousel() {
     };
   }, [emblaApi, slides.length]);
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (slides.length === 0) return;
+    const t = setTimeout(() => {
+      logBannerSizes('Carrusel principal (3 divisiones)', wrapperRef.current, [
+        { label: 'Móvil', width: 900, height: 1200 },
+        { label: 'Tablet', width: 1100, height: 940 },
+        { label: 'Escritorio (3 columnas)', width: 768, height: 660 },
+      ]);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [slides.length]);
+
   if (!isLoaded && slides.length === 0) {
     return (
       <div className="w-full h-[42vh] md:h-[58vh] min-h-[320px] md:min-h-[460px] rounded-2xl md:rounded-3xl bg-slate-200/70 animate-pulse" />
@@ -81,7 +115,7 @@ export function HeroCarousel() {
   }
 
   return (
-    <div className="w-full relative overflow-hidden rounded-2xl md:rounded-3xl shadow-lg shadow-slate-200/50 bg-slate-950 md:bg-transparent md:shadow-none">
+    <div ref={wrapperRef} className="w-full relative rounded-2xl md:rounded-3xl">
       <div ref={emblaRef} className="overflow-hidden w-full">
         <div className="flex w-full md:-mx-1.5 md:w-[calc(100%+0.75rem)]">
           {slides.map((slide, idx) => {
@@ -91,10 +125,11 @@ export function HeroCarousel() {
             return (
               <div
                 key={slide.id || idx}
-                className={`flex-[0_0_100%] ${slides.length === 2 ? 'md:flex-[0_0_50%]' : slides.length >= 3 ? 'md:flex-[0_0_50%] lg:flex-[0_0_33.3333%]' : ''} min-w-0 md:px-1.5`}
+                className={`flex-[0_0_100%] ${slides.length === 2 ? 'md:flex-[0_0_50%]' : slides.length >= 3 ? 'md:flex-[0_0_50%] lg:flex-[0_0_33.3333%]' : ''} min-w-0 md:px-1.5 pt-2 pb-4`}
               >
               <div
-                className="w-full rounded-2xl md:rounded-3xl relative h-[42vh] md:h-[44vh] min-h-[320px] md:min-h-[340px] py-10 pb-16 md:py-12 md:pb-16 px-6 md:px-10 text-white bg-slate-950 flex flex-col justify-center items-start overflow-hidden group"
+                data-banner-card
+                className="w-full rounded-2xl md:rounded-3xl relative aspect-[3/4] md:aspect-[768/660] py-10 pb-16 md:py-12 md:pb-16 px-6 md:px-10 text-white bg-slate-950 flex flex-col justify-center items-start overflow-hidden hover:-translate-y-1 hover:scale-[1.01] hover:shadow-xl transition-all duration-300 ease-out cursor-pointer"
               >
                 {dImg && (
                   <img
@@ -102,7 +137,7 @@ export function HeroCarousel() {
                     alt={slide.title || 'Banner Principal'}
                     loading={idx === 0 ? 'eager' : 'lazy'}
                     fetchPriority={idx === 0 ? 'high' : 'auto'}
-                    className="hidden md:block absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-700 group-hover:scale-105"
+                    className="hidden md:block absolute inset-0 w-full h-full object-cover z-0"
                   />
                 )}
 

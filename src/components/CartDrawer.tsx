@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
+import Price from '@/components/Price';
 import { siteConfig } from '@/config/site';
 
 export default function CartDrawer() {
@@ -61,7 +62,7 @@ export default function CartDrawer() {
         <div className="bg-orange-50 px-6 py-3 border-b border-orange-100 text-xs text-orange-800 font-medium">
           {remaining > 0 ? (
             <p>
-              ¡Agrega <span className="font-bold">{siteConfig.currencySymbol}{remaining.toFixed(2)}</span> más para obtener envío gratis!
+              ¡Agrega <span className="font-bold"><Price value={remaining} /></span> más para obtener envío gratis!
             </p>
           ) : (
             <p className="font-bold text-emerald-700">¡Felicitaciones! Calificas para envío gratis.</p>
@@ -103,9 +104,7 @@ export default function CartDrawer() {
                         {item.selectedColor && (
                           <p className="text-xs text-slate-500 font-medium">Color: {item.selectedColor}</p>
                         )}
-                        <p className="text-sm font-extrabold text-orange-500 mt-0.5">
-                          {siteConfig.currencySymbol}{Number(item.price).toFixed(2)}
-                        </p>
+                        <Price value={Number(item.price)} className="text-sm font-extrabold text-orange-500 mt-0.5" />
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
@@ -151,7 +150,7 @@ export default function CartDrawer() {
             <div className="flex items-center justify-between text-sm text-gray-600">
               <span>Subtotal</span>
               <span className="font-semibold text-slate-900">
-                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
+                <Price value={subtotal} />
               </span>
             </div>
             <div className="flex items-center justify-between text-sm text-gray-600">
@@ -163,9 +162,12 @@ export default function CartDrawer() {
             <div className="pt-2 border-t border-gray-200 flex items-center justify-between text-base font-bold text-slate-900">
               <span>Total Final</span>
               <span className="text-orange-500 text-xl">
-                {siteConfig.currencySymbol}{subtotal.toFixed(2)}
+                <Price value={subtotal} showSecondary secondaryClassName="text-[10px] mt-1" />
               </span>
             </div>
+            <p className="text-[10px] text-gray-400 font-medium">
+              El pago se procesa en dólares (USD). El monto en bolívares es referencial según la tasa BCV.
+            </p>
           </div>
           <button
             onClick={handleCheckout}

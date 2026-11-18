@@ -3,7 +3,6 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { HeroCarousel } from '@/components/HeroCarousel';
@@ -13,6 +12,7 @@ import ProductRail from '@/components/ProductRail';
 import CategoryBar from '@/components/CategoryBar';
 import StoreLocationSection from '@/components/StoreLocationSection';
 import ProductCover from '@/components/ProductCover';
+import Price from '@/components/Price';
 import { useCartStore } from '@/store/cartStore';
 import { Flame, ShoppingBag, ArrowRight } from 'lucide-react';
 
@@ -136,9 +136,11 @@ function HomeContent() {
                       </div>
 
                       <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                        <span className="text-base md:text-lg font-black text-slate-900">
-                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                        </span>
+                        <Price
+                          value={product.price}
+                          original={product.originalPrice}
+                          className="text-base md:text-lg font-black text-slate-900"
+                        />
                         <button
                           onClick={(e) => handleBuyNow(product, e)}
                           disabled={outOfStock}
@@ -210,9 +212,11 @@ function HomeContent() {
 
                       <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                         <div>
-                          <span className="text-lg md:text-xl font-black text-slate-900">
-                            {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                          </span>
+                          <Price
+                            value={product.price}
+                            original={product.originalPrice}
+                            className="text-lg md:text-xl font-black text-slate-900"
+                          />
                         </div>
                         <button
                           onClick={(e) => handleBuyNow(product, e)}

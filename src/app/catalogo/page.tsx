@@ -3,7 +3,6 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
@@ -13,6 +12,7 @@ import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
 import ProductCover from '@/components/ProductCover';
+import Price from '@/components/Price';
 import { normalizeSearchText } from '@/lib/search';
 
 function normalizeCatName(val: string) {
@@ -342,9 +342,11 @@ function CatalogoContent() {
                       </div>
 
                       <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                        <span className="text-base md:text-lg font-black text-slate-900">
-                          {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                        </span>
+                        <Price
+                          value={product.price}
+                          original={product.originalPrice}
+                          className="text-base md:text-lg font-black text-slate-900"
+                        />
                         <button
                           onClick={(e) => handleBuyNow(product, e)}
                           disabled={outOfStock}

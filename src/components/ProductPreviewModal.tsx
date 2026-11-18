@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { X, ShoppingBag, ShoppingCart, Truck, CheckCircle2, ListChecks, Play } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import DescriptionContent from '@/components/DescriptionContent';
+import Price from '@/components/Price';
+import { useCurrencyStore } from '@/store/currencyStore';
 
 export interface PreviewData {
   title: string;
@@ -40,8 +42,10 @@ function Media({ src, className }: { src: string; className: string }) {
   );
 }
 
-export default function ProductPreviewModal({ data, tasaBcv, isEditing, onClose, onConfirm }: Props) {
+export default function ProductPreviewModal({ data, tasaBcv: tasaProp, isEditing, onClose, onConfirm }: Props) {
   const [view, setView] = useState<'card' | 'full'>('card');
+  const tasaGlobal = useCurrencyStore((s) => s.tasaBcv);
+  const tasaBcv = tasaGlobal ?? tasaProp;
   const [imgIdx, setImgIdx] = useState(0);
   const [pickedColor, setPickedColor] = useState<string | null>(null);
   const colors = data.colors ?? [];
@@ -59,12 +63,10 @@ export default function ProductPreviewModal({ data, tasaBcv, isEditing, onClose,
   const precio = (
     <div>
       <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="text-lg md:text-xl font-black text-slate-900">
-          {siteConfig.currencySymbol}{data.price.toFixed(2)}
-        </span>
+        <Price value={data.price} className="text-lg md:text-xl font-black text-slate-900" />
         {data.originalPrice ? (
           <span className="text-xs text-gray-400 line-through">
-            {siteConfig.currencySymbol}{data.originalPrice.toFixed(2)}
+            <Price value={data.originalPrice} />
           </span>
         ) : null}
         {descuento > 0 && (
@@ -207,11 +209,9 @@ export default function ProductPreviewModal({ data, tasaBcv, isEditing, onClose,
 
                 <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-2">
                   <div className="flex items-baseline gap-3 flex-wrap">
-                    <span className="text-3xl md:text-4xl font-black text-slate-900">
-                      {siteConfig.currencySymbol}{data.price.toFixed(2)}
-                    </span>
+                    <Price value={data.price} showSecondary secondaryClassName="text-xs mt-0.5" className="text-3xl md:text-4xl font-black text-slate-900" />
                     {data.originalPrice ? (
-                      <span className="text-lg text-gray-400 line-through">{siteConfig.currencySymbol}{data.originalPrice.toFixed(2)}</span>
+                      <span className="text-lg text-gray-400 line-through"><Price value={data.originalPrice} /></span>
                     ) : null}
                     {descuento > 0 && (
                       <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">-{descuento}%</span>

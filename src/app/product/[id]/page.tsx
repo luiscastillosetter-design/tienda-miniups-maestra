@@ -12,6 +12,7 @@ import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
 import { useCartStore } from '@/store/cartStore';
+import Price from '@/components/Price';
 
 export default function ProductPage() {
   const params = useParams();
@@ -233,12 +234,10 @@ export default function ProductPage() {
               {/* Bloque de Precios y Envío */}
               <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
                 <div className="flex items-baseline gap-3">
-                  <span className="text-3xl md:text-5xl font-black text-slate-900">
-                    {siteConfig.currencySymbol}{product.price.toFixed(2)}
-                  </span>
+                  <Price value={product.price} showSecondary secondaryClassName="text-xs mt-1" className="text-3xl md:text-5xl font-black text-slate-900" />
                   {product.originalPrice && (
                     <span className="text-lg text-gray-400 line-through">
-                      {siteConfig.currencySymbol}{product.originalPrice.toFixed(2)}
+                      <Price value={product.originalPrice} />
                     </span>
                   )}
                 </div>
@@ -412,7 +411,7 @@ export default function ProductPage() {
                     <div className="space-y-1">
                       <span className="text-[10px] font-bold text-orange-500 uppercase">{p.category}</span>
                       <h4 className="text-xs font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors">{p.title}</h4>
-                      <p className="text-base font-black text-slate-900 pt-1">{siteConfig.currencySymbol}{p.price.toFixed(2)}</p>
+                      <Price value={p.price} className="text-base font-black text-slate-900 pt-1" />
                     </div>
                   </Link>
                 );
