@@ -88,6 +88,11 @@ function resolveProviders(): Provider[] {
 
 const digits = (s: string) => String(s || '').replace(/\D/g, '');
 
+/** WhatsApp de la oficina/administración (atención humana y cierre de pedidos). */
+const OFFICE_NUMBER = digits(siteConfig.whatsapp.number);
+/** WhatsApp del bot Sofía: jamás se entrega como contacto humano. */
+const BOT_NUMBER = digits(siteConfig.whatsapp.sofiaNumber);
+
 const waLink = (numero: string, texto = 'Hola, vengo de Importadora TodoMax y quisiera ayuda') =>
   `https://wa.me/${digits(numero)}?text=${encodeURIComponent(texto)}`;
 
@@ -120,7 +125,7 @@ async function loadContext() {
 
   let numeros: WaEntry[] = Array.isArray(rawConfig?.whatsappNumbers)
     ? rawConfig.whatsappNumbers
-        .filter((w: any) => w?.activo && digits(w?.numero))
+        .filter((w: any) => w?.activo && digits(w?.numero) && digits(w?.numero) !== BOT_NUMBER)
         .map((w: any) => ({
           numero: digits(w.numero),
           etiqueta: String(w.etiqueta || 'WhatsApp'),
@@ -131,7 +136,7 @@ async function loadContext() {
   if (numeros.length === 0) {
     numeros = [
       {
-        numero: digits(rawConfig?.whatsappNumber || siteConfig.whatsappNumber),
+        numero: OFFICE_NUMBER,
         etiqueta: 'Oficina / Administración',
         relevancia: 'Atención humana directa, confirmación de pagos y soporte de pedidos',
         es_principal_admin: true,
@@ -153,27 +158,37 @@ function buildSystemPrompt(ctx: Ctx) {
   const numeros = ctx.numeros
     .map(
       (n) =>
-        `- ${n.etiqueta}${n.es_principal_admin ? ' (PRINCIPAL ADMINISTRACIÓN)' : ''}: ${n.relevancia || 'Sin descripción'} → ${waLink(n.numero)}`
+        `- ${n.etiqueta}${n.es_principal_admin ? ' (PRINCIPAL ADMINISTRACIÓN)' : ''}: +${n.numero} — ${n.relevancia || 'Sin descripción'} → ${waLink(n.numero)}`
     )
     .join('\n');
 
-  return `Eres María, asesora de ventas de ${siteConfig.storeName} (Venezuela). Atiendes a clientes desde un chat dentro de la tienda web.
+  return `ROL E IDENTIDAD
+Eres Sofía, asesora de ventas de ${siteConfig.storeName} (https://www.importadoratodomax.com), tienda en línea de Venezuela. Atiendes desde el chat de la tienda web. Conoces ÚNICA Y EXCLUSIVAMENTE el entorno de importadoratodomax.com: su catálogo en vivo, métodos de pago, ofertas, carrito, pasos de compra y uso de la página. Español cálido, directo y breve (máximo 5-6 líneas, UNA pregunta por mensaje, pocos emojis).
 
-ESTILO: español, amable, directo y breve (máximo 5-6 líneas). Orientada a cerrar la venta dentro de la web. Sin relleno.
+REGLAS OBLIGATORIAS (CERO ALUCINACIONES)
+- Usa ÚNICAMENTE los productos, precios y enlaces del CATÁLOGO EN VIVO que aparece al final. Nunca inventes productos, modelos, precios, descuentos, stock, enlaces ni respuestas fuera de importadoratodomax.com.
+- Si el cliente pide algo que NO existe en el catálogo, dilo con claridad ("no lo tenemos disponible ahora") y sugiere lo más parecido que SÍ esté en el catálogo. Si el catálogo está vacío, no menciones productos ni precios y envía a la web.
+- Todo enlace de producto debe ser exactamente [Nombre del producto](/product/<id>) con el id del catálogo; jamás construyas ni modifiques un id.
+- Si el tema no es de importadoratodomax.com, di amablemente que solo puedes ayudar con la tienda.
+- Si preguntan por un producto: nombre, precio en USD, oferta si aplica, disponibilidad y el enlace directo. Máximo 3 productos por respuesta.
+- Precios en USD; si preguntan por bolívares usa la TASA BCV indicada abajo (precio USD x tasa). Si no hay tasa, dilo y di que la ven en la barra superior de la web.
+- Ofertas: solo las que traen precio anterior en el catálogo. Nunca inventes cupones ni promociones.
+- Si preguntan cómo pagar o cómo usar la página: da la ruta clara paso a paso.
 
-REGLAS DE PRODUCTOS:
-- Usa ÚNICAMENTE los productos del CATÁLOGO de abajo. Nunca inventes productos, modelos, precios, descuentos ni stock. Si no hay algo que encaje, dilo y sugiere lo más parecido del catálogo.
-- Cada vez que menciones un producto, incluye un enlace Markdown exacto: [Nombre del producto](/product/<id>). Precios en USD y, si el cliente pregunta por bolívares, el equivalente en Bs.
-- Recomienda máximo 3 productos por respuesta.
+CÓMO COMPRAR (pasos)
+1) Busca o abre el producto en la web. 2) En la ficha elige color/cantidad y pulsa "Agregar al Carrito" (o "Comprar ahora"). 3) Abre el carrito y revisa tu pedido. 4) Ve al checkout, completa tus datos de envío y elige el método de pago. 5) Realiza el pago, escribe el número de referencia y adjunta el comprobante. 6) Confirma el pedido: al final se abre WhatsApp para finalizar la atención con el equipo de la oficina.
 
-CÓMO COMPRAR EN LA WEB: entra a la ficha del producto, elige la cantidad y pulsa "Agregar al Carrito" (o "Comprar ahora"), abre el carrito, completa tus datos y método de pago en el checkout y confirma; al final se abre WhatsApp para finalizar la atención. Envío gratis en compras desde ${siteConfig.currencySymbol}${siteConfig.shipping.freeShippingThreshold}.
+MÉTODOS DE PAGO (en el checkout)
+Pago Móvil, Transferencia, Zelle, Binance Pay y Efectivo. Cada producto indica en su ficha cuáles acepta. Los datos de la cuenta (banco, teléfono, correo, Pay ID, cédula, RIF) se muestran en el checkout al elegir el método: NO los inventes ni los des tú bajo ninguna circunstancia. Excepto Efectivo, todos requieren referencia y comprobante.
+Envío gratis en compras desde ${siteConfig.currencySymbol}${siteConfig.shipping.freeShippingThreshold}. Empresas de envío: ${siteConfig.shipping.companies.join(', ')}.
 
-DERIVACIÓN A WHATSAPP: si el cliente pide hablar con una persona, la oficina, administración, confirmar un pago o consultar algo específico que no puedas resolver, entrega UN enlace de esta lista, escogiendo el cuyo propósito encaje mejor (por defecto el PRINCIPAL ADMINISTRACIÓN). Preséntalo como Markdown: [Hablar por WhatsApp con <etiqueta>](<enlace>). No muestres enlaces de WhatsApp si no hacen falta.
+DERIVACIÓN A HUMANO (REGLA ESTRICTA)
+Si el cliente pide hablar con una persona, asesor, personal administrativo, la oficina, tiene un reclamo o quiere confirmar un pago, entrega DE INMEDIATO, sin preguntas previas, el número y el botón de WhatsApp de la oficina/administración de esta lista. Formato: el número en texto (+<número>) y el enlace Markdown [Hablar por WhatsApp con <etiqueta>](<enlace>). Usa SOLO los contactos de esta lista; jamás des ni inventes otro número (en especial, nunca el número del bot). No muestres enlaces de WhatsApp si no hacen falta.
 ${numeros}
 
 ${tasa}
 
-CATÁLOGO ACTUAL (JSON, solo productos con stock):
+CATÁLOGO ACTUAL EN VIVO (JSON, solo productos con stock):
 ${JSON.stringify(ctx.catalogo)}`;
 }
 
@@ -206,6 +221,42 @@ function fallbackReply(ctx: Ctx, lastUser: string) {
   return `${intro}\n\n${lista}\n\nPara comprar, entra al producto y pulsa "Agregar al Carrito".`;
 }
 
+/** null = sin clave configurada; '' = Anthropic falló; texto = respuesta. */
+async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Promise<string | null> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return null;
+  try {
+    // Sin 'temperature': Haiku 5.5 responde HTTP 400 si se envía.
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-5-5',
+        max_tokens: 500,
+        system: systemPrompt,
+        messages,
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!res.ok) {
+      console.error(`[/api/chat] anthropic respondió ${res.status}`);
+      return '';
+    }
+    const json = await res.json();
+    const text = Array.isArray(json?.content)
+      ? json.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text).join('')
+      : '';
+    return text.trim();
+  } catch (err) {
+    console.error('[/api/chat] Error consultando anthropic:', err);
+    return '';
+  }
+}
+
 export async function POST(request: NextRequest) {
   let messages: ChatMessage[] = [];
   try {
@@ -227,6 +278,11 @@ export async function POST(request: NextRequest) {
 
   const ctx = await loadContext();
   const systemPrompt = buildSystemPrompt(ctx);
+
+  // Prioridad 1: Anthropic Haiku 5.5. Groq y demás solo actúan si falta la clave de Anthropic.
+  const anthropicReply = await callAnthropic(systemPrompt, messages);
+  if (anthropicReply) return NextResponse.json({ reply: anthropicReply });
+  if (anthropicReply === '') return NextResponse.json({ reply: fallbackReply(ctx, lastUser) });
 
   for (const provider of resolveProviders()) {
     try {

@@ -329,7 +329,11 @@ export default function CheckoutPage() {
       (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
 
     const rawWhatsApp = liveSettings.whatsappNumber || siteConfig.whatsappNumber;
-    const whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
+    let whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
+    // El número del bot Sofía nunca es destino del cierre de pedidos: va a la oficina.
+    if (whatsappNum === siteConfig.whatsapp.sofiaNumber.replace(/\D/g, '')) {
+      whatsappNum = siteConfig.whatsapp.number.replace(/\D/g, '');
+    }
 
     clearCart();
 

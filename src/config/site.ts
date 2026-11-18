@@ -2,9 +2,12 @@ export const siteConfig = {
   storeName: "Importadora TodoMax",
   description: "Importadora Multiproductos. Envíos rápidos a nivel nacional.",
   currencySymbol: "$",
-  whatsappNumber: "+17543411559", 
+  // Oficina / Administración: atención humana y cierre de pedidos (checkout, footer, derivación)
+  whatsappNumber: "+584225160056",
   whatsapp: {
-    number: "+17543411559",
+    number: "+584225160056",
+    // Bot Sofía (acceso directo para chatear con la IA por WhatsApp). NUNCA usar para atención humana.
+    sofiaNumber: "+17543411559",
   },
   email: "ventas@todomax.com",
   location: "Venezuela",

@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { siteConfig } from '@/config/site';
 import { MessageCircle, X, Send, ShoppingBag } from 'lucide-react';
 
 interface Msg {
@@ -13,7 +14,7 @@ interface Msg {
 const WELCOME: Msg = {
   role: 'assistant',
   content:
-    '¡Hola! 👋 Soy **María**, asesora de Importadora TodoMax. Te ayudo a encontrar productos, ver precios (también en Bs.) y finalizar tu pedido. ¿Qué estás buscando?',
+    '¡Hola! 👋 Soy **Sofía**, asesora de Importadora TodoMax. Te ayudo a encontrar productos, ver precios (también en Bs.) y finalizar tu pedido. ¿Qué estás buscando?',
 };
 
 const QUICK = [
@@ -116,7 +117,7 @@ export default function ChatWidget() {
 
   useEffect(() => {
     try {
-      if (sessionStorage.getItem('maria_hidden') === '1') setHidden(true);
+      if (sessionStorage.getItem('sofia_hidden') === '1') setHidden(true);
     } catch {}
   }, []);
 
@@ -172,7 +173,7 @@ export default function ChatWidget() {
     setOpen(false);
     setHidden(true);
     try {
-      sessionStorage.setItem('maria_hidden', '1');
+      sessionStorage.setItem('sofia_hidden', '1');
     } catch {}
   };
 
@@ -208,15 +209,24 @@ export default function ChatWidget() {
         <div className="fixed z-50 bottom-36 md:bottom-24 right-3 md:right-5 w-[calc(100vw-1.5rem)] max-w-[380px] h-[min(560px,calc(100vh-11rem))] bg-white rounded-3xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
           <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center font-black">M</div>
+              <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center font-black">S</div>
               <div>
-                <p className="text-sm font-black leading-tight">María</p>
+                <p className="text-sm font-black leading-tight">Sofía</p>
                 <p className="text-[11px] text-emerald-300 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Asesora TodoMax · en línea
                 </p>
               </div>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar chat" className="p-1.5 rounded-full hover:bg-white/10 cursor-pointer">
+            <a
+              href={`https://wa.me/${siteConfig.whatsapp.sofiaNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Hola Sofía, vengo de la web de Importadora TodoMax')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Chatear con Sofía por WhatsApp (${siteConfig.whatsapp.sofiaNumber})`}
+              className="ml-auto mr-1 inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1.5 rounded-full no-underline"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+            </a>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar chat"className="p-1.5 rounded-full hover:bg-white/10 cursor-pointer">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -253,7 +263,7 @@ export default function ChatWidget() {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 flex gap-1" aria-label="María está escribiendo">
+                <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 flex gap-1" aria-label="Sofía está escribiendo">
                   {[0, 150, 300].map((d) => (
                     <span key={d} className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: `${d}ms` }} />
                   ))}
@@ -301,7 +311,7 @@ export default function ChatWidget() {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          aria-label={open ? 'Cerrar chat con María' : 'Abrir chat con María'}
+          aria-label={open ? 'Cerrar chat con Sofía' : 'Abrir chat con Sofía'}
           style={{ touchAction: 'none' }}
           className="w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-xl shadow-orange-500/40 flex items-center justify-center transition-colors active:scale-95 cursor-grab active:cursor-grabbing select-none"
         >
@@ -310,7 +320,7 @@ export default function ChatWidget() {
         <button
           type="button"
           onClick={hideBubble}
-          aria-label="Ocultar a María"
+          aria-label="Ocultar a Sofía"
           title="Ocultar"
           className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-800/80 hover:bg-slate-900 text-white flex items-center justify-center cursor-pointer"
         >
