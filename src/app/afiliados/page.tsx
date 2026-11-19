@@ -12,6 +12,8 @@ import {
 type AffiliateUser = {
   nombre: string;
   email: string;
+  telefono?: string;
+  cedula?: string;
   codigo: string;
   joinedAt: string;
 };
@@ -27,7 +29,7 @@ export default function AfiliadosPage() {
 
   // Estados del Formulario (Registro e Inicio de Sesión)
   const [isLoginMode, setIsLoginMode] = useState(false);
-  const [formData, setFormData] = useState({ nombre: '', email: '', codigo: '' });
+  const [formData, setFormData] = useState({ nombre: '', email: '', telefono: '', cedula: '', codigo: '' });
   const [loginCode, setLoginCode] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -66,7 +68,7 @@ export default function AfiliadosPage() {
     init();
   }, []);
 
-  const calcularMetricas = async (codigo: string, catalogProducts: Product[]) => {
+  const calcularMetricas = async (codigo: string, _catalogProducts?: Product[]) => {
     let orders: any[] = [];
 
     try {
@@ -119,14 +121,8 @@ export default function AfiliadosPage() {
           confirmadas++;
           if (order.financials?.commission !== undefined) {
             comisiones += Number(order.financials.commission);
-          } else if (Array.isArray(order.items)) {
-            order.items.forEach((item: any) => {
-              const prod = catalogProducts.find(p => String(p.id) === String(item.id));
-              const pct = prod ? Number(prod.affiliateCommission || 10) : 10;
-              comisiones += (item.price * item.quantity * (pct / 100));
-            });
           } else {
-            comisiones += (order.financials.total * 0.10);
+            comisiones += Number(order.financials?.total || 0) * siteConfig.affiliateCommissionRate;
           }
         }
       }
@@ -168,6 +164,8 @@ export default function AfiliadosPage() {
     const newUser: AffiliateUser = {
       nombre: formData.nombre,
       email: formData.email,
+      telefono: formData.telefono.replace(/\D/g, ''),
+      cedula: formData.cedula.trim(),
       codigo: cleanCode,
       joinedAt: new Date().toISOString()
     };
@@ -255,7 +253,7 @@ export default function AfiliadosPage() {
         const prodLink = `${baseUrl}/product/${foundProduct.id}?ref=${user?.codigo}`;
         const copyReady = buildAdText(foundProduct, prodLink);
         responseText = `¡Excelente elección! Aquí tienes tu kit para *${foundProduct.title}*:\n\n` +
-          `💰 *Tu Comisión:* ${foundProduct.affiliateCommission}% (${siteConfig.currencySymbol}${(foundProduct.price * (foundProduct.affiliateCommission / 100)).toFixed(2)} por venta)\n` +
+          `💰 *Tu Comisión:* ${Math.round(siteConfig.affiliateCommissionRate * 100)}% (${siteConfig.currencySymbol}${(foundProduct.price * siteConfig.affiliateCommissionRate).toFixed(2)} por venta)\n` +
           `📸 *Material Visual:* Descárgalo en la pestaña 'Biblioteca de Anuncios'.\n\n` +
           `📝 *Texto listo para publicar:*\n${copyReady}\n\n` +
           `🔗 *Tu Enlace Directo:* ${prodLink}`;
@@ -337,6 +335,16 @@ export default function AfiliadosPage() {
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Correo Electrónico</label>
                   <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="tu@email.com" />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Teléfono</label>
+                    <input type="tel" required value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="0412-1234567" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Cédula / RIF</label>
+                    <input type="text" required value={formData.cedula} onChange={e => setFormData({...formData, cedula: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="V-12345678" />
+                  </div>
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Crea tu Código de Afiliado</label>
                   <input type="text" required value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black uppercase focus:outline-none focus:border-orange-500 focus:bg-white transition-colors" placeholder="EJ: CARLOS2026" />
@@ -398,6 +406,13 @@ export default function AfiliadosPage() {
 
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-in fade-in">
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-start gap-3">
+              <span className="text-lg leading-none">⚠️</span>
+              <p className="text-xs font-bold text-amber-900 leading-relaxed">
+                Prohibida la autocompra con tu enlace propio. El sistema bloquea automáticamente descuentos y comisiones en compras propias (se compara teléfono, correo, cédula y sesión de afiliado). Tu comisión es del {Math.round(siteConfig.affiliateCommissionRate * 100)}% sobre ventas de terceros entregadas.
+              </p>
+            </div>
+
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-black text-slate-900">Tu Enlace Universal de Tienda</h3>
@@ -459,7 +474,7 @@ export default function AfiliadosPage() {
               {liveProducts.map((product) => {
                 const productRefUrl = `${baseUrl}/product/${product.id}?ref=${user.codigo}`;
                 const fullAdCopy = buildAdText(product, productRefUrl);
-                const commAmount = (product.price * ((product.affiliateCommission || 10) / 100)).toFixed(2);
+                const commAmount = (product.price * siteConfig.affiliateCommissionRate).toFixed(2);
                 const coverMedia = product.images?.[0] || '';
 
                 return (
@@ -476,7 +491,7 @@ export default function AfiliadosPage() {
                       <div>
                         <h3 className="text-sm font-black text-slate-900 line-clamp-2">{product.title}</h3>
                         <p className="text-xs text-emerald-600 font-bold mt-1">
-                          Ganas {product.affiliateCommission || 10}% por venta: {siteConfig.currencySymbol}{commAmount}
+                          Ganas {Math.round(siteConfig.affiliateCommissionRate * 100)}% por venta: {siteConfig.currencySymbol}{commAmount}
                         </p>
                       </div>
                       
@@ -497,13 +512,20 @@ export default function AfiliadosPage() {
                           {copiedLink === `copy-${product.id}` ? 'Texto Copiado' : 'Copiar Texto para Redes'}
                         </button>
 
-                        <a 
-                          href={coverMedia} 
-                          download={`${product.id}-todomax`}
-                          className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
-                        >
-                          <Download className="w-4 h-4" /> Descargar Material (Foto/Video)
-                        </a>
+                        {product.driveUrl ? (
+                          <a
+                            href={product.driveUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                          >
+                            <Download className="w-4 h-4" /> Material del producto (Google Drive)
+                          </a>
+                        ) : (
+                          <div className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-500 text-xs font-bold py-2.5 rounded-xl cursor-not-allowed">
+                            ⏳ Material en preparación
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

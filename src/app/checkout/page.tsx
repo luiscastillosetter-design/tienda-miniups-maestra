@@ -8,6 +8,7 @@ import { useCurrencyStore, convertirPrecio, formatearMonto } from '@/store/curre
 import { siteConfig } from '@/config/site';
 import { productService } from '@/services/productService';
 import { products as defaultProducts, Product } from '@/data/products';
+import { isSelfPurchase, SELF_PURCHASE_NOTICE } from '@/lib/affiliateGuard';
 import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
 
 export default function CheckoutPage() {
@@ -35,6 +36,9 @@ export default function CheckoutPage() {
   const [apellido, setApellido] = useState('');
   const [cedula, setCedula] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState('');
+  const [affiliateRecord, setAffiliateRecord] = useState<any>(null);
+  const [sessionAffiliateCode, setSessionAffiliateCode] = useState<string | null>(null);
 
   const [courier, setCourier] = useState(siteConfig.shipping.companies[0] || 'MRW');
   const [estado, setEstado] = useState('');
@@ -102,6 +106,11 @@ export default function CheckoutPage() {
       })
       .catch(() => {});
 
+    try {
+      const rawSession = localStorage.getItem('todomax_affiliate_user');
+      if (rawSession) setSessionAffiliateCode(JSON.parse(rawSession)?.codigo || null);
+    } catch (e) {}
+
     const storedRef = localStorage.getItem('todomax_ref');
     if (storedRef) {
       setRefCode(storedRef);
@@ -121,6 +130,21 @@ export default function CheckoutPage() {
     }
   }, []);
 
+  // Datos del afiliado dueño del código (para detectar autocompra)
+  useEffect(() => {
+    if (!refCode || refCode === 'DIRECTO') {
+      setAffiliateRecord(null);
+      return;
+    }
+    fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        const list = Array.isArray(json?.data) ? json.data : [];
+        setAffiliateRecord(list.find((a: any) => String(a?.codigo).toUpperCase() === String(refCode).toUpperCase()) || null);
+      })
+      .catch(() => {});
+  }, [refCode]);
+
   const isVideo = (url?: string) => {
     if (!url) return false;
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
@@ -137,13 +161,14 @@ export default function CheckoutPage() {
     return acc + itemCost * item.quantity;
   }, 0);
 
-  const totalAffiliateCommission = items.reduce((acc, item) => {
-    const dbProduct = liveProducts.find((p) => String(p.id) === String(item.id));
-    const commPercent = dbProduct ? Number(dbProduct.affiliateCommission ?? 10) : 10;
-    return acc + item.price * item.quantity * (commPercent / 100);
-  }, 0);
+  const selfPurchase =
+    refCode !== 'DIRECTO' &&
+    isSelfPurchase({ telefono, email, cedula }, affiliateRecord, sessionAffiliateCode, refCode);
+  const affiliateActive = refCode !== 'DIRECTO' && !selfPurchase;
 
-  const expectedUtility = total - totalCost - (refCode !== 'DIRECTO' ? totalAffiliateCommission : 0);
+  const totalAffiliateCommission = total * siteConfig.affiliateCommissionRate;
+
+  const expectedUtility = total - totalCost - (affiliateActive ? totalAffiliateCommission : 0);
 
   const handleCopyBankData = () => {
     let data = '';
@@ -247,7 +272,7 @@ export default function CheckoutPage() {
       id: orderId,
       date: new Date().toISOString(),
       status: 'Pendiente de verificación',
-      customer: { nombre, apellido, cedula, telefono },
+      customer: { nombre, apellido, cedula, telefono, email: email.trim() },
       shipping: { courier, estado, ciudad, direccion, isFreeShipping },
       payment: {
         method: metodoPago,
@@ -259,12 +284,14 @@ export default function CheckoutPage() {
       financials: {
         total,
         cost: totalCost,
-        commission: refCode !== 'DIRECTO' ? totalAffiliateCommission : 0,
+        commission: affiliateActive ? totalAffiliateCommission : 0,
         utility: expectedUtility,
       },
       attribution: {
-        affiliateCode: refCode,
-        channel: refCode !== 'DIRECTO' ? 'Afiliado' : adChannel,
+        affiliateCode: affiliateActive ? refCode : 'DIRECTO',
+        channel: affiliateActive ? 'Afiliado' : adChannel,
+        sessionAffiliateCode: sessionAffiliateCode || undefined,
+        ...(selfPurchase ? { selfPurchaseBlocked: true, blockedCode: refCode } : {}),
       },
     };
 
@@ -309,36 +336,33 @@ export default function CheckoutPage() {
     const listaProductos = items
       .map(
         (item) =>
-          `▪ ${item.quantity}x ${item.title}${item.selectedColor ? ` - Color: ${encodeURIComponent(item.selectedColor)}` : ''} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`
+          `▪ ${item.quantity}x ${item.title}${item.selectedColor ? ` - Color: ${item.selectedColor}` : ''} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`
       )
-      .join('%0A');
+      .join('\n');
 
     const mensajeWhatsApp =
-      `*NUEVO PEDIDO: ${orderId}*%0A%0A` +
-      `*CLIENTE:* ${nombre} ${apellido}%0A` +
-      `*CÉDULA:* ${cedula}%0A` +
-      `*TELÉFONO:* ${telefono}%0A%0A` +
-      `*📦 PRODUCTOS:*%0A${listaProductos}%0A%0A` +
-      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}%0A` +
-      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}%0A` +
-      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}%0A%0A` +
-      `*💳 PAGO:* ${metodoPago}%0A` +
+      `*NUEVO PEDIDO: ${orderId}*\n\n` +
+      `*CLIENTE:* ${nombre} ${apellido}\n` +
+      `*CÉDULA:* ${cedula}\n` +
+      `*TELÉFONO:* ${telefono}\n\n` +
+      `*📦 PRODUCTOS:*\n${listaProductos}\n\n` +
+      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}\n` +
+      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}\n` +
+      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}\n\n` +
+      `*💳 PAGO:* ${metodoPago}\n` +
       (metodoPago !== 'Efectivo'
-        ? `*REFERENCIA:* ${referencia}%0A*(Comprobante adjunto en el sistema y en esta conversación)*%0A`
+        ? `*REFERENCIA:* ${referencia}\n*(Comprobante adjunto en el sistema)*\n`
         : '') +
-      (refCode !== 'DIRECTO' ? `%0A*AFILIADO REF:* ${refCode}` : '');
+      (affiliateActive ? `\n*AFILIADO REF:* ${refCode}` : '');
 
-    const rawWhatsApp = liveSettings.whatsappNumber || siteConfig.whatsappNumber;
-    let whatsappNum = String(rawWhatsApp).replace(/\D/g, '');
-    // El número del bot Sofía nunca es destino del cierre de pedidos: va a la oficina.
-    if (whatsappNum === siteConfig.whatsapp.sofiaNumber.replace(/\D/g, '')) {
-      whatsappNum = siteConfig.whatsapp.number.replace(/\D/g, '');
-    }
+    // SIEMPRE al WhatsApp del bot Sofía (+1 754-341-1559), nunca al comprador ni a otro número.
+    const botNum = siteConfig.whatsapp.sofiaNumber.replace(/\D/g, '');
+    const waUrl = `https://wa.me/${botNum}?text=${encodeURIComponent(mensajeWhatsApp)}`;
 
     clearCart();
 
     setTimeout(() => {
-      window.location.href = `https://wa.me/${whatsappNum}?text=${mensajeWhatsApp}`;
+      window.location.href = waUrl;
     }, 600);
   };
 
@@ -438,7 +462,22 @@ export default function CheckoutPage() {
                       className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
                     />
                   </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Correo electrónico (opcional)</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tu@email.com"
+                      className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
+                    />
+                  </div>
                 </div>
+                {selfPurchase && (
+                  <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold leading-relaxed">
+                    ⚠️ {SELF_PURCHASE_NOTICE}
+                  </div>
+                )}
               </div>
 
               {/* 2. Datos de Envío */}

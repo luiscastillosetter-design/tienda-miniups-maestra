@@ -8,7 +8,8 @@ export interface Product {
   badge?: string;
   isBestSeller?: boolean;
   isCombo?: boolean;
-  affiliateCommission: number; // Porcentaje o monto fijo
+  affiliateCommission: number; // Legado: ignorado. La comisión es fija (siteConfig.affiliateCommissionRate)
+  driveUrl?: string; // Carpeta de Google Drive con material para redes (afiliados)
   images: string[];
   demoVideo?: string;
   description: string;
@@ -61,7 +62,7 @@ export const products: Product[] = [
     badge: 'Oferta',
     isBestSeller: true,
     isCombo: false,
-    affiliateCommission: 5,
+    affiliateCommission: 10,
     category: 'Tecnología',
     images: [getPlaceholder('FOTO UPS 1')],
     description: 'Mantén tu internet encendido durante cortes eléctricos. Batería de larga duración.',
@@ -80,7 +81,7 @@ export const products: Product[] = [
     badge: 'Envío Gratis',
     isBestSeller: false,
     isCombo: false,
-    affiliateCommission: 8,
+    affiliateCommission: 10,
     category: 'Cocina',
     images: [getPlaceholder('FOTO COCINA 1')],
     description: 'Cocina saludable sin aceite. Gran capacidad para toda la familia.',
@@ -98,7 +99,7 @@ export const products: Product[] = [
     badge: 'Popular',
     isBestSeller: true,
     isCombo: false,
-    affiliateCommission: 4,
+    affiliateCommission: 10,
     category: 'Automóvil',
     images: [getPlaceholder('FOTO AUTO 1')],
     description: 'Limpia cada rincón de tu vehículo fácilmente. Alta potencia de succión.',
@@ -117,7 +118,7 @@ export const products: Product[] = [
     badge: 'Descuento',
     isBestSeller: false,
     isCombo: false,
-    affiliateCommission: 3,
+    affiliateCommission: 10,
     category: 'Belleza',
     images: [getPlaceholder('FOTO BELLEZA 1')],
     description: 'Seca y peina tu cabello al mismo tiempo, logrando volumen de salón en casa.',
@@ -135,7 +136,7 @@ export const products: Product[] = [
     badge: 'Viral',
     isBestSeller: true,
     isCombo: false,
-    affiliateCommission: 5,
+    affiliateCommission: 10,
     category: 'Productos Virales',
     images: [getPlaceholder('FOTO VIRAL 1')],
     description: 'Transforma cualquier habitación en un espectáculo espacial. Ideal para regalos o decoración.',

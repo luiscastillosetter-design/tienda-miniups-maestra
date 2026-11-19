@@ -37,6 +37,8 @@ export const siteConfig = {
       usdtAddress: "Txxxxxxxxxxxxxxxxxxxx (TRC20)"
     }
   },
+  // Comisión fija de afiliados (10%). ÚNICA fuente de verdad en todo el proyecto.
+  affiliateCommissionRate: 0.10,
   roles: ["Super Admin", "Logística y Pagos", "Marketing y Afiliados"],
   metaPixelId: "",
 };

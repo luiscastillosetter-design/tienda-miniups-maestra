@@ -120,6 +120,7 @@ export default function AdminPage() {
     benefits: '',
     badge: '',
     adCopy: '',
+    driveUrl: '',
     isBestSeller: false,
     images: ['', '', '', ''],
     colors: [] as ProductColor[],
@@ -792,7 +793,8 @@ export default function AdminPage() {
             cost: Number(productForm.cost) || 0,
             stock: Number(productForm.stock) || 0,
             category: productForm.category,
-            affiliateCommission: Number(productForm.affiliateCommission) || 10,
+            affiliateCommission: 10,
+            driveUrl: productForm.driveUrl.trim() || undefined,
             description: productForm.description,
             features: featuresArray,
             benefits: benefitsArray,
@@ -815,7 +817,8 @@ export default function AdminPage() {
         cost: Number(productForm.cost) || 0,
         stock: Number(productForm.stock) || 0,
         category: productForm.category,
-        affiliateCommission: Number(productForm.affiliateCommission) || 10,
+        affiliateCommission: 10,
+            driveUrl: productForm.driveUrl.trim() || undefined,
         description: productForm.description,
         features: featuresArray,
         benefits: benefitsArray,
@@ -836,7 +839,7 @@ export default function AdminPage() {
     setProductForm({
       title: '', price: '', originalPrice: '', cost: '', stock: '',
       category: 'Hogar', affiliateCommission: '10', description: '',
-      features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
+      features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
     });
   };
 
@@ -852,7 +855,8 @@ export default function AdminPage() {
       cost: String(p.cost || 0),
       stock: String(p.stock || 0),
       category: p.category,
-      affiliateCommission: String(p.affiliateCommission || 10),
+      affiliateCommission: '10',
+      driveUrl: p.driveUrl || '',
       description: p.description,
       features: p.features ? p.features.join('\n') : '',
       benefits: p.benefits ? p.benefits.join('\n') : '',
@@ -948,11 +952,7 @@ export default function AdminPage() {
     if (order.financials?.commission !== undefined) {
       return Number(order.financials.commission);
     }
-    return order.items.reduce((sum, item) => {
-      const prod = products.find(p => String(p.id) === String(item.id));
-      const pct = prod ? Number(prod.affiliateCommission || 10) : 10;
-      return sum + (item.price * item.quantity * (pct / 100));
-    }, 0);
+    return order.financials.total * siteConfig.affiliateCommissionRate;
   };
 
   const totalVentasConfirmadas = orders
@@ -1796,6 +1796,18 @@ export default function AdminPage() {
                 </div>
 
                 <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Carpeta de Google Drive para afiliados (opcional)</label>
+                  <input
+                    type="url"
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    value={productForm.driveUrl}
+                    onChange={e => setProductForm({ ...productForm, driveUrl: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Material de redes sociales (fotos/videos). Se muestra en el Panel de Afiliados. Comisión de afiliados: fija {siteConfig.affiliateCommissionRate * 100}%.</p>
+                </div>
+
+                <div>
                   <label className="block font-bold text-slate-500 uppercase mb-1">Colores disponibles (opcional)</label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {QUICK_COLORS.map(c => (
@@ -1938,7 +1950,7 @@ export default function AdminPage() {
                         setProductForm({
                           title: '', price: '', originalPrice: '', cost: '', stock: '',
                           category: 'Hogar', affiliateCommission: '10', description: '',
-                          features: '', benefits: '', badge: '', adCopy: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
+                          features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
                         });
                       }}
                       className="px-3 bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"

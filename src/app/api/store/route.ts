@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
+import { siteConfig } from '@/config/site';
+import { isSelfPurchase } from '@/lib/affiliateGuard';
 import {
   PRIVATE_KEYS,
   PUBLIC_CACHE_HEADERS,
@@ -15,6 +17,43 @@ function stripReceipts(orders: any[]) {
       ? { ...o, payment: { ...o.payment, receiptImage: undefined, hasReceipt: true } }
       : o
   );
+}
+
+// Pedidos NUEVOS con código de afiliado: fija la comisión en 10% y bloquea la autocompra.
+async function enforceAffiliateRules(value: any[]) {
+  const existing = await dbService.get('store_orders');
+  const knownIds = new Set<string>(Array.isArray(existing) ? existing.map((o: any) => o?.id) : []);
+  const isNewAffiliateOrder = (o: any) =>
+    o?.id && !knownIds.has(o.id) && o?.attribution?.affiliateCode && o.attribution.affiliateCode !== 'DIRECTO';
+  if (!value.some(isNewAffiliateOrder)) return value;
+
+  const affiliates = await dbService.get('store_affiliates');
+  const list: any[] = Array.isArray(affiliates) ? affiliates : [];
+
+  return value.map((o: any) => {
+    if (!isNewAffiliateOrder(o)) return o;
+    const code = String(o.attribution.affiliateCode).toUpperCase();
+    const affiliate = list.find((a) => String(a?.codigo).toUpperCase() === code);
+    const blocked =
+      o.attribution.selfPurchaseBlocked === true ||
+      isSelfPurchase(
+        { telefono: o.customer?.telefono, email: o.customer?.email, cedula: o.customer?.cedula },
+        affiliate,
+        o.attribution.sessionAffiliateCode,
+        code
+      );
+    const total = Number(o.financials?.total) || 0;
+    const cost = Number(o.financials?.cost || 0);
+    if (blocked) {
+      return {
+        ...o,
+        financials: { ...o.financials, commission: 0, utility: total - cost },
+        attribution: { ...o.attribution, affiliateCode: 'DIRECTO', channel: 'Directo', selfPurchaseBlocked: true, blockedCode: code },
+      };
+    }
+    const commission = total * siteConfig.affiliateCommissionRate;
+    return { ...o, financials: { ...o.financials, commission, utility: total - cost - commission } };
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -79,6 +118,10 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+    }
+
+    if (key === 'store_orders' && Array.isArray(value)) {
+      value = await enforceAffiliateRules(value);
     }
 
     const saved = await dbService.set(key, value);
