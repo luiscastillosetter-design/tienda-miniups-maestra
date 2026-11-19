@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { siteConfig } from '@/config/site';
-import { MessageCircle, X, Send, ShoppingBag } from 'lucide-react';
+import { MessageCircle, X, Send, ShoppingBag, ExternalLink } from 'lucide-react';
 
 interface Msg {
   role: 'user' | 'assistant';
@@ -34,25 +34,32 @@ function renderBold(text: string, keyPrefix: string) {
   );
 }
 
-function renderLine(line: string, lineKey: string) {
+const SITE_ORIGIN_RE = /^https?:\/\/(www\.)?importadoratodomax\.com/i;
+
+function renderLine(line: string, lineKey: string, onNavigate: () => void) {
   const out: React.ReactNode[] = [];
-  const re = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+  // Enlaces Markdown [Texto](url) o URLs sueltas https://... (respaldo).
+  const re = /\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let n = 0;
   while ((m = re.exec(line)) !== null) {
     if (m.index > last) out.push(...renderBold(line.slice(last, m.index), `${lineKey}-t${n}`));
-    const [, label, url] = m;
+    const label = m[1] ?? m[3];
+    let url = m[2] ?? m[3];
     const key = `${lineKey}-l${n++}`;
+    if (SITE_ORIGIN_RE.test(url)) url = url.replace(SITE_ORIGIN_RE, '') || '/';
     if (url.startsWith('/')) {
       out.push(
         <Link
           key={key}
           href={url}
-          className="inline-flex items-center gap-1 font-bold text-orange-600 underline decoration-orange-300 hover:text-orange-700"
+          onClick={onNavigate}
+          className="inline-flex items-center gap-1 font-bold text-orange-600 underline decoration-orange-300 underline-offset-2 hover:text-orange-700"
         >
-          <ShoppingBag className="w-3 h-3" />
-          {label}
+          <ShoppingBag className="w-3 h-3 shrink-0" />
+          {m[1] ? label : 'Ver en la tienda'}
+          <ExternalLink className="w-3 h-3 shrink-0 opacity-70" />
         </Link>
       );
     } else if (/^https:\/\/wa\.me\//.test(url)) {
@@ -71,7 +78,7 @@ function renderLine(line: string, lineKey: string) {
     } else if (/^https:\/\//.test(url)) {
       out.push(
         <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="font-bold text-orange-600 underline">
-          {label}
+          {m[1] ? label : url}
         </a>
       );
     } else {
@@ -83,7 +90,7 @@ function renderLine(line: string, lineKey: string) {
   return out;
 }
 
-function MessageContent({ text }: { text: string }) {
+function MessageContent({ text, onNavigate }: { text: string; onNavigate: () => void }) {
   return (
     <>
       {text.split('\n').map((raw, i) => {
@@ -93,7 +100,7 @@ function MessageContent({ text }: { text: string }) {
         return (
           <div key={i} className={bullet ? 'flex gap-1.5 pl-1' : undefined}>
             {bullet && <span className="text-orange-500 font-black">•</span>}
-            <span>{renderLine(line, `m${i}`)}</span>
+            <span>{renderLine(line, `m${i}`, onNavigate)}</span>
           </div>
         );
       })}
@@ -241,7 +248,7 @@ export default function ChatWidget() {
                       : 'bg-white text-slate-800 border border-gray-200 rounded-bl-md shadow-xs'
                   }`}
                 >
-                  {m.role === 'user' ? m.content : <MessageContent text={m.content} />}
+                  {m.role === 'user' ? m.content : <MessageContent text={m.content} onNavigate={() => setOpen(false)} />}
                 </div>
               </div>
             ))}
