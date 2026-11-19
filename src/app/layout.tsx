@@ -7,6 +7,8 @@ import Footer from "@/components/Footer";
 import CartDrawer from "@/components/CartDrawer";
 import BottomNav from "@/components/BottomNav";
 import ChatWidget from "@/components/ChatWidget";
+import VisitTracker from '@/components/VisitTracker';
+import SocialProofWidget from '@/components/SocialProofWidget';
 import { siteConfig } from '@/config/site';
 
 const geistSans = Geist({
@@ -43,8 +45,10 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-white">
         <AffiliateTracker />
+        <VisitTracker />
         <Header />
         <main className="flex-1">{children}</main>
+        <SocialProofWidget />
         <Footer />
         <BottomNav />
         <CartDrawer />

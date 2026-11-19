@@ -2,7 +2,7 @@ import { unstable_cache, revalidateTag } from 'next/cache';
 import { dbService } from '@/services/dbService';
 
 // Claves con datos sensibles/privados: nunca se cachean en CDN ni en Data Cache.
-export const PRIVATE_KEYS = new Set(['store_orders', 'store_affiliates', 'store_paid_affiliates']);
+export const PRIVATE_KEYS = new Set(['store_orders', 'store_affiliates', 'store_paid_affiliates', 'store_visits']);
 
 export const PUBLIC_CACHE_HEADERS = {
   'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',

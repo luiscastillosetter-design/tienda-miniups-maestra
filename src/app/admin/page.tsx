@@ -99,6 +99,25 @@ export default function AdminPage() {
   const [currentRole, setCurrentRole] = useState<UserRole>('Super Admin');
   const [activeTab, setActiveTab] = useState<'pedidos' | 'inventario' | 'afiliados' | 'publicidad' | 'crm' | 'finanzas' | 'ajustes'>('pedidos');
   const [notification, setNotification] = useState('');
+  const [visitStats, setVisitStats] = useState<{ totalReal: number; todayReal: number; activeNowReal: number } | null>(null);
+  const [visitsLoading, setVisitsLoading] = useState(false);
+
+  const loadVisitStats = async () => {
+    setVisitsLoading(true);
+    try {
+      const res = await fetch(`/api/visits?t=${Date.now()}`, { cache: 'no-store' });
+      const j = await res.json();
+      setVisitStats({ totalReal: j.totalReal || 0, todayReal: j.todayReal || 0, activeNowReal: j.activeNowReal || 0 });
+    } catch (e) {
+      console.error('Error cargando visitas:', e);
+    } finally {
+      setVisitsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) loadVisitStats();
+  }, [isAuthenticated]);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -1494,6 +1513,33 @@ export default function AdminPage() {
         {/* TAB PEDIDOS */}
         {activeTab === 'pedidos' && (
           <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Tráfico Real del Sitio</h3>
+                <button
+                  type="button"
+                  onClick={loadVisitStats}
+                  disabled={visitsLoading}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {visitsLoading ? 'Actualizando...' : 'Actualizar'}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-2xl font-black text-slate-900">{visitStats ? visitStats.totalReal.toLocaleString('es-VE') : '—'}</p>
+                  <p className="text-[11px] font-semibold text-slate-500">Visitas totales</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-2xl font-black text-slate-900">{visitStats ? visitStats.todayReal.toLocaleString('es-VE') : '—'}</p>
+                  <p className="text-[11px] font-semibold text-slate-500">Visitas hoy</p>
+                </div>
+                <div className="rounded-xl bg-emerald-50 p-3">
+                  <p className="text-2xl font-black text-emerald-700">{visitStats ? visitStats.activeNowReal : '—'}</p>
+                  <p className="text-[11px] font-semibold text-emerald-700">Activos (10 min)</p>
+                </div>
+              </div>
+            </div>
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black text-slate-900">Gestión Central de Pedidos</h2>
