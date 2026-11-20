@@ -44,6 +44,7 @@ export default function CheckoutPage() {
   const [estado, setEstado] = useState('');
   const [ciudad, setCiudad] = useState('');
   const [direccion, setDireccion] = useState('');
+  const isPickup = /retiro/i.test(courier);
 
   const [metodoPago, setMetodoPago] = useState('Pago Móvil');
   const [referencia, setReferencia] = useState('');
@@ -253,7 +254,7 @@ export default function CheckoutPage() {
   };
 
   const procesarYEnviarPedido = async () => {
-    if (!nombre || !apellido || !cedula || !telefono || !estado || !ciudad || !direccion) {
+    if (!nombre || !apellido || !cedula || !telefono || (!isPickup && (!estado || !ciudad || !direccion))) {
       alert('Por favor completa todos los datos personales y de envío.');
       return;
     }
@@ -274,7 +275,9 @@ export default function CheckoutPage() {
       date: new Date().toISOString(),
       status: 'Pendiente de verificación',
       customer: { nombre, apellido, cedula, telefono, email: email.trim() },
-      shipping: { courier, estado, ciudad, direccion, isFreeShipping },
+      shipping: isPickup
+        ? { courier, estado: '', ciudad: '', direccion: 'Retiro en Tienda', isFreeShipping }
+        : { courier, estado, ciudad, direccion, isFreeShipping },
       payment: {
         method: metodoPago,
         reference: referencia,
@@ -507,6 +510,8 @@ export default function CheckoutPage() {
                       ))}
                     </select>
                   </div>
+                  {!isPickup && (
+                  <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Estado</label>
@@ -544,6 +549,8 @@ export default function CheckoutPage() {
                       className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:outline-none focus:border-orange-500 focus:bg-white transition-colors"
                     />
                   </div>
+                  </>
+                  )}
                 </div>
               </div>
 

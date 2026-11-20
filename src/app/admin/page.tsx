@@ -1009,7 +1009,7 @@ export default function AdminPage() {
       cedula,
       nombre: `${firstOrder.customer.nombre} ${firstOrder.customer.apellido}`,
       telefono: firstOrder.customer.telefono,
-      ciudad: `${firstOrder.shipping.ciudad}, ${firstOrder.shipping.estado}`,
+      ciudad: [firstOrder.shipping.ciudad, firstOrder.shipping.estado].filter(Boolean).join(', ') || 'Retiro en Tienda',
       pedidosCount: clienteOrders.length,
       totalSpent,
       ultimoPedido: clienteOrders[0].date,
@@ -1669,7 +1669,7 @@ export default function AdminPage() {
                     </div>
                     <div>
                       <p className="font-bold text-slate-500 uppercase text-[10px] mb-1">Destino ({selectedOrder.shipping.courier})</p>
-                      <p className="font-bold text-slate-800">{selectedOrder.shipping.estado}, {selectedOrder.shipping.ciudad}</p>
+                      <p className="font-bold text-slate-800">{[selectedOrder.shipping.estado, selectedOrder.shipping.ciudad].filter(Boolean).join(', ')}</p>
                       <p className="text-slate-600">{selectedOrder.shipping.direccion}</p>
                       {selectedOrder.shipping.trackingNumber && (
                         <p className="text-purple-700 font-black mt-1">Guía: {selectedOrder.shipping.trackingNumber}</p>
