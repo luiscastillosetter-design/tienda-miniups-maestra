@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { siteConfig } from '@/config/site';
 import { isSelfPurchase } from '@/lib/affiliateGuard';
+import { sendOrderWhatsAppNotifications } from '@/lib/whatsappCloud';
 import {
   PRIVATE_KEYS,
   PUBLIC_CACHE_HEADERS,
@@ -120,7 +121,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let newOrders: any[] = [];
     if (key === 'store_orders' && Array.isArray(value)) {
+      const existingForIds = await dbService.get('store_orders');
+      const known = new Set<string>(
+        Array.isArray(existingForIds) ? existingForIds.map((o: any) => o?.id) : []
+      );
+      newOrders = value.filter((o: any) => o?.id && !known.has(o.id));
       value = await enforceAffiliateRules(value);
     }
 
@@ -132,7 +139,13 @@ export async function POST(request: NextRequest) {
       );
     }
     invalidateStoreKey(key);
-    return NextResponse.json({ success: true });
+
+    let whatsappNotified = false;
+    if (newOrders.length > 0) {
+      const statuses = await Promise.all(newOrders.map((o) => sendOrderWhatsAppNotifications(o)));
+      whatsappNotified = statuses.every((s) => s.sent);
+    }
+    return NextResponse.json({ success: true, whatsappNotified });
   } catch (error) {
     console.error('Error en POST /api/store:', error);
     return NextResponse.json({ error: 'Error guardando datos' }, { status: 500 });

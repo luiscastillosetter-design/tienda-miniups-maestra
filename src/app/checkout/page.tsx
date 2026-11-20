@@ -55,6 +55,7 @@ export default function CheckoutPage() {
   const [copied, setCopied] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     productService.getProducts().then((data) => {
@@ -333,38 +334,41 @@ export default function CheckoutPage() {
       (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
     }
 
-    const listaProductos = items
-      .map(
-        (item) =>
-          `▪ ${item.quantity}x ${item.title}${item.selectedColor ? ` - Color: ${item.selectedColor}` : ''} (${siteConfig.currencySymbol}${(item.price * item.quantity).toFixed(2)})`
-      )
-      .join('\n');
-
-    const mensajeWhatsApp =
-      `*NUEVO PEDIDO: ${orderId}*\n\n` +
-      `*CLIENTE:* ${nombre} ${apellido}\n` +
-      `*CÉDULA:* ${cedula}\n` +
-      `*TELÉFONO:* ${telefono}\n\n` +
-      `*📦 PRODUCTOS:*\n${listaProductos}\n\n` +
-      `*TOTAL:* ${siteConfig.currencySymbol}${total.toFixed(2)}\n` +
-      `*ENVÍO:* ${isFreeShipping ? 'GRATIS' : 'Cobro en Destino'} vía ${courier}\n` +
-      `*DIRECCIÓN:* ${estado}, ${ciudad}. ${direccion}\n\n` +
-      `*💳 PAGO:* ${metodoPago}\n` +
-      (metodoPago !== 'Efectivo'
-        ? `*REFERENCIA:* ${referencia}\n*(Comprobante adjunto en el sistema)*\n`
-        : '') +
-      (affiliateActive ? `\n*AFILIADO REF:* ${refCode}` : '');
-
-    // SIEMPRE al WhatsApp del bot Sofía (+1 754-341-1559), nunca al comprador ni a otro número.
-    const botNum = siteConfig.whatsapp.sofiaNumber.replace(/\D/g, '');
-    const waUrl = `https://wa.me/${botNum}?text=${encodeURIComponent(mensajeWhatsApp)}`;
-
     clearCart();
-
-    setTimeout(() => {
-      window.location.href = waUrl;
-    }, 600);
+    setConfirmedOrderId(orderId);
+    setIsProcessing(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  if (confirmedOrderId) {
+    const adminNum = siteConfig.whatsapp.number.replace(/\D/g, '');
+    const adminUrl = `https://wa.me/${adminNum}?text=${encodeURIComponent(`Hola, tengo una consulta sobre mi pedido ${confirmedOrderId}`)}`;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
+        <div className="bg-white rounded-3xl p-10 md:p-12 text-center shadow-xl border border-gray-100 max-w-2xl w-full">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 mb-3">¡Pedido #{confirmedOrderId} confirmado!</h2>
+          <p className="text-slate-600 font-medium leading-relaxed mb-8">
+            Te enviamos los detalles automáticamente a tu WhatsApp.
+          </p>
+          <Link
+            href="/catalogo"
+            className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1"
+          >
+            Seguir comprando
+          </Link>
+          <p className="mt-6 text-xs text-slate-400 font-medium">
+            ¿Necesitas ayuda?{' '}
+            <a href={adminUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-orange-500">
+              Escríbenos por WhatsApp
+            </a>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0 && !isProcessing) {
     return (
@@ -402,7 +406,7 @@ export default function CheckoutPage() {
             </div>
             <h2 className="text-3xl font-black text-slate-900 mb-3">¡Procesando tu pedido!</h2>
             <p className="text-slate-600 font-medium leading-relaxed">
-              Estamos registrando tu orden en la nube de TodoMax. En un momento se abrirá WhatsApp para finalizar tu atención.
+              Estamos registrando tu orden en la nube de TodoMax. En un momento verás la confirmación de tu pedido.
             </p>
           </div>
         ) : (
@@ -832,7 +836,7 @@ export default function CheckoutPage() {
                 </button>
 
                 <p className="text-[10px] text-gray-400 text-center font-medium px-4">
-                  Al confirmar, tu orden quedará registrada en TodoMax y se abrirá WhatsApp para atención inmediata.
+                  Al confirmar, tu orden quedará registrada en TodoMax y recibirás la confirmación automática por WhatsApp.
                 </p>
               </div>
             </div>
