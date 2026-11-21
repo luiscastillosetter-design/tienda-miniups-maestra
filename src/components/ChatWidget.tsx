@@ -146,6 +146,30 @@ export default function ChatWidget() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, open]);
 
+  // Avisa a otros widgets (toasts) y bloquea el scroll del body en móvil mientras el chat está abierto.
+  const [viewH, setViewH] = useState<number | null>(null);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('sofia-chat', { detail: { open } }));
+    if (!open) return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const prevOverflow = document.body.style.overflow;
+    const vv = window.visualViewport;
+    const sync = () => {
+      document.body.style.overflow = mq.matches ? 'hidden' : prevOverflow;
+      setViewH(mq.matches && vv ? Math.round(vv.height) : null);
+      if (mq.matches) window.scrollTo(0, 0);
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    vv?.addEventListener('resize', sync);
+    return () => {
+      mq.removeEventListener('change', sync);
+      vv?.removeEventListener('resize', sync);
+      document.body.style.overflow = prevOverflow;
+      window.dispatchEvent(new CustomEvent('sofia-chat', { detail: { open: false } }));
+    };
+  }, [open]);
+
   if (pathname?.startsWith('/admin') || hidden) return null;
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -213,14 +237,22 @@ export default function ChatWidget() {
   return (
     <>
       {open && (
-        <div className="fixed z-50 bottom-36 md:bottom-24 right-3 md:right-5 w-[calc(100vw-1.5rem)] max-w-[380px] h-[min(560px,calc(100vh-11rem))] bg-white rounded-3xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
-          <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center font-black">S</div>
-              <div>
-                <p className="text-sm font-black leading-tight">Sofía</p>
+        <div
+          role="dialog"
+          aria-label="Chat con Sofía"
+          style={viewH ? ({ '--chat-h': `${viewH}px` } as React.CSSProperties) : undefined}
+          className="fixed inset-0 w-full h-[var(--chat-h,100dvh)] z-[9999] bg-white flex flex-col overflow-hidden md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[600px] md:max-h-[calc(100vh-3rem)] md:rounded-2xl md:border md:border-gray-200 md:shadow-2xl"
+        >
+          <div className="shrink-0 bg-slate-900 text-white px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] md:pt-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 shrink-0 rounded-full bg-orange-500 flex items-center justify-center font-black">S</div>
+              <div className="min-w-0">
+                <p className="text-sm font-black leading-tight truncate">
+                  Sofía<span className="md:hidden"> — Importadora TodoMax</span>
+                </p>
                 <p className="text-[11px] text-emerald-300 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Asesora TodoMax · en línea
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En línea
+                  <span className="hidden md:inline"> · Asesora TodoMax</span>
                 </p>
               </div>
             </div>
@@ -229,16 +261,21 @@ export default function ChatWidget() {
               target="_blank"
               rel="noopener noreferrer"
               title={`Chatear con Sofía por WhatsApp (${siteConfig.whatsapp.sofiaNumber})`}
-              className="ml-auto mr-1 inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1.5 rounded-full no-underline"
+              className="ml-auto shrink-0 inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1.5 rounded-full no-underline transition-all hover:scale-105 active:scale-95"
             >
               <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
             </a>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar chat"className="p-1.5 rounded-full hover:bg-white/10 cursor-pointer">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Cerrar chat"
+              className="shrink-0 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all hover:rotate-90 active:scale-90 cursor-pointer"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-3 space-y-3 bg-slate-50">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
@@ -285,7 +322,7 @@ export default function ChatWidget() {
               e.preventDefault();
               send(input);
             }}
-            className="p-3 border-t bg-white flex gap-2"
+            className="shrink-0 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3 border-t bg-white flex gap-2"
           >
             <input
               type="text"
@@ -293,13 +330,13 @@ export default function ChatWidget() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Escribe tu mensaje..."
               maxLength={500}
-              className="flex-1 px-4 py-2.5 bg-slate-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-orange-300"
+              className="flex-1 min-w-0 px-4 py-2.5 bg-slate-100 rounded-full text-base md:text-sm outline-none focus:ring-2 focus:ring-orange-300"
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
               aria-label="Enviar"
-              className="w-10 h-10 rounded-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 text-white flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+              className="w-10 h-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-90 cursor-pointer disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -310,7 +347,7 @@ export default function ChatWidget() {
       <div
         ref={bubbleRef}
         style={pos ? { left: pos.x, top: pos.y } : undefined}
-        className={`fixed z-50 w-14 h-14 ${pos ? '' : 'bottom-20 md:bottom-5 right-3 md:right-5'}`}
+        className={`fixed z-50 w-14 h-14 ${pos ? '' : 'bottom-20 md:bottom-5 right-3 md:right-5'} ${open ? 'hidden' : ''}`}
       >
         <button
           type="button"

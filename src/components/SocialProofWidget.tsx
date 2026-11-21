@@ -26,6 +26,17 @@ export default function SocialProofWidget() {
   const [products, setProducts] = useState<P[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
   const dismissed = useRef(false);
+  const chatOpen = useRef(false);
+
+  // Pausa/oculta los toasts mientras el chat de Sofía está abierto.
+  useEffect(() => {
+    const onChat = (e: Event) => {
+      chatOpen.current = !!(e as CustomEvent<{ open: boolean }>).detail?.open;
+      if (chatOpen.current) setToast(null);
+    };
+    window.addEventListener('sofia-chat', onChat);
+    return () => window.removeEventListener('sofia-chat', onChat);
+  }, []);
 
   useEffect(() => {
     if (hidden) return;
@@ -58,7 +69,7 @@ export default function SocialProofWidget() {
     let hide: ReturnType<typeof setTimeout>;
     const schedule = (delay: number) => {
       show = setTimeout(() => {
-        if (!dismissed.current) {
+        if (!dismissed.current && !chatOpen.current) {
           setToast({ name: pick(NAMES), city: pick(CITIES), product: pick(products), mins: rand(1, 14) });
           hide = setTimeout(() => setToast(null), 9000);
         }
