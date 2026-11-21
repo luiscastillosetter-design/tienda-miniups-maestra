@@ -13,7 +13,6 @@ import { siteConfig } from '@/config/site';
 import { products as initialProducts, Product, ProductColor } from '@/data/products';
 import { defaultHeroSlides } from '@/components/HeroCarousel';
 import { defaultOffers } from '@/components/OffersCarousel';
-import { supabase } from '@/lib/supabase';
 import { defaultPolicies, StorePolicies } from '@/components/TrustAndPolicies';
 import { mergeCategories } from '@/hooks/useCategories';
 import ProductPreviewModal from '@/components/ProductPreviewModal';
@@ -369,8 +368,7 @@ export default function AdminPage() {
 
     const isVideo = file.type.includes('video') || file.name.toLowerCase().endsWith('.mp4');
     const fileExt = isVideo ? 'mp4' : 'webp';
-    const filePath = `uploads/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-
+    
     try {
       let uploadPayload: Blob | File = file;
 
@@ -413,28 +411,19 @@ export default function AdminPage() {
         });
       }
 
-      const { error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(filePath, uploadPayload, {
-          cacheControl: '31536000',
-          contentType: isVideo ? 'video/mp4' : 'image/webp',
-          upsert: true,
-        });
+      const body = new FormData();
+      body.append('file', uploadPayload, `upload.${fileExt}`);
+      const res = await fetch('/api/admin/upload', { method: 'POST', body, credentials: 'same-origin' });
+      const json = await res.json().catch(() => ({}));
 
-      if (uploadError) {
-        console.error('Error en Supabase Storage:', uploadError);
-        alert('Error al subir a Supabase Storage: ' + uploadError.message);
+      if (!res.ok || !json?.url) {
+        console.error('Error subiendo archivo:', json);
+        alert('Error al subir archivo: ' + (json?.error || res.status));
         return;
       }
 
-      const { data: publicUrlData } = supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
-
-      if (publicUrlData?.publicUrl) {
-        callback(publicUrlData.publicUrl);
-        notify('¡Archivo subido a Supabase con éxito!');
-      }
+      callback(json.url);
+      notify('¡Archivo subido con éxito!');
     } catch (err: any) {
       console.error('Error inesperado subiendo archivo:', err);
       alert('Error inesperado al subir archivo: ' + (err?.message || err));
