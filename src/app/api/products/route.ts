@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { products as defaultProducts } from '@/data/products';
+import { requireAdmin } from '@/lib/adminAuth';
 import { PUBLIC_CACHE_HEADERS, getCachedStoreValue, invalidateStoreKey } from '@/lib/storeCache';
 
 export async function GET() {
@@ -19,6 +20,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     if (!Array.isArray(body)) {

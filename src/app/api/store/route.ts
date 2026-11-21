@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
-import { siteConfig } from '@/config/site';
-import { isSelfPurchase } from '@/lib/affiliateGuard';
-import { sendOrderWhatsAppNotifications } from '@/lib/whatsappCloud';
+import { requireAdmin } from '@/lib/adminAuth';
 import {
-  PRIVATE_KEYS,
+  PUBLIC_STORE_KEYS,
   PUBLIC_CACHE_HEADERS,
   PRIVATE_CACHE_HEADERS,
   getCachedStoreValue,
   invalidateStoreKey,
 } from '@/lib/storeCache';
+
+export const dynamic = 'force-dynamic';
 
 // Quita el comprobante Base64 (muy pesado) de cada pedido; se pide bajo demanda por orderId.
 function stripReceipts(orders: any[]) {
@@ -20,43 +20,12 @@ function stripReceipts(orders: any[]) {
   );
 }
 
-// Pedidos NUEVOS con código de afiliado: fija la comisión en 10% y bloquea la autocompra.
-async function enforceAffiliateRules(value: any[]) {
-  const existing = await dbService.get('store_orders');
-  const knownIds = new Set<string>(Array.isArray(existing) ? existing.map((o: any) => o?.id) : []);
-  const isNewAffiliateOrder = (o: any) =>
-    o?.id && !knownIds.has(o.id) && o?.attribution?.affiliateCode && o.attribution.affiliateCode !== 'DIRECTO';
-  if (!value.some(isNewAffiliateOrder)) return value;
-
-  const affiliates = await dbService.get('store_affiliates');
-  const list: any[] = Array.isArray(affiliates) ? affiliates : [];
-
-  return value.map((o: any) => {
-    if (!isNewAffiliateOrder(o)) return o;
-    const code = String(o.attribution.affiliateCode).toUpperCase();
-    const affiliate = list.find((a) => String(a?.codigo).toUpperCase() === code);
-    const blocked =
-      o.attribution.selfPurchaseBlocked === true ||
-      isSelfPurchase(
-        { telefono: o.customer?.telefono, email: o.customer?.email, cedula: o.customer?.cedula },
-        affiliate,
-        o.attribution.sessionAffiliateCode,
-        code
-      );
-    const total = Number(o.financials?.total) || 0;
-    const cost = Number(o.financials?.cost || 0);
-    if (blocked) {
-      return {
-        ...o,
-        financials: { ...o.financials, commission: 0, utility: total - cost },
-        attribution: { ...o.attribution, affiliateCode: 'DIRECTO', channel: 'Directo', selfPurchaseBlocked: true, blockedCode: code },
-      };
-    }
-    const commission = total * siteConfig.affiliateCommissionRate;
-    return { ...o, financials: { ...o.financials, commission, utility: total - cost - commission } };
-  });
-}
-
+/**
+ * GET /api/store?key=...
+ * - Claves de PUBLIC_STORE_KEYS: públicas (con caché).
+ * - store_marketing_config: sin sesión admin solo se devuelve el Pixel ID (dato público por naturaleza).
+ * - Cualquier otra clave (pedidos, afiliados, pagos, visitas, ...): requiere cookie admin válida → 401.
+ */
 export async function GET(request: NextRequest) {
   try {
     const key = request.nextUrl.searchParams.get('key');
@@ -64,10 +33,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Falta parámetro key' }, { status: 400 });
     }
 
-    if (!PRIVATE_KEYS.has(key)) {
+    if (PUBLIC_STORE_KEYS.has(key)) {
       const data = await getCachedStoreValue(key);
       return NextResponse.json({ success: true, data }, { headers: PUBLIC_CACHE_HEADERS });
     }
+
+    const denied = requireAdmin(request);
+
+    if (key === 'store_marketing_config' && denied) {
+      const cfg: any = await getCachedStoreValue(key);
+      const metaPixelId = typeof cfg?.metaPixelId === 'string' ? cfg.metaPixelId : undefined;
+      return NextResponse.json({ success: true, data: { metaPixelId } }, { headers: PUBLIC_CACHE_HEADERS });
+    }
+
+    if (denied) return denied;
 
     const data = await dbService.get(key);
 
@@ -93,7 +72,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/** POST /api/store: SOLO administrador. El checkout público usa /api/orders y los afiliados /api/affiliate. */
 export async function POST(request: NextRequest) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { key } = body;
@@ -121,16 +104,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let newOrders: any[] = [];
-    if (key === 'store_orders' && Array.isArray(value)) {
-      const existingForIds = await dbService.get('store_orders');
-      const known = new Set<string>(
-        Array.isArray(existingForIds) ? existingForIds.map((o: any) => o?.id) : []
-      );
-      newOrders = value.filter((o: any) => o?.id && !known.has(o.id));
-      value = await enforceAffiliateRules(value);
-    }
-
     const saved = await dbService.set(key, value);
     if (!saved) {
       return NextResponse.json(
@@ -139,13 +112,7 @@ export async function POST(request: NextRequest) {
       );
     }
     invalidateStoreKey(key);
-
-    let whatsappNotified = false;
-    if (newOrders.length > 0) {
-      const statuses = await Promise.all(newOrders.map((o) => sendOrderWhatsAppNotifications(o)));
-      whatsappNotified = statuses.every((s) => s.sent);
-    }
-    return NextResponse.json({ success: true, whatsappNotified });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error en POST /api/store:', error);
     return NextResponse.json({ error: 'Error guardando datos' }, { status: 500 });

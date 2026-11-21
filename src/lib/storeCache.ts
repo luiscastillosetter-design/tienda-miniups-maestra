@@ -4,6 +4,18 @@ import { dbService } from '@/services/dbService';
 // Claves con datos sensibles/privados: nunca se cachean en CDN ni en Data Cache.
 export const PRIVATE_KEYS = new Set(['store_orders', 'store_affiliates', 'store_paid_affiliates', 'store_visits']);
 
+// Única lista de claves legibles sin sesión admin (contenido del catálogo/sitio público).
+// Cualquier otra clave de /api/store exige cookie de administrador (lista blanca, no lista negra).
+export const PUBLIC_STORE_KEYS = new Set([
+  'store_products',
+  'store_site_config',
+  'store_hero_slides',
+  'store_offers',
+  'store_cat_slides',
+  'store_categories',
+  'store_policies',
+]);
+
 export const PUBLIC_CACHE_HEADERS = {
   'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
 };

@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 export type AdminRole = 'Super Admin' | 'Logística y Pagos' | 'Marketing y Afiliados';
 
@@ -56,4 +56,13 @@ export function getAdminRole(request: NextRequest): AdminRole | null {
   } catch {
     return null;
   }
+}
+
+/** Guard para rutas admin: devuelve una respuesta 401 si no hay sesión válida, o null si se puede continuar. */
+export function requireAdmin(request: NextRequest): NextResponse | null {
+  if (getAdminRole(request)) return null;
+  return NextResponse.json(
+    { error: 'Unauthorized', code: 'SESSION_REQUIRED' },
+    { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
+  );
 }

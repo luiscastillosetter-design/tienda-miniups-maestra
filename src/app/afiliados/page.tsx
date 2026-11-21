@@ -68,73 +68,19 @@ export default function AfiliadosPage() {
     init();
   }, []);
 
+  // Métricas calculadas en servidor con el código del afiliado (sin descargar pedidos ni listas ajenas)
   const calcularMetricas = async (codigo: string, _catalogProducts?: Product[]) => {
-    let orders: any[] = [];
-
     try {
-      const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch('/api/affiliate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'metrics', codigo }),
+      });
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json.data)) {
-          orders = json.data;
-          try {
-            localStorage.setItem('store_orders', JSON.stringify(orders));
-          } catch (_) {}
-        }
+        if (json?.metrics) setMetrics(json.metrics);
       }
     } catch (e) {}
-
-    if (orders.length === 0) {
-      const ordersStr = localStorage.getItem('store_orders');
-      if (ordersStr) {
-        try {
-          orders = JSON.parse(ordersStr);
-        } catch (e) {}
-      }
-    }
-
-    // Consulta de comisiones ya pagadas para descontarlas del saldo disponible
-    let paidAmount = 0;
-    try {
-      const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
-      if (resPaid.ok) {
-        const jPaid = await resPaid.json();
-        if (jPaid.data) {
-          if (typeof jPaid.data === 'object' && !Array.isArray(jPaid.data)) {
-            paidAmount = Number(jPaid.data[codigo] || 0);
-          } else if (Array.isArray(jPaid.data) && jPaid.data.includes(codigo)) {
-            paidAmount = 999999;
-          }
-        }
-      }
-    } catch (e) {}
-
-    let pendientes = 0;
-    let confirmadas = 0;
-    let comisiones = 0;
-
-    orders.forEach((order: any) => {
-      if (order.attribution?.affiliateCode === codigo) {
-        if (order.status !== 'Cancelado' && order.status !== 'Entregado' && order.status !== 'Completado') {
-          pendientes++;
-        } else if (order.status === 'Entregado' || order.status === 'Completado') {
-          confirmadas++;
-          if (order.financials?.commission !== undefined) {
-            comisiones += Number(order.financials.commission);
-          } else {
-            comisiones += Number(order.financials?.total || 0) * siteConfig.affiliateCommissionRate;
-          }
-        }
-      }
-    });
-
-    const comisionDisponibleReal = Math.max(0, comisiones - paidAmount);
-
-    setMetrics({
-      ventasPendientes: pendientes,
-      ventasConfirmadas: confirmadas,
-      comisionesDisponibles: comisionDisponibleReal,
-    });
   };
 
   const handleRegister = async (e: FormEvent) => {
@@ -145,44 +91,31 @@ export default function AfiliadosPage() {
     }
     const cleanCode = formData.codigo.toUpperCase().replace(/\s+/g, '');
 
-    // Validación de código duplicado antes de registrar
-    let currentAffiliates: AffiliateUser[] = [];
+    let newUser: AffiliateUser | null = null;
     try {
-      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data)) currentAffiliates = json.data;
+      const res = await fetch('/api/affiliate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'register', ...formData, codigo: cleanCode }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.status === 409) {
+        alert(`El código "${cleanCode}" ya pertenece a otro embajador. Por favor elige uno diferente.`);
+        return;
       }
-    } catch (e) {}
-
-    const isCodeTaken = currentAffiliates.some(a => a.codigo === cleanCode);
-    if (isCodeTaken) {
-      alert(`El código "${cleanCode}" ya pertenece a otro embajador. Por favor elige uno diferente.`);
+      if (!res.ok || !json?.user) {
+        alert('No se pudo completar el registro. Intenta de nuevo.');
+        return;
+      }
+      newUser = json.user;
+      if (json.metrics) setMetrics(json.metrics);
+    } catch (e) {
+      alert('No se pudo completar el registro. Revisa tu conexión.');
       return;
     }
 
-    const newUser: AffiliateUser = {
-      nombre: formData.nombre,
-      email: formData.email,
-      telefono: formData.telefono.replace(/\D/g, ''),
-      cedula: formData.cedula.trim(),
-      codigo: cleanCode,
-      joinedAt: new Date().toISOString()
-    };
-
     localStorage.setItem('todomax_affiliate_user', JSON.stringify(newUser));
     setUser(newUser);
-
-    try {
-      const updated = [newUser, ...currentAffiliates.filter(a => a.codigo !== cleanCode)];
-      await fetch('/api/store', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'store_affiliates', value: updated }),
-      });
-    } catch (e) {}
-
-    await calcularMetricas(cleanCode, liveProducts);
   };
 
   const handleLoginExisting = async (e: FormEvent) => {
@@ -192,12 +125,15 @@ export default function AfiliadosPage() {
 
     let foundUser: AffiliateUser | null = null;
     try {
-      const res = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch('/api/affiliate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', codigo: cleanCode }),
+      });
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json.data)) {
-          foundUser = json.data.find((a: AffiliateUser) => a.codigo === cleanCode) || null;
-        }
+        foundUser = json?.user || null;
+        if (json?.metrics) setMetrics(json.metrics);
       }
     } catch (e) {}
 
@@ -208,7 +144,6 @@ export default function AfiliadosPage() {
 
     localStorage.setItem('todomax_affiliate_user', JSON.stringify(foundUser));
     setUser(foundUser);
-    await calcularMetricas(cleanCode, liveProducts);
   };
 
   const copyToClipboard = (text: string, type: string) => {

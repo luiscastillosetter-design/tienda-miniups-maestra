@@ -37,7 +37,7 @@ export default function CheckoutPage() {
   const [cedula, setCedula] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
-  const [affiliateRecord, setAffiliateRecord] = useState<any>(null);
+  const [serverSelfPurchase, setServerSelfPurchase] = useState(false);
   const [sessionAffiliateCode, setSessionAffiliateCode] = useState<string | null>(null);
 
   const [courier, setCourier] = useState(siteConfig.shipping.companies[0] || 'MRW');
@@ -132,20 +132,24 @@ export default function CheckoutPage() {
     }
   }, []);
 
-  // Datos del afiliado dueño del código (para detectar autocompra)
+  // Detección de autocompra: la valida el servidor (no se descarga la lista de afiliados al navegador)
   useEffect(() => {
     if (!refCode || refCode === 'DIRECTO') {
-      setAffiliateRecord(null);
+      setServerSelfPurchase(false);
       return;
     }
-    fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((json) => {
-        const list = Array.isArray(json?.data) ? json.data : [];
-        setAffiliateRecord(list.find((a: any) => String(a?.codigo).toUpperCase() === String(refCode).toUpperCase()) || null);
+    const t = setTimeout(() => {
+      fetch('/api/affiliate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'check', codigo: refCode, telefono, email, cedula, sessionAffiliateCode }),
       })
-      .catch(() => {});
-  }, [refCode]);
+        .then((r) => r.json())
+        .then((json) => setServerSelfPurchase(json?.selfPurchase === true))
+        .catch(() => {});
+    }, 500);
+    return () => clearTimeout(t);
+  }, [refCode, telefono, email, cedula, sessionAffiliateCode]);
 
   const isVideo = (url?: string) => {
     if (!url) return false;
@@ -165,7 +169,7 @@ export default function CheckoutPage() {
 
   const selfPurchase =
     refCode !== 'DIRECTO' &&
-    isSelfPurchase({ telefono, email, cedula }, affiliateRecord, sessionAffiliateCode, refCode);
+    (serverSelfPurchase || isSelfPurchase({}, null, sessionAffiliateCode, refCode));
   const affiliateActive = refCode !== 'DIRECTO' && !selfPurchase;
 
   const totalAffiliateCommission = total * siteConfig.affiliateCommissionRate;
@@ -239,20 +243,6 @@ export default function CheckoutPage() {
     };
   };
 
-  const safeSaveLocalOrders = (ordersToSave: any[]) => {
-    try {
-      localStorage.setItem('store_orders', JSON.stringify(ordersToSave));
-    } catch (e) {
-      try {
-        const lightOrders = ordersToSave.map((o) => ({
-          ...o,
-          payment: { ...o.payment, receiptImage: undefined },
-        }));
-        localStorage.setItem('store_orders', JSON.stringify(lightOrders));
-      } catch (_) {}
-    }
-  };
-
   const procesarYEnviarPedido = async () => {
     if (!nombre || !apellido || !cedula || !telefono || (!isPickup && (!estado || !ciudad || !direccion))) {
       alert('Por favor completa todos los datos personales y de envío.');
@@ -299,46 +289,36 @@ export default function CheckoutPage() {
       },
     };
 
+    let finalOrderId = orderId;
     try {
-      let currentCloudOrders: any[] = [];
-      const resGet = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
-      if (resGet.ok) {
-        const json = await resGet.json();
-        if (Array.isArray(json.data)) {
-          currentCloudOrders = json.data;
-        }
-      }
-
-      if (currentCloudOrders.length === 0) {
-        const existingLocal = localStorage.getItem('store_orders');
-        if (existingLocal) {
-          try {
-            currentCloudOrders = JSON.parse(existingLocal);
-          } catch (e) {}
-        }
-      }
-
-      const updatedOrders = [newOrder, ...currentCloudOrders.filter((o: any) => o.id !== newOrder.id)];
-      safeSaveLocalOrders(updatedOrders);
-
-      await fetch('/api/store', {
+      const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'store_orders', value: updatedOrders }),
+        body: JSON.stringify({ order: newOrder }),
       });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success) {
+        if (json.orderId) finalOrderId = json.orderId;
+      } else {
+        throw new Error(json?.error || `HTTP ${res.status}`);
+      }
     } catch (error) {
       console.error('Error guardando pedido en la nube, respaldado en local:', error);
-      const existingOrdersStr = localStorage.getItem('store_orders');
-      const existingOrders = existingOrdersStr ? JSON.parse(existingOrdersStr) : [];
-      safeSaveLocalOrders([newOrder, ...existingOrders]);
     }
+    // Respaldo local solo del pedido propio (sin comprobante pesado); nunca se descargan pedidos ajenos.
+    try {
+      localStorage.setItem(
+        'todomax_last_order',
+        JSON.stringify({ ...newOrder, id: finalOrderId, payment: { ...newOrder.payment, receiptImage: undefined } })
+      );
+    } catch (_) {}
 
     if (typeof window !== 'undefined' && (window as any).fbq) {
       (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
     }
 
     clearCart();
-    setConfirmedOrderId(orderId);
+    setConfirmedOrderId(finalOrderId);
     setIsProcessing(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

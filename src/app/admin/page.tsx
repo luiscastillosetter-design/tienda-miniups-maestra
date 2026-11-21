@@ -100,6 +100,17 @@ export default function AdminPage() {
   const [currentRole, setCurrentRole] = useState<UserRole>('Super Admin');
   const [activeTab, setActiveTab] = useState<'pedidos' | 'inventario' | 'afiliados' | 'publicidad' | 'crm' | 'finanzas' | 'ajustes'>('pedidos');
   const [notification, setNotification] = useState('');
+
+  // Fetch con sesión de servidor (cookie httpOnly). Si responde 401 la sesión expiró: vuelve al login.
+  const adminFetch = async (url: string, init?: RequestInit) => {
+    const res = await fetch(url, { ...init, credentials: 'same-origin' });
+    if (res.status === 401) {
+      setIsAuthenticated(false);
+      setNotification('Tu sesión expiró. Vuelve a iniciar sesión.');
+      setTimeout(() => setNotification(''), 6000);
+    }
+    return res;
+  };
   const [visitStats, setVisitStats] = useState<{ totalReal: number; todayReal: number; activeNowReal: number } | null>(null);
   const [visitsLoading, setVisitsLoading] = useState(false);
 
@@ -294,7 +305,7 @@ export default function AdminPage() {
     setSelectedOrder(order);
     if (!order.payment?.hasReceipt || order.payment.receiptImage) return;
     try {
-      const res = await fetch(`/api/store?key=store_orders&orderId=${encodeURIComponent(order.id)}`, { cache: 'no-store' });
+      const res = await adminFetch(`/api/store?key=store_orders&orderId=${encodeURIComponent(order.id)}`, { cache: 'no-store' });
       if (!res.ok) return;
       const json = await res.json();
       if (typeof json.data === 'string') {
@@ -310,7 +321,7 @@ export default function AdminPage() {
   const syncStoreKey = async (key: string, value: any) => {
     safeLocalStorageSet(key, value);
     try {
-      await fetch('/api/store', {
+      await adminFetch('/api/store', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, value }),
@@ -324,7 +335,7 @@ export default function AdminPage() {
     setProducts(updatedProducts);
     safeLocalStorageSet('store_products', updatedProducts);
     try {
-      await fetch('/api/products', {
+      await adminFetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedProducts),
@@ -449,14 +460,6 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const savedAuth = localStorage.getItem('todomax_admin_auth');
-    const savedRole = localStorage.getItem('todomax_admin_role') as UserRole | null;
-    if (savedAuth === 'true' && savedRole) {
-      setIsAuthenticated(true);
-      setCurrentRole(savedRole);
-      if (savedRole === 'Marketing y Afiliados') setActiveTab('afiliados');
-    }
-
     fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
@@ -468,57 +471,6 @@ export default function AdminPage() {
         initCategories(hasData ? data : initialProducts);
       })
       .catch(e => console.error('Error cargando inventario:', e));
-
-    const loadOrdersAndAffiliates = async () => {
-      try {
-        const res = await fetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.data)) {
-            setOrders(json.data);
-            safeLocalStorageSet('store_orders', json.data);
-          }
-        }
-      } catch (e) {}
-
-      try {
-        const resAff = await fetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
-        if (resAff.ok) {
-          const jsonAff = await resAff.json();
-          if (Array.isArray(jsonAff.data)) {
-            setRegisteredAffiliates(jsonAff.data);
-          }
-        }
-      } catch (e) {}
-
-      try {
-        const resPaid = await fetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
-        if (resPaid.ok) {
-          const jsonPaid = await resPaid.json();
-          if (jsonPaid.data) {
-            if (Array.isArray(jsonPaid.data)) {
-              const map: Record<string, number> = {};
-              jsonPaid.data.forEach((c: string) => { map[c] = 999999; });
-              setPaidAffiliateMap(map);
-            } else if (typeof jsonPaid.data === 'object') {
-              setPaidAffiliateMap(jsonPaid.data);
-            }
-          }
-        }
-      } catch (e) {}
-    };
-
-    if (savedAuth === 'true') {
-      loadOrdersAndAffiliates();
-    }
-    const interval = setInterval(() => {
-      if (
-        document.visibilityState === 'visible' &&
-        localStorage.getItem('todomax_admin_auth') === 'true'
-      ) {
-        loadOrdersAndAffiliates();
-      }
-    }, 60000);
 
     const loadMarketingData = async () => {
       try {
@@ -582,17 +534,6 @@ export default function AdminPage() {
       } catch (e) {}
 
       try {
-        const resMkt = await fetch(`/api/store?key=store_marketing_config&t=${Date.now()}`, { cache: 'no-store' });
-        if (resMkt.ok) {
-          const jMkt = await resMkt.json();
-          if (jMkt.data) {
-            if (jMkt.data.metaPixelId) setMetaPixelId(jMkt.data.metaPixelId);
-            if (jMkt.data.adSpend !== undefined) setAdSpendInput(Number(jMkt.data.adSpend));
-          }
-        }
-      } catch (e) {}
-
-      try {
         const resCfg = await fetch(`/api/store?key=store_site_config&t=${Date.now()}`, { cache: 'no-store' });
         if (resCfg.ok) {
           const jCfg = await resCfg.json();
@@ -622,46 +563,117 @@ export default function AdminPage() {
     };
     loadMarketingData();
 
-    return () => clearInterval(interval);
   }, []);
+
+  // Restaura la sesión desde la cookie de servidor (no desde localStorage).
+  useEffect(() => {
+    fetch('/api/admin/login', { cache: 'no-store', credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.authenticated && j.role) {
+          setCurrentRole(j.role as UserRole);
+          if (j.role === 'Marketing y Afiliados') setActiveTab('afiliados');
+          setIsAuthenticated(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Datos privados: solo se cargan con sesión admin válida (cookie httpOnly); un 401 devuelve al login.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const loadOrdersAndAffiliates = async () => {
+      try {
+        const res = await adminFetch(`/api/store?key=store_orders&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data)) {
+            setOrders(json.data);
+            safeLocalStorageSet('store_orders', json.data);
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const resAff = await adminFetch(`/api/store?key=store_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+        if (resAff.ok) {
+          const jsonAff = await resAff.json();
+          if (Array.isArray(jsonAff.data)) {
+            setRegisteredAffiliates(jsonAff.data);
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const resPaid = await adminFetch(`/api/store?key=store_paid_affiliates&t=${Date.now()}`, { cache: 'no-store' });
+        if (resPaid.ok) {
+          const jsonPaid = await resPaid.json();
+          if (jsonPaid.data) {
+            if (Array.isArray(jsonPaid.data)) {
+              const map: Record<string, number> = {};
+              jsonPaid.data.forEach((c: string) => { map[c] = 999999; });
+              setPaidAffiliateMap(map);
+            } else if (typeof jsonPaid.data === 'object') {
+              setPaidAffiliateMap(jsonPaid.data);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    const loadPrivateMarketing = async () => {
+      try {
+        const resMkt = await adminFetch(`/api/store?key=store_marketing_config&t=${Date.now()}`, { cache: 'no-store' });
+        if (resMkt.ok) {
+          const jMkt = await resMkt.json();
+          if (jMkt.data) {
+            if (jMkt.data.metaPixelId) setMetaPixelId(jMkt.data.metaPixelId);
+            if (jMkt.data.adSpend !== undefined) setAdSpendInput(Number(jMkt.data.adSpend));
+          }
+        }
+      } catch (e) {}
+    };
+    loadOrdersAndAffiliates();
+    loadPrivateMarketing();
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadOrdersAndAffiliates();
+    }, 60000);
+    return () => clearInterval(interval);
+
+  }, [isAuthenticated]);
 
   const notify = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(''), 3500);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  // La contraseña se valida SOLO en el servidor, que emite la cookie httpOnly de sesión.
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Sesión de servidor (cookie httpOnly firmada) para endpoints admin como Sofía Admin.
-    fetch('/api/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    }).catch(() => {});
-    if (password === 'Admin1234.') {
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ password }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.role) {
+        notify('Contraseña incorrecta. Revisa tus credenciales.');
+        return;
+      }
+      setCurrentRole(json.role as UserRole);
+      if (json.role === 'Logística y Pagos') setActiveTab('pedidos');
+      if (json.role === 'Marketing y Afiliados') setActiveTab('afiliados');
+      setPassword('');
       setIsAuthenticated(true);
-      setCurrentRole('Super Admin');
-      localStorage.setItem('todomax_admin_auth', 'true');
-      localStorage.setItem('todomax_admin_role', 'Super Admin');
-    } else if (password === 'Logistica123.') {
-      setIsAuthenticated(true);
-      setCurrentRole('Logística y Pagos');
-      setActiveTab('pedidos');
-      localStorage.setItem('todomax_admin_auth', 'true');
-      localStorage.setItem('todomax_admin_role', 'Logística y Pagos');
-    } else if (password === 'Marketing123.') {
-      setIsAuthenticated(true);
-      setCurrentRole('Marketing y Afiliados');
-      setActiveTab('afiliados');
-      localStorage.setItem('todomax_admin_auth', 'true');
-      localStorage.setItem('todomax_admin_role', 'Marketing y Afiliados');
-    } else {
-      notify('Contraseña incorrecta. Revisa tus credenciales.');
+    } catch {
+      notify('No se pudo conectar con el servidor.');
     }
   };
 
   const handleLogout = () => {
-    fetch('/api/admin/login', { method: 'DELETE' }).catch(() => {});
+    fetch('/api/admin/login', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
     localStorage.removeItem('todomax_admin_auth');
     localStorage.removeItem('todomax_admin_role');
     setIsAuthenticated(false);
