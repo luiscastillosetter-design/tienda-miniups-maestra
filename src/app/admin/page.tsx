@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { defaultPolicies, StorePolicies } from '@/components/TrustAndPolicies';
 import { mergeCategories } from '@/hooks/useCategories';
 import ProductPreviewModal from '@/components/ProductPreviewModal';
+import SofiaAdminWidget from '@/components/SofiaAdminWidget';
 
 type UserRole = 'Super Admin' | 'Logística y Pagos' | 'Marketing y Afiliados';
 
@@ -631,6 +632,12 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    // Sesión de servidor (cookie httpOnly firmada) para endpoints admin como Sofía Admin.
+    fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    }).catch(() => {});
     if (password === 'Admin1234.') {
       setIsAuthenticated(true);
       setCurrentRole('Super Admin');
@@ -654,6 +661,7 @@ export default function AdminPage() {
   };
 
   const handleLogout = () => {
+    fetch('/api/admin/login', { method: 'DELETE' }).catch(() => {});
     localStorage.removeItem('todomax_admin_auth');
     localStorage.removeItem('todomax_admin_role');
     setIsAuthenticated(false);
@@ -2731,6 +2739,7 @@ export default function AdminPage() {
           </div>
         )}
       </main>
+      <SofiaAdminWidget />
     </div>
   );
 }
