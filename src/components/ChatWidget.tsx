@@ -14,7 +14,7 @@ interface Msg {
 const WELCOME: Msg = {
   role: 'assistant',
   content:
-    '¡Hola! 👋 Soy **Sofía**, asesora de Importadora TodoMax. Te ayudo a encontrar productos, ver precios (también en Bs.) y finalizar tu pedido. ¿Qué estás buscando?',
+    '¡Hola! 👋 Soy **Sofía**, de Importadora TodoMax. ¿En qué puedo ayudarte hoy?',
 };
 
 const QUICK = [
@@ -32,6 +32,21 @@ function renderBold(text: string, keyPrefix: string) {
       <Fragment key={`${keyPrefix}-${i}`}>{part}</Fragment>
     )
   );
+}
+
+function getSessionId() {
+  try {
+    let id = localStorage.getItem('sofia_sid');
+    const stamp = Number(localStorage.getItem('sofia_sid_t') || 0);
+    if (!id || Date.now() - stamp > 24 * 60 * 60 * 1000) {
+      id = crypto.randomUUID();
+      localStorage.setItem('sofia_sid', id);
+      localStorage.setItem('sofia_sid_t', String(Date.now()));
+    }
+    return id;
+  } catch {
+    return '';
+  }
 }
 
 const SITE_ORIGIN_RE = /^https?:\/\/(www\.)?importadoratodomax\.com/i;
@@ -219,7 +234,7 @@ export default function ChatWidget() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.slice(1) }),
+        body: JSON.stringify({ messages: next.slice(1), sessionId: getSessionId() }),
       });
       const json = await res.json();
       if (!res.ok || !json?.reply) throw new Error('chat');
@@ -227,7 +242,10 @@ export default function ChatWidget() {
     } catch {
       setMessages([
         ...next,
-        { role: 'assistant', content: 'Disculpa, tuve un problema para responder. Intenta de nuevo en unos segundos 🙏' },
+        {
+          role: 'assistant',
+          content: `Disculpa, tuve un breve inconveniente 🙏 Puedes ver el [catálogo](/catalogo) o escribirle a administración: [Hablar por WhatsApp](https://wa.me/${siteConfig.whatsapp.number.replace(/\D/g, '')})`,
+        },
       ]);
     } finally {
       setLoading(false);

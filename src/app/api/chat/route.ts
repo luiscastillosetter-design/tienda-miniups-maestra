@@ -93,6 +93,10 @@ const OFFICE_NUMBER = digits(siteConfig.whatsapp.number);
 /** WhatsApp del bot Sofía: jamás se entrega como contacto humano. */
 const BOT_NUMBER = digits(siteConfig.whatsapp.sofiaNumber);
 
+const ADMIN_WA = `https://wa.me/${OFFICE_NUMBER}`;
+const CATALOG_URL = `${siteConfig.storeUrl}/catalogo`;
+const STORE_URL = siteConfig.storeUrl;
+
 const waLink = (numero: string, texto = 'Hola, vengo de Importadora TodoMax y quisiera ayuda') =>
   `https://wa.me/${digits(numero)}?text=${encodeURIComponent(texto)}`;
 
@@ -145,7 +149,7 @@ async function loadContext() {
   }
   if (!numeros.some((n) => n.es_principal_admin)) numeros[0].es_principal_admin = true;
 
-  return { catalogo, numeros, bcv };
+  return { catalogo, numeros, bcv, cfg: (rawConfig && typeof rawConfig === 'object' ? rawConfig : {}) as Record<string, any> };
 }
 
 type Ctx = Awaited<ReturnType<typeof loadContext>>;
@@ -163,14 +167,18 @@ function buildSystemPrompt(ctx: Ctx) {
     .join('\n');
 
   return `ROL E IDENTIDAD
-Eres Sofía, asesora de ventas de ${siteConfig.storeName} (https://www.importadoratodomax.com), tienda en línea de Venezuela. Atiendes desde el chat de la tienda web. Conoces ÚNICA Y EXCLUSIVAMENTE el entorno de importadoratodomax.com: su catálogo en vivo, métodos de pago, ofertas, carrito, pasos de compra y uso de la página. Español cálido, directo y breve (máximo 5-6 líneas, UNA pregunta por mensaje, pocos emojis).
+Eres Sofía, asesora de ventas de ${siteConfig.storeName} (https://www.importadoratodomax.com), tienda en línea de Venezuela. Atiendes desde el chat de la tienda web. Conoces ÚNICA Y EXCLUSIVAMENTE el entorno de importadoratodomax.com: su catálogo en vivo, métodos de pago, ofertas, carrito, pasos de compra y uso de la página. Español cálido, natural y cercano, como una persona real (máximo 5-6 líneas, UNA pregunta por mensaje, pocos emojis). NUNCA digas que eres un bot, una IA, un asistente virtual ni un programa: eres Sofía, del equipo de ventas.
 
 REGLAS OBLIGATORIAS (CERO ALUCINACIONES)
+- Si el cliente SOLO saluda (hola, buenos días, etc.), responde cálido y pregunta en qué puedes ayudar; NO ofrezcas ni menciones productos.
+- Si piden el catálogo, ver productos o qué venden, incluye SIEMPRE el enlace [Ver catálogo completo](${CATALOG_URL}).
+- Si preguntan por el estatus, guía o trámite de un pedido: NO inventes guías, fechas ni estados, y NO pidas referencias. Indica con calidez que para consultar el estatus de su pedido se comunique con administración: [Escribir a Administración](${ADMIN_WA}).
+- Si piden datos de Pago Móvil, Binance o Zelle: NO los des tú; indica que los datos oficiales aparecen en el checkout e invita a completar el pedido en [importadoratodomax.com](${siteConfig.storeUrl}).
 - Usa ÚNICAMENTE los productos, precios y enlaces del CATÁLOGO EN VIVO que aparece al final. Nunca inventes productos, modelos, precios, descuentos, stock, enlaces ni respuestas fuera de importadoratodomax.com.
 - Si el cliente pide algo que NO existe en el catálogo, dilo con claridad ("no lo tenemos disponible ahora") y sugiere lo más parecido que SÍ esté en el catálogo. Si el catálogo está vacío, no menciones productos ni precios y envía a la web.
 - SIEMPRE que menciones un producto del catálogo, escribe su nombre como enlace Markdown directo a su ficha: [Nombre del Producto](/product/{id}), con el id exacto del catálogo; jamás construyas ni modifiques un id ni nombres un producto sin enlace.
 - Enfócate en cerrar la venta: tras presentar un producto, invita a tocar el nombre para ver la ficha y comprarlo ("Tócalo y agrégalo al carrito").
-- Para la tienda en general usa [Importadora TodoMax](/). Para contacto humano de la oficina usa [Hablar con Administración por WhatsApp](https://wa.me/${OFFICE_NUMBER}).
+- Para la tienda en general usa [Importadora TodoMax](/). Para contacto humano de la oficina usa [Hablar con Administración por WhatsApp](${ADMIN_WA}).
 - Si el tema no es de importadoratodomax.com, di amablemente que solo puedes ayudar con la tienda.
 - Si preguntan por un producto: nombre, precio en USD, oferta si aplica, disponibilidad y el enlace directo. Máximo 3 productos por respuesta.
 - Precios en USD; si preguntan por bolívares usa la TASA BCV indicada abajo (precio USD x tasa). Si no hay tasa, dilo y di que la ven en la barra superior de la web.
@@ -194,33 +202,89 @@ CATÁLOGO ACTUAL EN VIVO (JSON, solo productos con stock):
 ${JSON.stringify(ctx.catalogo)}`;
 }
 
-/** Respuesta básica sin IA, para cuando no hay clave configurada o el proveedor falla. */
-function fallbackReply(ctx: Ctx, lastUser: string) {
-  const q = lastUser.toLowerCase();
-  const principal = ctx.numeros.find((n) => n.es_principal_admin) || ctx.numeros[0];
+/** Respuesta cuando la IA falla o hace timeout. */
+function fallbackReply() {
+  return `Disculpa, tuve un breve inconveniente para responderte 🙏 Mientras tanto, puedes ver todo lo que tenemos aquí: [Ver catálogo](${CATALOG_URL}) o escribirle directo a administración: [Hablar por WhatsApp](${ADMIN_WA})`;
+}
 
-  if (/(humano|persona|asesor|oficina|administraci|pago|pagu|whatsapp|hablar)/.test(q)) {
-    const match =
-      ctx.numeros.find((n) => !n.es_principal_admin && n.relevancia && q.split(/\W+/).some((w) => w.length > 4 && n.relevancia.toLowerCase().includes(w))) ||
-      principal;
-    return `Con gusto te atiende una persona del equipo.\n\n[Hablar por WhatsApp con ${match.etiqueta}](${waLink(match.numero)})`;
-  }
-  if (/(tasa|bcv|bol[ií]var|bs\b|dolar|dólar)/.test(q)) {
-    return ctx.bcv
-      ? `La tasa oficial BCV hoy es **Bs. ${ctx.bcv.tasa.toFixed(2)}** por dólar.`
-      : 'No pude consultar la tasa BCV ahora mismo; la verás en la barra superior de la web.';
-  }
-  const words = normalizeSearchText(lastUser).split(/\W+/).filter((w) => w.length > 3);
-  let found = ctx.catalogo.filter((p) =>
-    words.some((w) => normalizeSearchText(`${p.nombre} ${p.categoria}`).includes(w))
+const MAX_AI_MESSAGES = 6;
+const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const LIMIT_NOTICE = `\n\nHas alcanzado el límite de mensajes del chat 💛 A partir de ahora puedes continuar directamente con administración: [Hablar por WhatsApp](${ADMIN_WA})`;
+const LIMIT_REPLY = `Con mucho gusto te seguimos atendiendo 💛 Ya alcanzaste el límite de mensajes de este chat, pero puedes continuar directamente con administración aquí: [Hablar por WhatsApp](${ADMIN_WA})`;
+
+const norm = (t: string) =>
+  normalizeSearchText(t).replace(/[^a-z0-9ñ\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+function isGreeting(t: string) {
+  const q = norm(t);
+  if (!q || q.split(' ').length > 5) return false;
+  return (
+    /^(hola+|buenas|buenos dias|buen dia|buenas tardes|buenas noches|hey|saludos|hello|hi|ola|que tal|como estas|como esta)( .*)?$/.test(q) &&
+    !/(precio|cuanto|tienen|producto|catalogo|pedido|pago)/.test(q)
   );
-  const intro = found.length > 0 ? 'Mira lo que tengo disponible para ti:' : 'Estos son algunos de nuestros productos disponibles:';
-  if (found.length === 0) found = ctx.catalogo;
-  const lista = found
-    .slice(0, 3)
-    .map((p) => `- [${p.nombre}](/product/${p.id}) — $${p.precioUSD.toFixed(2)}`)
-    .join('\n');
-  return `${intro}\n\n${lista}\n\nPara comprar, entra al producto y pulsa "Agregar al Carrito".`;
+}
+
+function isCatalogRequest(t: string) {
+  const q = norm(t);
+  return /\b(catalogo|ver productos|productos disponibles|que venden|que vende|que tienen|que ofrecen|que productos)\b/.test(q);
+}
+
+function isOrderStatus(t: string) {
+  const q = norm(t);
+  return (
+    (/\b(pedido|orden|compra)\b/.test(q) &&
+      /(estatus|estado|status|tramite|guia|rastre|seguimiento|donde esta|cuando llega|llego|tracking)/.test(q)) ||
+    /\b(mi guia|numero de guia|estatus de mi|estado de mi)\b/.test(q)
+  );
+}
+
+function paymentReply(ctx: Ctx, t: string): string | null {
+  const q = norm(t);
+  const wantsMovil = /pago movil/.test(q);
+  const wantsBinance = /binance/.test(q);
+  const wantsZelle = /zelle/.test(q);
+  if (!wantsMovil && !wantsBinance && !wantsZelle) return null;
+  const c = ctx.cfg;
+  const lines: string[] = [];
+  if (wantsMovil && c.pagoMovilBanco && c.pagoMovilTelefono && c.pagoMovilCedula)
+    lines.push(`**Pago Móvil:** ${c.pagoMovilBanco} · Tel. ${c.pagoMovilTelefono} · C.I./RIF ${c.pagoMovilCedula}`);
+  if (wantsBinance && c.binancePayId)
+    lines.push(`**Binance Pay:** ID ${c.binancePayId}${c.binanceEmail ? ` · ${c.binanceEmail}` : ''}`);
+  if (wantsZelle && c.zelleEmail) lines.push(`**Zelle:** ${c.zelleEmail}${c.zelleTitular ? ` · ${c.zelleTitular}` : ''}`);
+  const head = lines.length
+    ? `¡Claro que sí! Estos son los datos oficiales:\n\n${lines.join('\n')}`
+    : 'Con gusto 😊 Los datos oficiales de pago aparecen en el checkout al elegir tu método de pago.';
+  return `${head}\n\nPuedes completar tu pedido aquí: [Ir a Importadora TodoMax](${STORE_URL})`;
+}
+
+/** Respuestas fijas sin IA (no consumen cupo). */
+function deterministicReply(ctx: Ctx, t: string): string | null {
+  if (isOrderStatus(t))
+    return `Con gusto te ayudamos 😊 Para consultar el estatus de tu pedido, por favor comunícate con administración: [Hablar por WhatsApp](${ADMIN_WA})`;
+  const pay = paymentReply(ctx, t);
+  if (pay) return pay;
+  if (isCatalogRequest(t))
+    return `¡Con gusto! 😊 Aquí puedes ver todo nuestro catálogo con precios y disponibilidad: [Ver catálogo completo](${CATALOG_URL})\n\nSi algo te llama la atención, cuéntame y te ayudo.`;
+  if (isGreeting(t)) return '¡Hola! 😊 Qué gusto saludarte. ¿En qué puedo ayudarte hoy?';
+  return null;
+}
+
+/** Antispam: máx. MAX_AI_MESSAGES respuestas de IA por sesión cada 24h. */
+async function checkLimit(sessionId: string, consume: boolean): Promise<{ allowed: boolean; count: number }> {
+  const key = `chat_rl_${sessionId}`;
+  const now = Date.now();
+  const raw: any = await dbService.get(key);
+  let rec: { count: number; start: number } =
+    raw && typeof raw.start === 'number' && typeof raw.count === 'number' && now - raw.start < WINDOW_MS
+      ? raw
+      : { count: 0, start: now };
+  if (rec.count >= MAX_AI_MESSAGES) return { allowed: false, count: rec.count };
+  if (consume) {
+    rec = { ...rec, count: rec.count + 1 };
+    await dbService.set(key, rec);
+  }
+  return { allowed: true, count: rec.count };
 }
 
 /** Historial válido para Anthropic: empieza con 'user', roles alternados, sin vacíos. */
@@ -278,8 +342,10 @@ async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Pro
 
 export async function POST(request: NextRequest) {
   let messages: ChatMessage[] = [];
+  let body0: any = null;
   try {
     const body = await request.json();
+    body0 = body;
     if (Array.isArray(body?.messages)) {
       messages = body.messages
         .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
@@ -290,18 +356,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 });
   }
 
+  const rawSession = String(body0?.sessionId || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64);
+  const sessionId =
+    rawSession || `ip-${(request.headers.get('x-forwarded-for') || 'x').split(',')[0].trim().replace(/[^a-zA-Z0-9.:]/g, '')}`;
+
   const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content;
   if (!lastUser) {
     return NextResponse.json({ error: 'Falta el mensaje' }, { status: 400 });
   }
 
   const ctx = await loadContext();
+
+  const lim = await checkLimit(sessionId, false);
+  if (!lim.allowed) return NextResponse.json({ reply: LIMIT_REPLY, limitReached: true });
+
+  const fixed = deterministicReply(ctx, lastUser);
+  if (fixed) return NextResponse.json({ reply: fixed });
+
+  const used = await checkLimit(sessionId, true);
+  const finalNotice = used.count >= MAX_AI_MESSAGES ? LIMIT_NOTICE : '';
   const systemPrompt = buildSystemPrompt(ctx);
+  const respond = (reply: string) => NextResponse.json({ reply: reply + finalNotice, limitReached: !!finalNotice });
 
   // Prioridad 1: Anthropic Haiku 5.5. Groq y demás solo actúan si falta la clave de Anthropic.
   const anthropicReply = await callAnthropic(systemPrompt, messages);
-  if (anthropicReply) return NextResponse.json({ reply: anthropicReply });
-  if (anthropicReply === '') return NextResponse.json({ reply: fallbackReply(ctx, lastUser) });
+  if (anthropicReply) return respond(anthropicReply);
+  if (anthropicReply === '') return respond(fallbackReply());
 
   for (const provider of resolveProviders()) {
     try {
@@ -324,7 +404,7 @@ export async function POST(request: NextRequest) {
         const json = await res.json();
         const reply = json?.choices?.[0]?.message?.content;
         if (typeof reply === 'string' && reply.trim()) {
-          return NextResponse.json({ reply: reply.trim() });
+          return respond(reply.trim());
         }
       } else {
         console.error(`[/api/chat] ${provider.name} respondió ${res.status}`);
@@ -334,5 +414,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ reply: fallbackReply(ctx, lastUser) });
+  return respond(fallbackReply());
 }
