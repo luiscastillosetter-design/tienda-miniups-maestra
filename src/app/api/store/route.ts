@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
-import { requireAdmin } from '@/lib/adminAuth';
+import { requireAdmin, getAdminRole } from '@/lib/adminAuth';
+import { stripInternalFields } from '@/lib/productPrivacy';
 import {
   PUBLIC_STORE_KEYS,
   PUBLIC_CACHE_HEADERS,
@@ -31,6 +32,17 @@ export async function GET(request: NextRequest) {
     const key = request.nextUrl.searchParams.get('key');
     if (!key) {
       return NextResponse.json({ error: 'Falta parámetro key' }, { status: 400 });
+    }
+
+    if (key === 'store_products') {
+      // Catálogo: el costo/margen solo se entrega con sesión admin (misma regla que /api/products).
+      const list: any = await getCachedStoreValue(key);
+      const isAdmin = !!getAdminRole(request);
+      const data = !isAdmin && Array.isArray(list) ? list.map(stripInternalFields) : list;
+      return NextResponse.json(
+        { success: true, data },
+        { headers: isAdmin ? { ...PRIVATE_CACHE_HEADERS, Vary: 'Cookie' } : { ...PUBLIC_CACHE_HEADERS, Vary: 'Cookie' } }
+      );
     }
 
     if (PUBLIC_STORE_KEYS.has(key)) {

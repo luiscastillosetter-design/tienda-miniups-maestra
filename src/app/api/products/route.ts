@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { products as defaultProducts } from '@/data/products';
-import { requireAdmin } from '@/lib/adminAuth';
+import { requireAdmin, getAdminRole } from '@/lib/adminAuth';
+import { stripInternalFields } from '@/lib/productPrivacy';
 import { PUBLIC_CACHE_HEADERS, getCachedStoreValue, invalidateStoreKey } from '@/lib/storeCache';
 
-export async function GET() {
+const PUBLIC_HEADERS = { ...PUBLIC_CACHE_HEADERS, Vary: 'Cookie' };
+const ADMIN_HEADERS = { 'Cache-Control': 'private, no-store', Vary: 'Cookie' };
+
+export async function GET(request: NextRequest) {
+  // Con cookie admin válida se devuelve todo (incluido cost); si no, se eliminan los campos de costo/margen.
+  const isAdmin = !!getAdminRole(request);
+  const respond = (list: any[]) =>
+    isAdmin
+      ? NextResponse.json(list, { headers: ADMIN_HEADERS })
+      : NextResponse.json(list.map(stripInternalFields), { headers: PUBLIC_HEADERS });
   try {
     const products = await getCachedStoreValue('store_products');
 
     if (!products || !Array.isArray(products) || products.length === 0) {
-      return NextResponse.json(defaultProducts, { headers: PUBLIC_CACHE_HEADERS });
+      return respond(defaultProducts);
     }
 
-    return NextResponse.json(products, { headers: PUBLIC_CACHE_HEADERS });
+    return respond(products);
   } catch (error) {
     console.error('Error fetching products:', error);
-    return NextResponse.json(defaultProducts);
+    return respond(defaultProducts);
   }
 }
 

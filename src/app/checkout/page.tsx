@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useCurrencyStore, convertirPrecio, formatearMonto } from '@/store/currencyStore';
 import { siteConfig } from '@/config/site';
-import { productService } from '@/services/productService';
-import { products as defaultProducts, Product } from '@/data/products';
 import { isSelfPurchase, SELF_PURCHASE_NOTICE } from '@/lib/affiliateGuard';
 import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
 
@@ -15,8 +13,6 @@ export default function CheckoutPage() {
   const { items, clearCart } = useCartStore();
   const { tasaBcv, divisa } = useCurrencyStore();
   const router = useRouter();
-
-  const [liveProducts, setLiveProducts] = useState<Product[]>(defaultProducts);
 
   const [liveSettings, setLiveSettings] = useState({
     whatsappNumber: siteConfig.whatsappNumber,
@@ -59,12 +55,6 @@ export default function CheckoutPage() {
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    productService.getProducts().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setLiveProducts(data);
-      }
-    });
-
     // Cargar configuración de tienda en vivo desde Redis
     fetch(`/api/store?key=store_site_config`)
       .then((res) => res.json())
@@ -161,20 +151,10 @@ export default function CheckoutPage() {
   const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
   const isFreeShipping = total >= liveSettings.freeShippingThreshold;
 
-  const totalCost = items.reduce((acc, item) => {
-    const dbProduct = liveProducts.find((p) => String(p.id) === String(item.id));
-    const itemCost = dbProduct ? Number(dbProduct.cost || 0) : 0;
-    return acc + itemCost * item.quantity;
-  }, 0);
-
   const selfPurchase =
     refCode !== 'DIRECTO' &&
     (serverSelfPurchase || isSelfPurchase({}, null, sessionAffiliateCode, refCode));
   const affiliateActive = refCode !== 'DIRECTO' && !selfPurchase;
-
-  const totalAffiliateCommission = total * siteConfig.affiliateCommissionRate;
-
-  const expectedUtility = total - totalCost - (affiliateActive ? totalAffiliateCommission : 0);
 
   const handleCopyBankData = () => {
     let data = '';
@@ -274,13 +254,8 @@ export default function CheckoutPage() {
         hasReceipt: !!comprobantePreview,
         receiptImage: comprobantePreview,
       },
-      items: items,
-      financials: {
-        total,
-        cost: totalCost,
-        commission: affiliateActive ? totalAffiliateCommission : 0,
-        utility: expectedUtility,
-      },
+      // El servidor recalcula precios, total, costo, utilidad y comisión; solo se envían id/cantidad/color.
+      items: items.map((i) => ({ id: i.id, quantity: i.quantity, selectedColor: i.selectedColor })),
       attribution: {
         affiliateCode: affiliateActive ? refCode : 'DIRECTO',
         channel: affiliateActive ? 'Afiliado' : adChannel,
@@ -290,6 +265,7 @@ export default function CheckoutPage() {
     };
 
     let finalOrderId = orderId;
+    let serverSummary: any = null;
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -299,6 +275,7 @@ export default function CheckoutPage() {
       const json = await res.json().catch(() => null);
       if (res.ok && json?.success) {
         if (json.orderId) finalOrderId = json.orderId;
+        serverSummary = json.summary || null;
       } else {
         throw new Error(json?.error || `HTTP ${res.status}`);
       }
@@ -309,12 +286,12 @@ export default function CheckoutPage() {
     try {
       localStorage.setItem(
         'todomax_last_order',
-        JSON.stringify({ ...newOrder, id: finalOrderId, payment: { ...newOrder.payment, receiptImage: undefined } })
+        JSON.stringify({ ...newOrder, ...(serverSummary ? { items: serverSummary.items, total: serverSummary.total } : {}), id: finalOrderId, payment: { ...newOrder.payment, receiptImage: undefined } })
       );
     } catch (_) {}
 
     if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', 'Purchase', { value: total, currency: 'USD' });
+      (window as any).fbq('track', 'Purchase', { value: serverSummary?.total ?? total, currency: 'USD' });
     }
 
     clearCart();
