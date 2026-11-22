@@ -194,6 +194,17 @@ export default function Footer() {
         <p className="text-xs text-gray-400 font-medium">
           © {new Date().getFullYear()} {footerSettings.storeName}. Todos los derechos reservados.
         </p>
+        <p className="text-xs text-gray-400 font-medium">
+          AI Powered by{' '}
+          <a
+            href="https://telotengosolutions.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-600 underline underline-offset-2 transition-colors"
+          >
+            telotengosolutions.com
+          </a>
+        </p>
       </div>
     </footer>
   );

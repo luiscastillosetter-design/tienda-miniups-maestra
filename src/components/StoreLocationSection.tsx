@@ -118,7 +118,7 @@ export default function StoreLocationSection() {
           <MapPin className="w-4 h-4 text-orange-500" />
           <div className="leading-tight">
             <p className="text-[11px] font-black text-slate-900">Doña Grazia · Local 50</p>
-            <p className="text-[10px] font-semibold text-slate-500">Guanare, Portuguesa</p>
+            <p className="text-[10px] font-semibold text-slate-500">Barinas, Estado Barinas</p>
           </div>
         </div>
       </div>
