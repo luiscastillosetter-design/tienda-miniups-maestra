@@ -28,8 +28,8 @@ async function sendTemplate(
   template: string,
   params: string[]
 ): Promise<WhatsAppSendResult> {
-  const token = (process.env.WHATSAPP_TOKEN || '').trim();
-  const phoneId = (process.env.WHATSAPP_PHONE_ID || '').trim();
+  const token = (process.env.WHATSAPP_TOKEN || process.env.META_ACCESS_TOKEN || '').trim();
+  const phoneId = (process.env.WHATSAPP_PHONE_ID || process.env.META_PHONE_ID || '').trim();
 
   if (!token || !phoneId) {
     const error = 'Faltan WHATSAPP_TOKEN o WHATSAPP_PHONE_ID';
