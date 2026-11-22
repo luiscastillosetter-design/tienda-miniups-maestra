@@ -101,7 +101,7 @@ export async function sendOrderWhatsAppNotifications(order: any): Promise<WhatsA
     const adminPhone = normalizePhone(siteConfig.whatsapp.number);
 
     const settled = await Promise.allSettled([
-      sendTemplate(customerPhone, 'confirmacion_pedido_cliente_v2', [
+      sendTemplate(customerPhone, 'confirmacion_pedido_cliente_v3', [
         customerName,
         orderId,
       ]),
@@ -120,7 +120,7 @@ export async function sendOrderWhatsAppNotifications(order: any): Promise<WhatsA
         ? s.value
         : {
             to: '',
-            template: i === 0 ? 'confirmacion_pedido_cliente_v2' : 'aviso_pedido_admin_v2',
+            template: i === 0 ? 'confirmacion_pedido_cliente_v3' : 'aviso_pedido_admin_v2',
             ok: false,
             error: String(s.reason),
           }
