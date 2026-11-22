@@ -5,7 +5,7 @@ import { MapPin, Clock, MessageCircle, Navigation, ArrowUpRight } from 'lucide-r
 import { siteConfig } from '@/config/site';
 
 const MAPS_LINK =
-  'https://www.google.com/maps/search/?api=1&query=Centro+Comercial+Do%C3%B1a+Grazia+Av+Los+Andes+Guanare';
+  'https://www.google.com/maps/search/?api=1&query=Centro+Comercial+Do%C3%B1a+Grazia,+Av.+Los+Andes,+Barinas,+Venezuela';
 const MAPS_EMBED =
   'https://www.google.com/maps?q=Centro+Comercial+Do%C3%B1a+Grazia,+Av.+Los+Andes,+Guanare&output=embed';
 
