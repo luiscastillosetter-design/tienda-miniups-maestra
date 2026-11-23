@@ -3,9 +3,9 @@ export const siteConfig = {
   description: "Importadora Multiproductos. Envíos rápidos a nivel nacional.",
   currencySymbol: "$",
   // Oficina / Administración: atención humana y cierre de pedidos (checkout, footer, derivación)
-  whatsappNumber: "+584225160056",
+  whatsappNumber: "+584225160057",
   whatsapp: {
-    number: "+584225160056",
+    number: "+584225160057",
     // Bot Sofía (acceso directo para chatear con la IA por WhatsApp). NUNCA usar para atención humana.
     sofiaNumber: "+17543411559",
   },
