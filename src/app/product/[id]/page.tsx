@@ -12,6 +12,7 @@ import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
 import { useCartStore } from '@/store/cartStore';
+import { getVideoEmbedUrl, isDirectVideoUrl } from '@/lib/videoEmbed';
 import Price from '@/components/Price';
 
 export default function ProductPage() {
@@ -27,6 +28,9 @@ export default function ProductPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [pickedColor, setPickedColor] = useState<string | null>(null);
+  const [pickedSize, setPickedSize] = useState<string | null>(null);
+  const [needSize, setNeedSize] = useState(false);
+  const [colorPhotoOn, setColorPhotoOn] = useState(false);
 
   // Estado para el zoom óptico tipo Mercado Libre
   const [zoomPos, setZoomPos] = useState<{ x: number; y: number } | null>(null);
@@ -67,11 +71,17 @@ export default function ProductPage() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  const currentMedia = product.images?.[selectedImageIndex] || product.images?.[0];
-  const firstImageForCart = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
-  const isOutOfStock = product.stock <= 0;
   const productColors = Array.isArray(product.colors) ? product.colors : [];
+  const productSizes = Array.isArray(product.sizes) ? product.sizes.filter(Boolean) : [];
   const activeColor = productColors.find(c => c.name === pickedColor) || productColors[0];
+  // La foto del color solo se carga al hacer clic en el color (bajo demanda)
+  const colorPhoto = colorPhotoOn && pickedColor ? productColors.find(c => c.name === pickedColor)?.image : undefined;
+  const currentMedia = colorPhoto || product.images?.[selectedImageIndex] || product.images?.[0];
+  const firstImageForCart = colorPhoto || product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
+  const isOutOfStock = product.stock <= 0;
+  const embedUrl = getVideoEmbedUrl(product.demoVideo);
+  const directDemo = isDirectVideoUrl(product.demoVideo) ? product.demoVideo : undefined;
+  const sizeMissing = productSizes.length > 0 && !pickedSize;
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 2) {
@@ -83,6 +93,7 @@ export default function ProductPage() {
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
+    if (sizeMissing) { setNeedSize(true); return; }
     addItem(
       {
         id: product.id,
@@ -91,6 +102,7 @@ export default function ProductPage() {
         image: firstImageForCart,
         stock: product.stock,
         selectedColor: activeColor?.name,
+        selectedSize: pickedSize || undefined,
       },
       quantity
     );
@@ -99,6 +111,7 @@ export default function ProductPage() {
 
   const handleBuyNow = () => {
     if (isOutOfStock) return;
+    if (sizeMissing) { setNeedSize(true); return; }
     addItem(
       {
         id: product.id,
@@ -107,6 +120,7 @@ export default function ProductPage() {
         image: firstImageForCart,
         stock: product.stock,
         selectedColor: activeColor?.name,
+        selectedSize: pickedSize || undefined,
       },
       quantity
     );
@@ -151,6 +165,7 @@ export default function ProductPage() {
                     key={idx}
                     onClick={() => {
                       setSelectedImageIndex(idx);
+                      setColorPhotoOn(false);
                       setZoomPos(null);
                     }}
                     className={`relative w-16 h-16 md:w-20 md:h-20 rounded-2xl border-2 overflow-hidden bg-slate-50 flex-shrink-0 cursor-pointer transition-all ${
@@ -310,7 +325,7 @@ export default function ProductPage() {
                         type="button"
                         title={c.name}
                         aria-label={`Color ${c.name}`}
-                        onClick={() => setPickedColor(c.name)}
+                        onClick={() => { setPickedColor(c.name); setColorPhotoOn(!!c.image); setZoomPos(null); }}
                         className={`w-9 h-9 rounded-full border-2 cursor-pointer transition-all ${
                           activeColor?.name === c.name ? 'border-orange-500 ring-2 ring-orange-300 scale-110' : 'border-slate-300 hover:border-slate-500'
                         }`}
@@ -318,6 +333,46 @@ export default function ProductPage() {
                       />
                     ))}
                   </div>
+                </div>
+              )}
+              {productSizes.length > 0 && (
+                <div className="space-y-2">
+                  <p className={`text-xs font-bold ${needSize && !pickedSize ? 'text-red-600' : 'text-slate-700'}`}>
+                    Talla: {pickedSize || (needSize ? 'elige una talla' : '—')}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {productSizes.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => { setPickedSize(s); setNeedSize(false); }}
+                        className={`min-w-[44px] h-10 px-3 rounded-xl border-2 text-sm font-bold cursor-pointer transition-all ${
+                          pickedSize === s
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : needSize ? 'border-red-300 text-slate-700' : 'border-slate-300 text-slate-700 hover:border-slate-500'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(embedUrl || directDemo) && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-700">Video del producto</p>
+                  {embedUrl ? (
+                    <iframe
+                      src={embedUrl}
+                      title="Video del producto"
+                      loading="lazy"
+                      allow="accelerometer; encrypted-media; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-[420px] rounded-2xl border border-gray-200 bg-slate-50"
+                    />
+                  ) : (
+                    <video src={directDemo} controls preload="none" className="w-full rounded-2xl max-h-[420px] bg-slate-900" />
+                  )}
                 </div>
               )}
               <div className="flex items-center justify-between">

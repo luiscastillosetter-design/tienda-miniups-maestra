@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
   ShoppingBag, Package, Users, Megaphone, UserCheck, 
@@ -17,6 +17,7 @@ import { defaultPolicies, StorePolicies } from '@/components/TrustAndPolicies';
 import { mergeCategories } from '@/hooks/useCategories';
 import ProductPreviewModal from '@/components/ProductPreviewModal';
 import SofiaAdminWidget from '@/components/SofiaAdminWidget';
+import { uploadMedia, deleteStorageUrls, collectProductMediaUrls } from '@/lib/mediaClient';
 
 type UserRole = 'Super Admin' | 'Logística y Pagos' | 'Marketing y Afiliados';
 
@@ -27,6 +28,7 @@ interface OrderItem {
   quantity: number;
   image: string;
   selectedColor?: string;
+  selectedSize?: string;
 }
 
 interface Order {
@@ -154,7 +156,12 @@ export default function AdminPage() {
     isBestSeller: false,
     images: ['', '', '', ''],
     colors: [] as ProductColor[],
+    sizes: '',
+    demoVideo: '',
   });
+  const [colorGalleryFor, setColorGalleryFor] = useState<string | null>(null);
+  // Archivos subidos en esta sesión de edición (para limpiar los que no lleguen a guardarse)
+  const sessionUploads = useRef<Set<string>>(new Set());
   const [customColorName, setCustomColorName] = useState('');
   const [customColorHex, setCustomColorHex] = useState('#2563EB');
   const QUICK_COLORS: ProductColor[] = [
@@ -334,13 +341,15 @@ export default function AdminPage() {
     setProducts(updatedProducts);
     safeLocalStorageSet('store_products', updatedProducts);
     try {
-      await adminFetch('/api/products', {
+      const res = await adminFetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedProducts),
       });
+      return res.ok;
     } catch (err) {
       console.error('Error sincronizando productos:', err);
+      return false;
     }
   };
 
@@ -360,74 +369,33 @@ export default function AdminPage() {
     });
   };
 
-  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
+  // track=true: archivo de producto (se limpia de Storage si nunca se guarda o se reemplaza)
+  const handleMediaUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    callback: (url: string) => void,
+    track = false
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    notify('Subiendo archivo a Supabase Storage...');
-
-    const isVideo = file.type.includes('video') || file.name.toLowerCase().endsWith('.mp4');
-    const fileExt = isVideo ? 'mp4' : 'webp';
-    
+    notify('Optimizando y subiendo a Supabase Storage...');
     try {
-      let uploadPayload: Blob | File = file;
-
-      if (!isVideo) {
-        uploadPayload = await new Promise<Blob>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const img = new window.Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const maxWidthOrHeight = 1080;
-              let width = img.width;
-              let height = img.height;
-
-              if (width > maxWidthOrHeight || height > maxWidthOrHeight) {
-                const ratio = Math.min(maxWidthOrHeight / width, maxWidthOrHeight / height);
-                width = Math.round(width * ratio);
-                height = Math.round(height * ratio);
-              }
-
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(img, 0, 0, width, height);
-                canvas.toBlob(
-                  (blob) => resolve(blob || file),
-                  'image/webp',
-                  0.8
-                );
-              } else {
-                resolve(file);
-              }
-            };
-          };
-          reader.readAsDataURL(file);
-        });
-      }
-
-      const body = new FormData();
-      body.append('file', uploadPayload, `upload.${fileExt}`);
-      const res = await fetch('/api/admin/upload', { method: 'POST', body, credentials: 'same-origin' });
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok || !json?.url) {
-        console.error('Error subiendo archivo:', json);
-        alert('Error al subir archivo: ' + (json?.error || res.status));
-        return;
-      }
-
-      callback(json.url);
+      const url = await uploadMedia(file);
+      if (track) sessionUploads.current.add(url);
+      callback(url);
       notify('¡Archivo subido con éxito!');
     } catch (err: any) {
-      console.error('Error inesperado subiendo archivo:', err);
-      alert('Error inesperado al subir archivo: ' + (err?.message || err));
+      console.error('Error subiendo archivo:', err);
+      alert('Error al subir archivo: ' + (err?.message || err));
     }
+  };
+
+  // Borra de Storage lo que ya no esté referenciado por ningún producto (propio bucket, no compartido)
+  const cleanupOrphans = async (before: Product[], after: Product[]) => {
+    const stillUsed = collectProductMediaUrls(after);
+    const candidates = new Set<string>([...collectProductMediaUrls(before), ...sessionUploads.current]);
+    const orphans = Array.from(candidates).filter(u => !stillUsed.has(u));
+    sessionUploads.current = new Set();
+    await deleteStorageUrls(orphans);
   };
 
   // Carga la lista de categorías de Supabase y migra las que ya existen en los productos
@@ -807,6 +775,8 @@ export default function AdminPage() {
     const benefitsArray = productForm.benefits.split('\n').map(b => b.trim()).filter(Boolean);
     const featuresArray = productForm.features.split('\n').map(f => f.trim()).filter(Boolean);
     const imagesArray = productForm.images.filter(img => img.trim() !== '');
+    const sizesArray = Array.from(new Set(productForm.sizes.split(/[,\n]/).map(x => x.trim().slice(0, 30)).filter(Boolean)));
+    const demoVideoUrl = productForm.demoVideo.trim();
 
     let updated = [...products];
 
@@ -831,6 +801,8 @@ export default function AdminPage() {
             isBestSeller: productForm.isBestSeller,
             images: imagesArray.length > 0 ? imagesArray : p.images,
             colors: productForm.colors,
+            sizes: sizesArray.length > 0 ? sizesArray : undefined,
+            demoVideo: demoVideoUrl || undefined,
           };
         }
         return p;
@@ -855,19 +827,23 @@ export default function AdminPage() {
         isBestSeller: productForm.isBestSeller,
         images: imagesArray.length > 0 ? imagesArray : ['/logo-todomax.png'],
         colors: productForm.colors,
+        sizes: sizesArray.length > 0 ? sizesArray : undefined,
+        demoVideo: demoVideoUrl || undefined,
         paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
       };
       updated = [newProd, ...products];
       notify('Producto agregado a la nube');
     }
 
-    await syncProducts(updated);
+    const saved = await syncProducts(updated);
+    if (saved) await cleanupOrphans(products, updated);
 
     setEditingProductId(null);
+    setColorGalleryFor(null);
     setProductForm({
       title: '', price: '', originalPrice: '', cost: '', stock: '',
       category: 'Hogar', affiliateCommission: '10', description: '',
-      features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
+      features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [], sizes: '', demoVideo: '',
     });
   };
 
@@ -893,13 +869,16 @@ export default function AdminPage() {
       isBestSeller: !!p.isBestSeller,
       images: existingImgs,
       colors: Array.isArray(p.colors) ? p.colors : [],
+      sizes: Array.isArray(p.sizes) ? p.sizes.join(', ') : '',
+      demoVideo: p.demoVideo || '',
     });
   };
 
   const handleDeleteProduct = async (id: string) => {
     if (confirm('¿Seguro que deseas eliminar este producto?')) {
       const updated = products.filter(p => p.id !== id);
-      await syncProducts(updated);
+      const saved = await syncProducts(updated);
+      if (saved) await cleanupOrphans(products, updated);
       notify('Producto eliminado de la nube');
     }
   };
@@ -1618,7 +1597,7 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4">
                           <div className="max-w-[200px] truncate">
-                            {order.items.map(it => `${it.quantity}x ${it.title}${it.selectedColor ? ` (Color: ${it.selectedColor})` : ''}`).join(', ')}
+                            {order.items.map(it => `${it.quantity}x ${it.title}${it.selectedColor ? ` (Color: ${it.selectedColor})` : ''}${it.selectedSize ? ` (Talla: ${it.selectedSize})` : ''}`).join(', ')}
                           </div>
                         </td>
                         <td className="p-4 font-black text-slate-900 whitespace-nowrap">
@@ -1863,6 +1842,18 @@ export default function AdminPage() {
                 </div>
 
                 <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Tallas disponibles (opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="Separadas por coma. Ej: S, M, L, XL  o  38, 40, 42"
+                    value={productForm.sizes}
+                    onChange={e => setProductForm({ ...productForm, sizes: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Si lo dejas vacío, el producto no muestra tallas.</p>
+                </div>
+
+                <div>
                   <label className="block font-bold text-slate-500 uppercase mb-1">Colores disponibles (opcional)</label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {QUICK_COLORS.map(c => (
@@ -1900,21 +1891,77 @@ export default function AdminPage() {
                     </button>
                   </div>
                   {productForm.colors.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {productForm.colors.map(c => (
-                        <span key={c.name} className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-full pl-2 pr-1 py-1 font-bold text-slate-700">
-                          <span className="w-4 h-4 rounded-full border border-slate-300" style={{ backgroundColor: c.hex }} />
-                          {c.name}
-                          <button
-                            type="button"
-                            aria-label={`Quitar ${c.name}`}
-                            onClick={() => setProductForm(prev => ({ ...prev, colors: prev.colors.filter(x => x.name !== c.name) }))}
-                            className="w-5 h-5 rounded-full hover:bg-red-100 hover:text-red-600 cursor-pointer"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
+                    <div className="space-y-2">
+                      {productForm.colors.map(c => {
+                        const setColorImage = (url?: string) =>
+                          setProductForm(prev => ({
+                            ...prev,
+                            colors: prev.colors.map(x => (x.name === c.name ? { ...x, image: url } : x)),
+                          }));
+                        const gallery = productForm.images.filter(i => i.trim() !== '' && !isVideoSource(i));
+                        return (
+                          <div key={c.name} className="bg-slate-50 border border-slate-200 rounded-xl p-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="w-9 h-9 rounded-lg border border-slate-300 overflow-hidden flex-shrink-0" style={{ backgroundColor: c.hex }}>
+                                {c.image && <img src={c.image} alt={c.name} className="w-full h-full object-cover" />}
+                              </span>
+                              <span className="font-bold text-slate-700 flex-1 truncate">{c.name}</span>
+                              <label className="cursor-pointer bg-slate-900 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded-lg whitespace-nowrap">
+                                {c.image ? 'Cambiar foto' : 'Subir foto'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    handleMediaUpload(e, setColorImage, true);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                              {gallery.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setColorGalleryFor(prev => (prev === c.name ? null : c.name))}
+                                  className="border border-slate-300 hover:border-orange-500 text-slate-700 font-bold px-2 py-1 rounded-lg cursor-pointer whitespace-nowrap"
+                                >
+                                  De galería
+                                </button>
+                              )}
+                              {c.image && (
+                                <button
+                                  type="button"
+                                  onClick={() => setColorImage(undefined)}
+                                  className="text-red-600 hover:bg-red-50 font-bold px-2 py-1 rounded-lg cursor-pointer whitespace-nowrap"
+                                >
+                                  Quitar foto
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                aria-label={`Quitar ${c.name}`}
+                                onClick={() => setProductForm(prev => ({ ...prev, colors: prev.colors.filter(x => x.name !== c.name) }))}
+                                className="w-6 h-6 rounded-full hover:bg-red-100 hover:text-red-600 cursor-pointer"
+                              >
+                                ×
+                              </button>
+                            </div>
+                            {colorGalleryFor === c.name && (
+                              <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                                {gallery.map(g => (
+                                  <button
+                                    key={g}
+                                    type="button"
+                                    onClick={() => { setColorImage(g); setColorGalleryFor(null); }}
+                                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer ${c.image === g ? 'border-orange-500' : 'border-slate-200 hover:border-orange-300'}`}
+                                  >
+                                    <img src={g} alt="Galería" className="w-full h-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1936,7 +1983,7 @@ export default function AdminPage() {
                         accept="image/*"
                         className="hidden"
                         onChange={(e) => {
-                          handleMediaUpload(e, insertImageInDescription);
+                          handleMediaUpload(e, insertImageInDescription, true);
                           e.target.value = '';
                         }}
                       />
@@ -1972,8 +2019,8 @@ export default function AdminPage() {
                             <div className="flex flex-col items-center justify-center h-24 space-y-1">
                               <label className="cursor-pointer flex flex-col items-center">
                                 <div className="flex items-center gap-1 text-slate-400"><ImageIcon size={16} /><Video size={16} /></div>
-                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Subir a Supabase</span>
-                                <input type="file" accept="image/*,video/mp4" className="hidden" onChange={(e) => handleMediaUpload(e, (url) => { const updated = [...productForm.images]; updated[index] = url; setProductForm({ ...productForm, images: updated }); })} />
+                                <span className="text-[10px] text-slate-500 font-semibold mt-1">Foto o video</span>
+                                <input type="file" accept="image/*,video/mp4" className="hidden" onChange={(e) => handleMediaUpload(e, (url) => { const updated = [...productForm.images]; updated[index] = url; setProductForm({ ...productForm, images: updated }); }, true)} />
                               </label>
                             </div>
                           )}
@@ -1981,6 +2028,19 @@ export default function AdminPage() {
                       );
                     })}
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-2">Las fotos se convierten a WebP (máx 1200px). Videos MP4: sin recompresión, máximo 15 MB.</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Video por enlace (opcional)</label>
+                  <input
+                    type="url"
+                    placeholder="YouTube, Shorts, TikTok, Instagram o URL directa .mp4"
+                    value={productForm.demoVideo}
+                    onChange={e => setProductForm({ ...productForm, demoVideo: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">No usa almacenamiento de Supabase. Se muestra en la página del producto.</p>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -2001,11 +2061,13 @@ export default function AdminPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        cleanupOrphans(products, products);
                         setEditingProductId(null);
+                        setColorGalleryFor(null);
                         setProductForm({
                           title: '', price: '', originalPrice: '', cost: '', stock: '',
                           category: 'Hogar', affiliateCommission: '10', description: '',
-                          features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [],
+                          features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [], sizes: '', demoVideo: '',
                         });
                       }}
                       className="px-3 bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"

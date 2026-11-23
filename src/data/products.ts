@@ -19,11 +19,13 @@ export interface Product {
   paymentMethods: string[];
   category: string;
   colors?: ProductColor[];
+  sizes?: string[];
 }
 
 export interface ProductColor {
   name: string;
   hex: string;
+  image?: string; // Foto asociada a este color (cambia la imagen principal)
 }
 
 // Generador de Placeholder seguro (SVG en base64 con colores de la marca)

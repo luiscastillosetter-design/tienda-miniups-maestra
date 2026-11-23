@@ -5,14 +5,12 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
-import { useCartStore } from '@/store/cartStore';
 import { ShoppingBag, ArrowRight } from 'lucide-react';
 import { useCategories } from '@/hooks/useCategories';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
-import ProductCover from '@/components/ProductCover';
-import Price from '@/components/Price';
+import ProductCard from '@/components/ProductCard';
 import { normalizeSearchText } from '@/lib/search';
 
 function normalizeCatName(val: string) {
@@ -31,7 +29,6 @@ function filterValidCatBanners(rawSlides: any[]): any[] {
 function CatalogoContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { addItem } = useCartStore();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
@@ -112,23 +109,6 @@ function CatalogoContent() {
   const isVideo = (url?: string) => {
     if (!url) return false;
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
-  };
-
-  const handleBuyNow = (product: Product, e: React.MouseEvent) => {
-    e.preventDefault();
-    if (product.stock <= 0) return;
-    const firstValidImg = product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
-    addItem(
-      {
-        id: product.id,
-        title: product.title,
-        price: product.price,
-        image: firstValidImg,
-        stock: product.stock,
-      },
-      1
-    );
-    router.push('/checkout');
   };
 
   const filteredProducts = selectedCategory === 'Todos'
@@ -306,60 +286,9 @@ function CatalogoContent() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-              {filteredProducts.map((product) => {
-                const outOfStock = product.stock <= 0;
-                return (
-                  <div
-                    key={product.id}
-                    className="bg-white rounded-3xl border border-gray-200/80 shadow-xs hover:shadow-2xl hover:shadow-slate-300/60 hover:-translate-y-2 transition-all duration-300 flex flex-col overflow-hidden group cursor-pointer"
-                  >
-                    <Link
-                      href={`/product/${product.id}`}
-                      className="block relative aspect-square bg-slate-50/80 p-4 overflow-hidden"
-                    >
-                      <ProductCover images={product.images} title={product.title} />
-                      {outOfStock ? (
-                        <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
-                          Agotado
-                        </span>
-                      ) : product.badge ? (
-                        <span className="absolute top-3 left-3 bg-slate-900 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase">
-                          {product.badge}
-                        </span>
-                      ) : null}
-                    </Link>
-
-                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-orange-500 tracking-wider">
-                          {product.category}
-                        </span>
-                        <Link href={`/product/${product.id}`}>
-                          <h3 className="text-xs md:text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-orange-500 transition-colors mt-0.5">
-                            {product.title}
-                          </h3>
-                        </Link>
-                      </div>
-
-                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                        <Price
-                          value={product.price}
-                          original={product.originalPrice}
-                          className="text-base md:text-lg font-black text-slate-900"
-                        />
-                        <button
-                          onClick={(e) => handleBuyNow(product, e)}
-                          disabled={outOfStock}
-                          title={outOfStock ? 'Sin stock disponible' : 'Comprar ahora'}
-                          className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 disabled:shadow-none transition-all duration-300 flex items-center gap-1.5 hover:-translate-y-1 hover:shadow-orange-500/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed"
-                        >
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
           )}
         </section>

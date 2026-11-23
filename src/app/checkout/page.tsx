@@ -255,7 +255,7 @@ export default function CheckoutPage() {
         receiptImage: comprobantePreview,
       },
       // El servidor recalcula precios, total, costo, utilidad y comisión; solo se envían id/cantidad/color.
-      items: items.map((i) => ({ id: i.id, quantity: i.quantity, selectedColor: i.selectedColor })),
+      items: items.map((i) => ({ id: i.id, quantity: i.quantity, selectedColor: i.selectedColor, selectedSize: i.selectedSize })),
       attribution: {
         affiliateCode: affiliateActive ? refCode : 'DIRECTO',
         channel: affiliateActive ? 'Afiliado' : adChannel,
@@ -722,7 +722,7 @@ export default function CheckoutPage() {
 
                 <div className="space-y-4 max-h-[35vh] overflow-y-auto pr-2">
                   {items.map((item) => (
-                    <div key={`${item.id}::${item.selectedColor || ''}`} className="flex items-center justify-between gap-4 py-2">
+                    <div key={`${item.id}::${item.selectedColor || ''}::${item.selectedSize || ''}`} className="flex items-center justify-between gap-4 py-2">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="w-12 h-12 bg-slate-50 rounded-xl p-1 flex-shrink-0 border border-slate-100 flex items-center justify-center overflow-hidden">
                           {isVideo(item.image) ? (
@@ -737,6 +737,9 @@ export default function CheckoutPage() {
                           </span>
                           {item.selectedColor && (
                             <span className="text-[10px] text-slate-600 font-bold block">Color: {item.selectedColor}</span>
+                          )}
+                          {item.selectedSize && (
+                            <span className="text-[10px] text-slate-600 font-bold block">Talla: {item.selectedSize}</span>
                           )}
                           <span className="text-[10px] text-gray-500 font-medium block mt-0.5">
                             Cant: {item.quantity}

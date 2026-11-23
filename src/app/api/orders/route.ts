@@ -18,7 +18,7 @@ const str = (v: unknown, max = 300) => (typeof v === 'string' ? v.trim().slice(0
 /**
  * POST /api/orders (público): crea UN pedido nuevo. Nunca devuelve ni acepta el listado de pedidos,
  * así un comprador no puede leer ni sobrescribir pedidos de otros clientes.
- * body: { order: { customer, shipping, payment, items: [{id, quantity, selectedColor?}], attribution } }
+ * body: { order: { customer, shipping, payment, items: [{id, quantity, selectedColor?, selectedSize?}], attribution } }
  * Los precios, subtotales, total, costo, utilidad y comisión que envíe el navegador se IGNORAN:
  * todo se recalcula aquí con los productos reales de `store_products`.
  */
@@ -65,15 +65,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Producto sin precio válido' }, { status: 400 });
       }
       const color = str(raw.selectedColor, 50);
-      const key = `${product.id}|${color}`;
+      const size = str(raw.selectedSize, 30);
+      const key = `${product.id}|${color}|${size}`;
       const prev = lines.get(key);
       lines.set(key, {
         id: String(product.id),
         title: String(product.title ?? ''),
         price,
-        image: Array.isArray(product.images) ? product.images[0] ?? '' : '',
+        image:
+          (color && Array.isArray(product.colors) && product.colors.find((c: any) => c?.name === color)?.image) ||
+          (Array.isArray(product.images) ? product.images[0] ?? '' : ''),
         quantity: (prev?.quantity || 0) + qty,
         ...(color ? { selectedColor: color } : {}),
+        ...(size ? { selectedSize: size } : {}),
       });
     }
 
