@@ -9,6 +9,38 @@ import { siteConfig } from '@/config/site';
 import { isSelfPurchase, SELF_PURCHASE_NOTICE } from '@/lib/affiliateGuard';
 import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
 
+// Copiado robusto para iOS/Safari: clipboard API y, si falla, fallback con textarea + execCommand
+function copyTextRobust(text: string) {
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.readOnly = true;
+    ta.contentEditable = 'true';
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    ta.style.fontSize = '16px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    try {
+      document.execCommand('copy');
+    } catch {}
+    document.body.removeChild(ta);
+  };
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).catch(fallback);
+    } else {
+      fallback();
+    }
+  } catch {
+    fallback();
+  }
+}
+
 export default function CheckoutPage() {
   const { items, clearCart } = useCartStore();
   const { tasaBcv, divisa } = useCurrencyStore();
@@ -172,30 +204,21 @@ export default function CheckoutPage() {
       data = `Binance Pay TodoMax\nPay ID: ${bn.payId}` + (bn.email ? `\nCorreo Binance: ${bn.email}` : '');
     }
 
-    navigator.clipboard.writeText(data);
+    copyTextRobust(data);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyField = async (key: string, value: string) => {
-    const text = String(value || '').trim();
+  // key: 'cedula' | 'telefono' -> solo dígitos; 'monto' -> tal cual (ya limpio); otros -> texto sin espacios extra
+  const handleCopyField = (key: string, value: string) => {
+    let text = String(value || '').trim();
+    if (key === 'cedula' || key === 'telefono' || key.endsWith('-digits')) text = text.replace(/\D/g, '');
+    else if (key !== 'monto') text = text.replace(/\s+/g, ' ');
     if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-      } catch {}
-      document.body.removeChild(ta);
-    }
+    // Se invoca sincrónicamente dentro del evento de clic (requisito de iOS/Safari)
+    copyTextRobust(text);
     setCopiedField(key);
-    setTimeout(() => setCopiedField((prev) => (prev === key ? null : prev)), 1500);
+    setTimeout(() => setCopiedField((prev) => (prev === key ? null : prev)), 2000);
   };
 
   const handleImageUpload =(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -551,8 +574,26 @@ export default function CheckoutPage() {
                     <div className="space-y-2 text-sm font-medium">
                       {metodoPago === 'Pago Móvil' && (
                         <>
-                          <p>
-                            <span className="text-slate-400">Banco:</span> {liveSettings.pagoMovil.banco}
+                          <p className="flex items-center gap-2 flex-wrap">
+                            <span>
+                              <span className="text-slate-400">Banco:</span> {liveSettings.pagoMovil.banco}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyField('banco', liveSettings.pagoMovil.banco)}
+                              aria-label="Copiar banco de Pago Móvil"
+                              title={copiedField === 'banco' ? '¡Copiado!' : 'Copiar banco'}
+                              className="inline-flex items-center justify-center gap-1 p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
+                            >
+                              {copiedField === 'banco' ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-[10px] font-bold text-emerald-400">¡Copiado!</span>
+                                </>
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
                           </p>
                           <p className="flex items-center gap-2 flex-wrap">
                             <span>
@@ -562,11 +603,14 @@ export default function CheckoutPage() {
                               type="button"
                               onClick={() => handleCopyField('telefono', liveSettings.pagoMovil.telefono)}
                               aria-label="Copiar teléfono de Pago Móvil"
-                              title={copiedField === 'telefono' ? 'Copiado' : 'Copiar teléfono'}
-                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
+                              title={copiedField === 'telefono' ? '¡Copiado!' : 'Copiar teléfono'}
+                              className="inline-flex items-center justify-center gap-1 p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
                             >
                               {copiedField === 'telefono' ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-[10px] font-bold text-emerald-400">¡Copiado!</span>
+                                </>
                               ) : (
                                 <Copy className="w-3.5 h-3.5" />
                               )}
@@ -580,11 +624,14 @@ export default function CheckoutPage() {
                               type="button"
                               onClick={() => handleCopyField('cedula', liveSettings.pagoMovil.cedula)}
                               aria-label="Copiar cédula o RIF de Pago Móvil"
-                              title={copiedField === 'cedula' ? 'Copiado' : 'Copiar cédula'}
-                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
+                              title={copiedField === 'cedula' ? '¡Copiado!' : 'Copiar cédula'}
+                              className="inline-flex items-center justify-center gap-1 p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
                             >
                               {copiedField === 'cedula' ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-[10px] font-bold text-emerald-400">¡Copiado!</span>
+                                </>
                               ) : (
                                 <Copy className="w-3.5 h-3.5" />
                               )}
@@ -787,10 +834,32 @@ export default function CheckoutPage() {
                   </span>
                 </div>
                 {tasaBcv && (
-                  <p className="text-xs text-slate-500 font-bold text-right -mt-2">
-                    {divisa === 'VES' ? '≈ ' : 'Referencial: '}
-                    Bs. {formatearMonto(convertirPrecio(total, 'VES', tasaBcv), 'VES')} (Tasa BCV {formatearMonto(tasaBcv, 'VES')})
-                  </p>
+                  <div className="-mt-2 bg-orange-50 border border-orange-200 rounded-2xl p-4 text-right">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">
+                      {divisa === 'VES' ? 'Monto en Bolívares ≈' : 'Monto en Bolívares (referencial)'}
+                    </p>
+                    <p className="text-3xl font-black text-slate-900 leading-tight">
+                      Bs. {formatearMonto(convertirPrecio(total, 'VES', tasaBcv), 'VES')}
+                    </p>
+                    <div className="flex items-center justify-end gap-3 flex-wrap mt-2">
+                      <span className="text-[11px] text-slate-500 font-bold">Tasa BCV {formatearMonto(tasaBcv, 'VES')}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyField('monto', convertirPrecio(total, 'VES', tasaBcv).toFixed(2))}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold transition-colors cursor-pointer active:scale-95"
+                      >
+                        {copiedField === 'monto' ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" /> ¡Copiado!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" /> Copiar monto
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 )}
 
                 <button

@@ -709,17 +709,53 @@ export default function AdminPage() {
     notify(`Pedido ${orderId} actualizado a "${nuevoEstado}" en la nube`);
   };
 
-  const enviarNotificacionCliente = (order: Order, tipo: 'aprobado' | 'despacho') => {
-    const cleanPhone = order.customer.telefono.replace(/\D/g, '');
+  // Normaliza teléfono venezolano a formato internacional (solo dígitos) y arma la URL de WhatsApp según dispositivo
+  const buildWhatsAppUrl = (phone: string, message: string) => {
+    let cleanPhone = String(phone || '').replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '58' + cleanPhone.slice(1);
+    else if (cleanPhone.length === 10 && cleanPhone.startsWith('4')) cleanPhone = '58' + cleanPhone;
+    const cleanMessage = String(message || '').replace(/�/g, '');
+    const encoded = encodeURIComponent(cleanMessage);
+    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    return isMobile
+      ? `https://wa.me/${cleanPhone}?text=${encoded}`
+      : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
+  };
+
+  const esRetiroEnTienda = (order: Order) =>
+    /retiro|tienda/i.test(`${order.shipping.courier || ''} ${order.shipping.direccion || ''}`);
+
+  const descargarComprobante = async (url: string, orderId: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const ext = (blob.type.split('/')[1] || 'jpg').split('+')[0];
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = `comprobante-${orderId}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objUrl);
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const enviarNotificacionCliente = (order: Order, tipo: 'aprobado' | 'despacho' | 'retiro') => {
+    const telefono = order.customer.telefono;
     let mensaje = '';
 
-    if (tipo === 'aprobado') {
+    if (tipo === 'retiro') {
+      mensaje = `¡Hola ${order.customer.nombre}! Tu pedido *${order.id}* ya está LISTO para retirar en nuestra tienda física. Dirección: Centro Comercial Doña Grazia, Av. Los Andes, Piso 1, Local 50, Barinas. Horario de atención: Lunes a viernes de 9:00 am a 5:00 pm | Sábados de 9:00 am a 12:00 pm. ¡Te esperamos en Importadora TodoMax!`;
+    } else if (tipo === 'aprobado') {
       mensaje = `¡Hola ${order.customer.nombre}! 👋 Te confirmamos que tu pago para la orden *${order.id}* en *TodoMax* ha sido VALIDADO con éxito. ✅ Tu pedido ya entró en preparación para despacho.`;
     } else if (tipo === 'despacho') {
       mensaje = `¡Buenas noticias ${order.customer.nombre}! 🚚 Tu pedido *${order.id}* ha sido DESPACHADO por *${order.shipping.courier}*. Número de Guía: *${order.shipping.trackingNumber || 'En tránsito'}*. ¡Gracias por confiar en TodoMax!`;
     }
 
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`, '_blank');
+    window.open(buildWhatsAppUrl(telefono, mensaje), '_blank');
   };
 
   const saveCategories = async (list: string[]) => {
@@ -1681,11 +1717,45 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <p className="font-bold text-slate-500 uppercase text-[10px] mb-1">Método de pago</p>
+                      <p className="font-black text-slate-900 text-sm">{selectedOrder.payment?.method || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-500 uppercase text-[10px] mb-1">N° de Referencia</p>
+                      <p className="font-black text-slate-900 text-lg tracking-wide break-all">{selectedOrder.payment?.reference || 'Sin referencia'}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-500 uppercase text-[10px] mb-1">Monto</p>
+                      <p className="font-black text-emerald-700 text-sm">${Number(selectedOrder.financials?.total || 0).toFixed(2)}</p>
+                    </div>
+                  </div>
+
                   {selectedOrder.payment?.receiptImage && (
                     <div>
                       <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Comprobante de Pago Adjunto</h4>
-                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col items-center">
-                        <img src={selectedOrder.payment.receiptImage} alt="Comprobante" className="max-h-72 object-contain rounded-xl shadow-sm" />
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col items-center gap-3">
+                        <a href={selectedOrder.payment.receiptImage} target="_blank" rel="noopener noreferrer" title="Abrir en tamaño completo">
+                          <img src={selectedOrder.payment.receiptImage} alt="Comprobante" className="max-h-96 w-auto object-contain rounded-xl shadow-sm cursor-zoom-in" />
+                        </a>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <a
+                            href={selectedOrder.payment.receiptImage}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white font-black text-xs rounded-xl transition-colors"
+                          >
+                            Ver en tamaño completo
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => descargarComprobante(selectedOrder.payment.receiptImage as string, selectedOrder.id)}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl transition-colors cursor-pointer"
+                          >
+                            Descargar comprobante
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1705,7 +1775,19 @@ export default function AdminPage() {
                         </button>
                       )}
 
-                      {selectedOrder.status === 'Pago Aprobado' && (
+                      {selectedOrder.status === 'Pago Aprobado' && esRetiroEnTienda(selectedOrder) && (
+                        <button
+                          onClick={() => {
+                            actualizarEstadoPedido(selectedOrder.id, 'Despachado');
+                            enviarNotificacionCliente(selectedOrder, 'retiro');
+                          }}
+                          className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl transition-colors cursor-pointer"
+                        >
+                          Marcar listo para retirar y Notificar
+                        </button>
+                      )}
+
+                      {selectedOrder.status === 'Pago Aprobado' && !esRetiroEnTienda(selectedOrder) && (
                         <div className="w-full flex gap-2">
                           <input
                             type="text"
