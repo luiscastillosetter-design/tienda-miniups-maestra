@@ -452,15 +452,11 @@ export default function AfiliadosPage() {
                             href={product.driveUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors cursor-pointer"
+                            className="w-full flex items-center justify-center gap-2 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs font-black py-2.5 rounded-xl shadow-sm transition-all cursor-pointer"
                           >
-                            <Download className="w-4 h-4" /> Material del producto (Google Drive)
+                            <Download className="w-4 h-4" /> Ver material (Drive)
                           </a>
-                        ) : (
-                          <div className="w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-500 text-xs font-bold py-2.5 rounded-xl cursor-not-allowed">
-                            ⏳ Material en preparación
-                          </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>

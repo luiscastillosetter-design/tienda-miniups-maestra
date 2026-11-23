@@ -1846,10 +1846,10 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase mb-1">Carpeta de Google Drive para afiliados (opcional)</label>
+                  <label className="block font-bold text-slate-500 uppercase mb-1">Enlace de material para afiliados (Google Drive)</label>
                   <input
                     type="url"
-                    placeholder="https://drive.google.com/drive/folders/..."
+                    placeholder="https://drive.google.com/..."
                     value={productForm.driveUrl}
                     onChange={e => setProductForm({ ...productForm, driveUrl: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-medium"
