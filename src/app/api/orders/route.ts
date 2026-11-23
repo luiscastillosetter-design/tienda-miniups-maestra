@@ -83,7 +83,12 @@ export async function POST(request: NextRequest) {
 
     const items = Array.from(lines.values());
     for (const it of items) {
-      const stock = Number(byId.get(it.id)?.stock);
+      const prod = byId.get(it.id);
+      // Stock del color elegido (si está definido); si no, el stock general
+      const colorStock = it.selectedColor
+        ? (Array.isArray(prod?.colors) ? prod.colors.find((c: any) => c?.name === it.selectedColor)?.stock : undefined)
+        : undefined;
+      const stock = typeof colorStock === 'number' ? colorStock : Number(prod?.stock);
       if (Number.isFinite(stock) && it.quantity > stock) {
         return NextResponse.json(
           { success: false, error: `Stock insuficiente para "${it.title}" (disponible: ${Math.max(0, stock)})` },

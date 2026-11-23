@@ -31,9 +31,12 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
 
   const colors = Array.isArray(product.colors) ? product.colors : [];
   const sizes = Array.isArray(product.sizes) ? product.sizes.filter(Boolean) : [];
-  const outOfStock = product.stock <= 0;
 
-  const activeColor = colors.find((c) => c.name === pickedColor) || colors[0];
+  // Sin selección: primer color con piezas (stock indefinido cuenta como disponible)
+  const activeColor = colors.find((c) => c.name === pickedColor) || colors.find((c) => c.stock !== 0) || colors[0];
+  const hasColorStock = typeof activeColor?.stock === 'number';
+  const availableStock = hasColorStock ? (activeColor!.stock as number) : product.stock;
+  const outOfStock = availableStock <= 0;
   // Foto del color elegido: solo se carga cuando el cliente hace clic (carga bajo demanda)
   const colorImage = pickedColor ? colors.find((c) => c.name === pickedColor)?.image : undefined;
 
@@ -51,7 +54,7 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
         title: product.title,
         price: product.price,
         image: colorImage || activeColor?.image || firstValidImg,
-        stock: product.stock,
+        stock: availableStock,
         selectedColor: activeColor?.name,
         selectedSize: sizes.length > 0 ? pickedSize || undefined : undefined,
       },
@@ -96,16 +99,29 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
                 <button
                   key={c.name}
                   type="button"
-                  title={c.name}
-                  aria-label={`Color ${c.name}`}
+                  title={c.stock === 0 ? `${c.name} (Agotado)` : c.name}
+                  aria-label={`Color ${c.name}${c.stock === 0 ? ' agotado' : ''}`}
                   onClick={() => setPickedColor((prev) => (prev === c.name ? null : c.name))}
-                  className={`w-5 h-5 rounded-full border-2 cursor-pointer transition-all ${
+                  className={`relative w-5 h-5 rounded-full border-2 cursor-pointer transition-all overflow-hidden ${
+                    c.stock === 0 ? 'opacity-40' : ''
+                  } ${
                     pickedColor === c.name ? 'border-orange-500 ring-2 ring-orange-200' : 'border-slate-300 hover:border-slate-500'
                   }`}
                   style={{ backgroundColor: c.hex }}
-                />
+                >
+                  {c.stock === 0 && (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="block w-[140%] h-px bg-red-600 rotate-45" />
+                    </span>
+                  )}
+                </button>
               ))}
             </div>
+          )}
+          {hasColorStock && (
+            <p className={`text-[10px] font-bold mt-1 ${outOfStock ? 'text-red-600 uppercase' : 'text-emerald-700'}`}>
+              {outOfStock ? `Agotado${activeColor?.name ? ` (${activeColor.name})` : ''}` : `Disponible: ${availableStock}`}
+            </p>
           )}
 
           {sizes.length > 0 && (

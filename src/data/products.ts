@@ -26,8 +26,8 @@ export interface ProductColor {
   name: string;
   hex: string;
   image?: string; // Foto asociada a este color (cambia la imagen principal)
+  stock?: number; // Piezas de este color. undefined = usa el stock general del producto
 }
-
 // Generador de Placeholder seguro (SVG en base64 con colores de la marca)
 const getPlaceholder = (text: string) => {
   const cleanText = text.replace(/\s+/g, '%20');

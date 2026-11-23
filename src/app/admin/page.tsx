@@ -641,9 +641,17 @@ export default function AdminPage() {
 
     if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
       const productosActualizados = products.map(p => {
-        const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
-        if (itemPedido) {
-          return { ...p, stock: Math.max(0, p.stock - itemPedido.quantity) };
+        const itemsPedido = ordenPrevia.items.filter(it => String(it.id) === String(p.id));
+        if (itemsPedido.length > 0) {
+          const total = itemsPedido.reduce((s, it) => s + it.quantity, 0);
+          return {
+            ...p,
+            stock: Math.max(0, p.stock - total),
+            colors: p.colors?.map(c => {
+              const q = itemsPedido.filter(it => it.selectedColor === c.name).reduce((s, it) => s + it.quantity, 0);
+              return typeof c.stock === 'number' && q > 0 ? { ...c, stock: Math.max(0, c.stock - q) } : c;
+            }),
+          };
         }
         return p;
       });
@@ -656,9 +664,17 @@ export default function AdminPage() {
       ['Pago Aprobado', 'En Preparación', 'Despachado', 'Entregado'].includes(ordenPrevia.status)
     ) {
       const productosActualizados = products.map(p => {
-        const itemPedido = ordenPrevia.items.find(it => String(it.id) === String(p.id));
-        if (itemPedido) {
-          return { ...p, stock: p.stock + itemPedido.quantity };
+        const itemsPedido = ordenPrevia.items.filter(it => String(it.id) === String(p.id));
+        if (itemsPedido.length > 0) {
+          const total = itemsPedido.reduce((s, it) => s + it.quantity, 0);
+          return {
+            ...p,
+            stock: p.stock + total,
+            colors: p.colors?.map(c => {
+              const q = itemsPedido.filter(it => it.selectedColor === c.name).reduce((s, it) => s + it.quantity, 0);
+              return typeof c.stock === 'number' && q > 0 ? { ...c, stock: c.stock + q } : c;
+            }),
+          };
         }
         return p;
       });
@@ -1890,6 +1906,14 @@ export default function AdminPage() {
                       Agregar color
                     </button>
                   </div>
+                  {productForm.colors.some(x => typeof x.stock === 'number') && (
+                    <p className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                      Total en colores: {productForm.colors.reduce((s, x) => s + (typeof x.stock === 'number' ? x.stock : 0), 0)} piezas
+                      {Number(productForm.stock) !== productForm.colors.reduce((s, x) => s + (typeof x.stock === 'number' ? x.stock : 0), 0) && (
+                        <span className="font-medium text-slate-500"> (Stock general: {Number(productForm.stock) || 0})</span>
+                      )}
+                    </p>
+                  )}
                   {productForm.colors.length > 0 && (
                     <div className="space-y-2">
                       {productForm.colors.map(c => {
@@ -1906,6 +1930,25 @@ export default function AdminPage() {
                                 {c.image && <img src={c.image} alt={c.name} className="w-full h-full object-cover" />}
                               </span>
                               <span className="font-bold text-slate-700 flex-1 truncate">{c.name}</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                inputMode="numeric"
+                                placeholder="Stock"
+                                aria-label={`Cantidad / Stock de ${c.name}`}
+                                title="Cantidad / Stock"
+                                value={typeof c.stock === 'number' ? c.stock : ''}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const n = raw === '' ? undefined : Math.max(0, Math.floor(Number(raw)) || 0);
+                                  setProductForm(prev => ({
+                                    ...prev,
+                                    colors: prev.colors.map(x => (x.name === c.name ? { ...x, stock: n } : x)),
+                                  }));
+                                }}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:border-orange-500"
+                              />
                               <label className="cursor-pointer bg-slate-900 hover:bg-orange-500 text-white font-bold px-2 py-1 rounded-lg whitespace-nowrap">
                                 {c.image ? 'Cambiar foto' : 'Subir foto'}
                                 <input

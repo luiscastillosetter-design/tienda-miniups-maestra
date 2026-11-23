@@ -73,12 +73,19 @@ export default function ProductPage() {
 
   const productColors = Array.isArray(product.colors) ? product.colors : [];
   const productSizes = Array.isArray(product.sizes) ? product.sizes.filter(Boolean) : [];
-  const activeColor = productColors.find(c => c.name === pickedColor) || productColors[0];
+  // Sin selección: primer color con piezas (stock indefinido cuenta como disponible)
+  const activeColor =
+    productColors.find(c => c.name === pickedColor) ||
+    productColors.find(c => c.stock !== 0) ||
+    productColors[0];
+  const hasColorStock = typeof activeColor?.stock === 'number';
+  const availableStock = hasColorStock ? (activeColor!.stock as number) : product.stock;
+  const qty = Math.max(1, Math.min(quantity, availableStock));
   // La foto del color solo se carga al hacer clic en el color (bajo demanda)
   const colorPhoto = colorPhotoOn && pickedColor ? productColors.find(c => c.name === pickedColor)?.image : undefined;
   const currentMedia = colorPhoto || product.images?.[selectedImageIndex] || product.images?.[0];
   const firstImageForCart = colorPhoto || product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
-  const isOutOfStock = product.stock <= 0;
+  const isOutOfStock = availableStock <= 0;
   const embedUrl = getVideoEmbedUrl(product.demoVideo);
   const directDemo = isDirectVideoUrl(product.demoVideo) ? product.demoVideo : undefined;
   const sizeMissing = productSizes.length > 0 && !pickedSize;
@@ -100,11 +107,11 @@ export default function ProductPage() {
         title: product.title,
         price: product.price,
         image: firstImageForCart,
-        stock: product.stock,
+        stock: availableStock,
         selectedColor: activeColor?.name,
         selectedSize: pickedSize || undefined,
       },
-      quantity
+      qty
     );
     toggleCart();
   };
@@ -118,11 +125,11 @@ export default function ProductPage() {
         title: product.title,
         price: product.price,
         image: firstImageForCart,
-        stock: product.stock,
+        stock: availableStock,
         selectedColor: activeColor?.name,
         selectedSize: pickedSize || undefined,
       },
-      quantity
+      qty
     );
     router.push('/checkout');
   };
@@ -238,7 +245,11 @@ export default function ProductPage() {
                 <span className={`font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1 ${
                   isOutOfStock ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'
                 }`}>
-                  {isOutOfStock ? '✕ Agotado' : `✓ Stock: ${product.stock} disponibles`}
+                  {isOutOfStock
+                    ? '✕ Agotado'
+                    : hasColorStock
+                      ? `✓ Disponible: ${availableStock}`
+                      : `✓ Stock: ${product.stock} disponibles`}
                 </span>
               </div>
 
@@ -259,9 +270,9 @@ export default function ProductPage() {
 
                 <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
                   <Truck className="w-4 h-4 text-emerald-600" />
-                  {product.price * quantity >= siteConfig.shipping.freeShippingThreshold
+                  {product.price * qty >= siteConfig.shipping.freeShippingThreshold
                     ? '¡Califica para ENVÍO GRATIS a todo el país!'
-                    : `Agrega ${siteConfig.currencySymbol}${(siteConfig.shipping.freeShippingThreshold - product.price * quantity).toFixed(2)} más para envío gratis.`}
+                    : `Agrega ${siteConfig.currencySymbol}${(siteConfig.shipping.freeShippingThreshold - product.price * qty).toFixed(2)} más para envío gratis.`}
                 </p>
               </div>
 
@@ -319,19 +330,32 @@ export default function ProductPage() {
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-slate-700">Color: {activeColor?.name}</p>
                   <div className="flex flex-wrap gap-2.5">
-                    {productColors.map(c => (
-                      <button
-                        key={c.name}
-                        type="button"
-                        title={c.name}
-                        aria-label={`Color ${c.name}`}
-                        onClick={() => { setPickedColor(c.name); setColorPhotoOn(!!c.image); setZoomPos(null); }}
-                        className={`w-9 h-9 rounded-full border-2 cursor-pointer transition-all ${
-                          activeColor?.name === c.name ? 'border-orange-500 ring-2 ring-orange-300 scale-110' : 'border-slate-300 hover:border-slate-500'
-                        }`}
-                        style={{ backgroundColor: c.hex }}
-                      />
-                    ))}
+                    {productColors.map(c => {
+                      const soldOut = c.stock === 0;
+                      return (
+                        <div key={c.name} className="flex flex-col items-center gap-0.5">
+                          <button
+                            type="button"
+                            title={soldOut ? `${c.name} (Agotado)` : c.name}
+                            aria-label={`Color ${c.name}${soldOut ? ' agotado' : ''}`}
+                            onClick={() => { setPickedColor(c.name); setColorPhotoOn(!!c.image); setZoomPos(null); }}
+                            className={`relative w-9 h-9 rounded-full border-2 cursor-pointer transition-all overflow-hidden ${
+                              soldOut ? 'opacity-40' : ''
+                            } ${
+                              activeColor?.name === c.name ? 'border-orange-500 ring-2 ring-orange-300 scale-110' : 'border-slate-300 hover:border-slate-500'
+                            }`}
+                            style={{ backgroundColor: c.hex }}
+                          >
+                            {soldOut && (
+                              <span className="absolute inset-0 flex items-center justify-center">
+                                <span className="block w-[140%] h-0.5 bg-red-600 rotate-45" />
+                              </span>
+                            )}
+                          </button>
+                          {soldOut && <span className="text-[9px] font-black text-red-600 uppercase">Agotado</span>}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -379,18 +403,18 @@ export default function ProductPage() {
                 <span className="text-xs font-bold text-slate-700">Cantidad:</span>
                 <div className="flex items-center border border-gray-200 rounded-2xl bg-slate-50 p-1">
                   <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    onClick={() => setQuantity(Math.max(1, qty - 1))}
                     disabled={isOutOfStock}
                     className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 disabled:opacity-30 cursor-pointer rounded-xl hover:bg-white"
                   >
                     -
                   </button>
-                  <span className="w-10 text-center text-sm font-black text-slate-900">{isOutOfStock ? 0 : quantity}</span>
+                  <span className="w-10 text-center text-sm font-black text-slate-900">{isOutOfStock ? 0 : qty}</span>
                   <button
-                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                    disabled={isOutOfStock || quantity >= product.stock}
+                    onClick={() => setQuantity(Math.min(availableStock, qty + 1))}
+                    disabled={isOutOfStock || qty >= availableStock}
                     className="w-10 h-10 flex items-center justify-center font-bold text-slate-700 hover:text-orange-500 disabled:opacity-30 cursor-pointer rounded-xl hover:bg-white"
-                    title={quantity >= product.stock ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
+                    title={qty >= availableStock ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
                   >
                     +
                   </button>
