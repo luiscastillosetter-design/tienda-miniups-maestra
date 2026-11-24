@@ -272,11 +272,21 @@ export default function ProductPage() {
                   )}
                 </div>
 
-                {typeof product.divisaPrice === 'number' && product.divisaPrice > 0 && product.divisaPrice < product.price && (
-                  <p className="text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 inline-block">
-                    Oferta en Divisas: {siteConfig.currencySymbol}{product.divisaPrice.toFixed(2)}
-                  </p>
-                )}
+                {(() => {
+                  const d = Number(product.divisaPrice);
+                  const p = Number(product.price);
+                  if (!Number.isFinite(d) || d <= 0 || d >= p) return null;
+                  return (
+                    <div className="bg-emerald-50 border border-emerald-300 rounded-2xl px-4 py-3">
+                      <p className="text-base md:text-lg font-black text-emerald-800">
+                        Si pagas en divisas: {siteConfig.currencySymbol}{d.toFixed(2)}
+                      </p>
+                      <p className="text-xs font-bold text-emerald-700 mt-0.5">
+                        Ahorras {siteConfig.currencySymbol}{(p - d).toFixed(2)}
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
                   <Truck className="w-4 h-4 text-emerald-600" />

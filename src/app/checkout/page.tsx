@@ -75,14 +75,21 @@ export default function CheckoutPage() {
   const [direccion, setDireccion] = useState('');
   const isPickup = /retiro/i.test(courier);
 
-  const [moneda, setMoneda] = useState<'VES' | 'USD'>('VES');
+  const [moneda, setMoneda] = useState<'VES' | 'USD' | 'EFE'>('VES');
   const [metodoPago, setMetodoPago] = useState('Pago Móvil');
   const [referencia, setReferencia] = useState('');
 
   // Efectivo al retirar solo existe con Retiro en Tienda: si cambia a envío, se pasa a otro método válido
   useEffect(() => {
-    if (!isPickup && metodoPago === 'Efectivo al retirar') setMetodoPago('Zelle');
-  }, [isPickup, metodoPago]);
+    if (!isPickup && (moneda === 'EFE' || metodoPago === 'Efectivo al retirar')) {
+      if (moneda === 'USD') {
+        setMetodoPago('Zelle');
+      } else {
+        setMoneda('VES');
+        setMetodoPago('Pago Móvil');
+      }
+    }
+  }, [isPickup, moneda, metodoPago]);
   const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
 
   // Estados UI y Atribución
@@ -186,7 +193,7 @@ export default function CheckoutPage() {
   };
 
   // Cálculos Financieros Reales sincronizados
-  const isDivisaPago = moneda === 'USD';
+  const isDivisaPago = moneda === 'USD' || moneda === 'EFE';
   const unitPrice = (item: { price: number; divisaPrice?: number }) =>
     isDivisaPago ? effectiveDivisaPrice(item.price, item.divisaPrice) : item.price;
   const subtotalPorItem = (item: { price: number; divisaPrice?: number }, quantity: number) => unitPrice(item) * quantity;
@@ -590,14 +597,17 @@ export default function CheckoutPage() {
                     <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">
                       Selecciona cómo deseas pagar
                     </label>
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      {([['VES', 'Bolívares (Bs.)'], ['USD', 'Divisas ($)']] as const).map(([code, label]) => (
+                    <div className={`grid gap-3 mb-4 ${isPickup ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
+                      {(isPickup
+                        ? ([['VES', 'Bolívares (Bs.)'], ['USD', 'Divisas ($)'], ['EFE', 'Efectivo']] as const)
+                        : ([['VES', 'Bolívares (Bs.)'], ['USD', 'Divisas ($)']] as const)
+                      ).map(([code, label]) => (
                         <button
                           key={code}
                           type="button"
                           onClick={() => {
                             setMoneda(code);
-                            setMetodoPago(code === 'VES' ? 'Pago Móvil' : 'Zelle');
+                            setMetodoPago(code === 'VES' ? 'Pago Móvil' : code === 'USD' ? 'Zelle' : 'Efectivo al retirar');
                           }}
                           className={`p-4 rounded-2xl border text-sm font-black transition-all cursor-pointer ${
                             moneda === code
@@ -639,7 +649,9 @@ export default function CheckoutPage() {
                         )
                       ) : (
                         <>
-                          <p className="text-[10px] font-bold text-slate-500 uppercase">Total a pagar en Divisas</p>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase">
+                            {moneda === 'EFE' ? 'Total a pagar en Efectivo al retirar' : 'Total a pagar en Divisas'}
+                          </p>
                           <p className="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
                             {siteConfig.currencySymbol}
                             {total.toFixed(2)}
@@ -653,8 +665,9 @@ export default function CheckoutPage() {
                       )}
                     </div>
 
-                    <div className={`grid gap-3 ${moneda === 'USD' && isPickup ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                      {(moneda === 'VES' ? ['Pago Móvil', 'Transferencia'] : isPickup ? ['Binance Pay', 'Zelle', 'Efectivo al retirar'] : ['Binance Pay', 'Zelle']).map((metodo) => (
+                    {moneda !== 'EFE' && (
+                    <div className="grid gap-3 grid-cols-2">
+                      {(moneda === 'VES' ? ['Pago Móvil', 'Transferencia'] : ['Binance Pay', 'Zelle']).map((metodo) => (
                         <button
                           key={metodo}
                           type="button"
@@ -665,10 +678,11 @@ export default function CheckoutPage() {
                               : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
                           }`}
                         >
-                          {metodo === 'Efectivo al retirar' ? 'Efectivo al retirar ($)' : metodo}
+                          {metodo}
                         </button>
                       ))}
                     </div>
+                    )}
                   </div>
 
                   {isEfectivo && (

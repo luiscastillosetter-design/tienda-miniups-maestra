@@ -43,6 +43,9 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
   // Foto del color elegido: solo se carga cuando el cliente hace clic (carga bajo demanda)
   const colorImage = pickedColor ? colors.find((c) => c.name === pickedColor)?.image : undefined;
 
+  const divisaNum = Number(product.divisaPrice);
+  const divisaOffer = Number.isFinite(divisaNum) && divisaNum > 0 && divisaNum < Number(product.price) ? divisaNum : null;
+
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
     if (outOfStock) return;
@@ -168,9 +171,9 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
         <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <Price value={product.price} original={product.originalPrice} className="text-base md:text-lg font-black text-slate-900" />
-            {typeof product.divisaPrice === 'number' && product.divisaPrice > 0 && product.divisaPrice < product.price && (
-              <p className="text-[10px] font-bold text-emerald-700 leading-tight mt-0.5">
-                Oferta en Divisas: ${product.divisaPrice.toFixed(2)}
+            {divisaOffer !== null && (
+              <p className="inline-block mt-1 text-[11px] md:text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-0.5 leading-tight">
+                Si pagas en divisas: ${divisaOffer.toFixed(2)}
               </p>
             )}
           </div>
