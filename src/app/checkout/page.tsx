@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useCurrencyStore, convertirPrecio, formatearMonto } from '@/store/currencyStore';
 import { siteConfig } from '@/config/site';
+import { effectiveDivisaPrice } from '@/lib/stockUtils';
 import { isSelfPurchase, SELF_PURCHASE_NOTICE } from '@/lib/affiliateGuard';
 import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
 
@@ -77,6 +78,11 @@ export default function CheckoutPage() {
   const [moneda, setMoneda] = useState<'VES' | 'USD'>('VES');
   const [metodoPago, setMetodoPago] = useState('Pago Móvil');
   const [referencia, setReferencia] = useState('');
+
+  // Efectivo al retirar solo existe con Retiro en Tienda: si cambia a envío, se pasa a otro método válido
+  useEffect(() => {
+    if (!isPickup && metodoPago === 'Efectivo al retirar') setMetodoPago('Zelle');
+  }, [isPickup, metodoPago]);
   const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
 
   // Estados UI y Atribución
@@ -180,9 +186,15 @@ export default function CheckoutPage() {
   };
 
   // Cálculos Financieros Reales sincronizados
-  const subtotalPorItem = (price: number, quantity: number) => price * quantity;
-  const total = items.reduce((acc, item) => acc + subtotalPorItem(item.price, item.quantity), 0);
-  const isFreeShipping = total >= liveSettings.freeShippingThreshold;
+  const isDivisaPago = moneda === 'USD';
+  const unitPrice = (item: { price: number; divisaPrice?: number }) =>
+    isDivisaPago ? effectiveDivisaPrice(item.price, item.divisaPrice) : item.price;
+  const subtotalPorItem = (item: { price: number; divisaPrice?: number }, quantity: number) => unitPrice(item) * quantity;
+  const totalNormal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const total = items.reduce((acc, item) => acc + subtotalPorItem(item, item.quantity), 0);
+  const ahorroDivisa = Math.max(0, totalNormal - total);
+  const isEfectivo = metodoPago === 'Efectivo al retirar';
+  const isFreeShipping = totalNormal >= liveSettings.freeShippingThreshold;
 
   const selfPurchase =
     refCode !== 'DIRECTO' &&
@@ -277,11 +289,15 @@ export default function CheckoutPage() {
       alert('Por favor completa todos los datos personales y de envío.');
       return;
     }
-    if (metodoPago !== 'Efectivo' && !referencia.trim()) {
+    if (metodoPago === 'Efectivo al retirar' && !isPickup) {
+      alert('El pago en efectivo solo está disponible con Retiro en Tienda.');
+      return;
+    }
+    if (metodoPago !== 'Efectivo al retirar' && !referencia.trim()) {
       alert('Debes ingresar el número de referencia de tu pago.');
       return;
     }
-    if (metodoPago !== 'Efectivo' && !comprobantePreview) {
+    if (metodoPago !== 'Efectivo al retirar' && !comprobantePreview) {
       alert('Por favor adjunta la captura o foto del comprobante de pago.');
       return;
     }
@@ -299,9 +315,9 @@ export default function CheckoutPage() {
         : { courier, estado, ciudad, direccion, isFreeShipping },
       payment: {
         method: metodoPago,
-        reference: referencia,
-        hasReceipt: !!comprobantePreview,
-        receiptImage: comprobantePreview,
+        reference: isEfectivo ? '' : referencia,
+        hasReceipt: !isEfectivo && !!comprobantePreview,
+        receiptImage: isEfectivo ? undefined : comprobantePreview,
       },
       // El servidor recalcula precios, total, costo, utilidad y comisión; solo se envían id/cantidad/color.
       items: items.map((i) => ({ id: i.id, quantity: i.quantity, selectedColor: i.selectedColor, selectedSize: i.selectedSize })),
@@ -628,12 +644,17 @@ export default function CheckoutPage() {
                             {siteConfig.currencySymbol}
                             {total.toFixed(2)}
                           </p>
+                          {ahorroDivisa > 0 && (
+                            <p className="text-xs font-bold text-emerald-700 mt-1">
+                              Precio normal {siteConfig.currencySymbol}{totalNormal.toFixed(2)} · Ahorras {siteConfig.currencySymbol}{ahorroDivisa.toFixed(2)} pagando en divisas
+                            </p>
+                          )}
                         </>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      {(moneda === 'VES' ? ['Pago Móvil', 'Transferencia'] : ['Binance Pay', 'Zelle']).map((metodo) => (
+                    <div className={`grid gap-3 ${moneda === 'USD' && isPickup ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                      {(moneda === 'VES' ? ['Pago Móvil', 'Transferencia'] : isPickup ? ['Binance Pay', 'Zelle', 'Efectivo al retirar'] : ['Binance Pay', 'Zelle']).map((metodo) => (
                         <button
                           key={metodo}
                           type="button"
@@ -644,13 +665,24 @@ export default function CheckoutPage() {
                               : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
                           }`}
                         >
-                          {metodo}
+                          {metodo === 'Efectivo al retirar' ? 'Efectivo al retirar ($)' : metodo}
                         </button>
                       ))}
                     </div>
                   </div>
 
+                  {isEfectivo && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-sm text-emerald-900 space-y-1">
+                      <p className="font-black">💵 Pago en efectivo al retirar en tienda</p>
+                      <p className="font-medium">
+                        Pagas en efectivo (divisas) al momento de retirar tu pedido en nuestra tienda física: Centro Comercial Doña Grazia, Av. Los Andes, Piso 1, Local 50, Barinas.
+                        No necesitas subir comprobante ni número de referencia.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Datos Bancarios Copiables */}
+                  {!isEfectivo && (
                   <div className="bg-slate-900 rounded-2xl p-5 text-white relative group">
                     <h3 className="text-xs font-black uppercase text-orange-400 mb-3 tracking-wider">
                       Datos para {metodoPago}
@@ -773,8 +805,10 @@ export default function CheckoutPage() {
                       {copied ? '¡Datos copiados!' : 'Copiar Datos de Pago'}
                     </button>
                   </div>
+                  )}
 
                   {/* Carga de Comprobante */}
+                  {!isEfectivo && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">
@@ -812,8 +846,9 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
+                  )}
 
-                  {comprobantePreview && (
+                  {!isEfectivo && comprobantePreview && (
                     <div className="mt-4 p-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
                       <img src={comprobantePreview} alt="Comprobante" className="h-32 object-contain rounded-xl mb-2" />
                       <p className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1">
@@ -861,7 +896,7 @@ export default function CheckoutPage() {
                       </div>
                       <span className="font-black text-sm text-slate-900 flex-shrink-0">
                         {siteConfig.currencySymbol}
-                        {subtotalPorItem(item.price, item.quantity).toFixed(2)}
+                        {subtotalPorItem(item, item.quantity).toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -893,12 +928,17 @@ export default function CheckoutPage() {
                 )}
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <span className="text-base font-black text-slate-900">Total a Pagar</span>
+                  <span className="text-base font-black text-slate-900">Total a Pagar{isDivisaPago ? ' (Divisas)' : ''}</span>
                   <span className="text-3xl font-black text-orange-500">
                     {siteConfig.currencySymbol}
                     {total.toFixed(2)}
                   </span>
                 </div>
+                {ahorroDivisa > 0 && (
+                  <p className="-mt-2 text-xs font-bold text-emerald-700 text-right">
+                    Ahorro por pago en divisas: {siteConfig.currencySymbol}{ahorroDivisa.toFixed(2)}
+                  </p>
+                )}
                 {tasaBcv && (
                   <div className="-mt-2 bg-orange-50 border border-orange-200 rounded-2xl p-4 text-right">
                     <p className="text-[10px] font-bold text-slate-500 uppercase">

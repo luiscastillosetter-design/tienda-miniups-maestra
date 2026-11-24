@@ -7,6 +7,7 @@ import { rateLimited } from '@/lib/rateLimit';
 import { siteConfig } from '@/config/site';
 import { products as defaultProducts } from '@/data/products';
 import { obtenerTasaBcv } from '@/lib/tasaBcv';
+import { getAvailableStock, isDivisaMethod, effectiveDivisaPrice } from '@/lib/stockUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Datos del pedido incompletos' }, { status: 400 });
     }
 
+    const payMethod = str(o.payment?.method, 50);
+    const isCash = payMethod === 'Efectivo al retirar';
+    if (isCash && !/retiro/i.test(str(o.shipping?.courier, 100))) {
+      return NextResponse.json({ success: false, error: 'El pago en efectivo solo aplica con Retiro en Tienda' }, { status: 400 });
+    }
+    const useDivisa = isDivisaMethod(payMethod);
+
     // ── Recálculo en servidor con los productos reales ──
     const [storedProducts, siteCfg] = await Promise.all([dbService.get('store_products'), dbService.get('store_site_config')]);
     const catalog: any[] = Array.isArray(storedProducts) && storedProducts.length > 0 ? storedProducts : defaultProducts;
@@ -60,7 +68,8 @@ export async function POST(request: NextRequest) {
       if (!product) {
         return NextResponse.json({ success: false, error: 'Un producto del pedido ya no existe' }, { status: 400 });
       }
-      const price = Number(product.price);
+      const normalPrice = Number(product.price);
+      const price = useDivisa ? effectiveDivisaPrice(normalPrice, Number(product.divisaPrice)) : normalPrice;
       if (!Number.isFinite(price) || price <= 0) {
         return NextResponse.json({ success: false, error: 'Producto sin precio válido' }, { status: 400 });
       }
@@ -84,11 +93,8 @@ export async function POST(request: NextRequest) {
     const items = Array.from(lines.values());
     for (const it of items) {
       const prod = byId.get(it.id);
-      // Stock del color elegido (si está definido); si no, el stock general
-      const colorStock = it.selectedColor
-        ? (Array.isArray(prod?.colors) ? prod.colors.find((c: any) => c?.name === it.selectedColor)?.stock : undefined)
-        : undefined;
-      const stock = typeof colorStock === 'number' ? colorStock : Number(prod?.stock);
+      // Stock de (color, talla) -> color -> general
+      const stock = getAvailableStock(prod, it.selectedColor, it.selectedSize);
       if (Number.isFinite(stock) && it.quantity > stock) {
         return NextResponse.json(
           { success: false, error: `Stock insuficiente para "${it.title}" (disponible: ${Math.max(0, stock)})` },
@@ -102,7 +108,10 @@ export async function POST(request: NextRequest) {
       items.reduce((acc, it) => acc + (Number(byId.get(it.id)?.cost) || 0) * it.quantity, 0)
     );
     const threshold = Number((siteCfg as any)?.freeShippingThreshold) || siteConfig.shipping.freeShippingThreshold;
-    const isFreeShipping = total >= threshold;
+    const normalTotal = round2(
+      items.reduce((acc, it) => acc + Number(byId.get(it.id)?.price || it.price) * it.quantity, 0)
+    );
+    const isFreeShipping = normalTotal >= threshold;
     const bcv = await obtenerTasaBcv().catch(() => null);
 
     if (!Number.isFinite(total) || total <= 0) {
@@ -137,10 +146,10 @@ export async function POST(request: NextRequest) {
         isFreeShipping,
       },
       payment: {
-        method: str(o.payment?.method, 50),
-        reference: str(o.payment?.reference, 100),
-        hasReceipt: !!receipt,
-        receiptImage: receipt || undefined,
+        method: payMethod,
+        reference: isCash ? '' : str(o.payment?.reference, 100),
+        hasReceipt: !isCash && !!receipt,
+        receiptImage: isCash ? undefined : receipt || undefined,
       },
       items,
       financials: {

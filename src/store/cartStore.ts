@@ -7,6 +7,7 @@ export type CartItem = {
   price: number;
   image: string;
   quantity: number;
+  divisaPrice?: number;
   stock?: number;
   selectedColor?: string;
   selectedSize?: string;

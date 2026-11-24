@@ -3,6 +3,7 @@ export interface Product {
   title: string;
   price: number;
   originalPrice?: number; // Para mostrar tachado
+  divisaPrice?: number; // Oferta en Divisas ($): precio si paga en Binance/Zelle/Efectivo
   cost: number; // Para calcular la utilidad en el Admin
   stock: number;
   badge?: string;
@@ -27,6 +28,7 @@ export interface ProductColor {
   hex: string;
   image?: string; // Foto asociada a este color (cambia la imagen principal)
   stock?: number; // Piezas de este color. undefined = usa el stock general del producto
+  sizeStock?: Record<string, number>; // Piezas por talla dentro de este color
 }
 // Generador de Placeholder seguro (SVG en base64 con colores de la marca)
 const getPlaceholder = (text: string) => {

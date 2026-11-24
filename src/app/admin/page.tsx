@@ -143,6 +143,7 @@ export default function AdminPage() {
     title: '',
     price: '',
     originalPrice: '',
+    divisaPrice: '',
     cost: '',
     stock: '',
     category: 'Hogar',
@@ -636,6 +637,28 @@ export default function AdminPage() {
     setIsAuthenticated(false);
   };
 
+  // Descuenta (-1) o devuelve (+1) piezas de un color; usa sizeStock[talla] si existe y mantiene stock = suma de tallas
+  const ajustarStockColor = (c: ProductColor, itemsPedido: Order['items'], sign: 1 | -1): ProductColor => {
+    const mine = itemsPedido.filter(it => it.selectedColor === c.name);
+    if (mine.length === 0) return c;
+    let next: ProductColor = { ...c };
+    let sinTalla = 0;
+    if (c.sizeStock) {
+      const ss = { ...c.sizeStock };
+      for (const it of mine) {
+        const sz = it.selectedSize;
+        if (sz && typeof ss[sz] === 'number') ss[sz] = Math.max(0, ss[sz] + sign * it.quantity);
+        else sinTalla += it.quantity;
+      }
+      next.sizeStock = ss;
+      const suma = Object.values(ss).reduce((a, b) => a + (Number(b) || 0), 0);
+      next.stock = typeof c.stock === 'number' && sinTalla > 0 ? Math.max(0, suma + sign * sinTalla) : suma;
+      return next;
+    }
+    const q = mine.reduce((s, it) => s + it.quantity, 0);
+    return typeof c.stock === 'number' && q > 0 ? { ...c, stock: Math.max(0, c.stock + sign * q) } : c;
+  };
+
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
@@ -647,10 +670,7 @@ export default function AdminPage() {
           return {
             ...p,
             stock: Math.max(0, p.stock - total),
-            colors: p.colors?.map(c => {
-              const q = itemsPedido.filter(it => it.selectedColor === c.name).reduce((s, it) => s + it.quantity, 0);
-              return typeof c.stock === 'number' && q > 0 ? { ...c, stock: Math.max(0, c.stock - q) } : c;
-            }),
+            colors: p.colors?.map(c => ajustarStockColor(c, itemsPedido, -1)),
           };
         }
         return p;
@@ -670,10 +690,7 @@ export default function AdminPage() {
           return {
             ...p,
             stock: p.stock + total,
-            colors: p.colors?.map(c => {
-              const q = itemsPedido.filter(it => it.selectedColor === c.name).reduce((s, it) => s + it.quantity, 0);
-              return typeof c.stock === 'number' && q > 0 ? { ...c, stock: c.stock + q } : c;
-            }),
+            colors: p.colors?.map(c => ajustarStockColor(c, itemsPedido, 1)),
           };
         }
         return p;
@@ -829,6 +846,16 @@ export default function AdminPage() {
     const imagesArray = productForm.images.filter(img => img.trim() !== '');
     const sizesArray = Array.from(new Set(productForm.sizes.split(/[,\n]/).map(x => x.trim().slice(0, 30)).filter(Boolean)));
     const demoVideoUrl = productForm.demoVideo.trim();
+    // Solo se conservan las tallas vigentes en la matriz de stock por color; el stock del color = suma de sus tallas
+    const colorsToSave: ProductColor[] = productForm.colors.map(c => {
+      if (!c.sizeStock || sizesArray.length === 0) {
+        const { sizeStock: _omit, ...rest } = c;
+        return rest;
+      }
+      const ss: Record<string, number> = {};
+      sizesArray.forEach(sz => { ss[sz] = Math.max(0, Math.floor(Number(c.sizeStock?.[sz])) || 0); });
+      return { ...c, sizeStock: ss, stock: Object.values(ss).reduce((a, b) => a + b, 0) };
+    });
 
     let updated = [...products];
 
@@ -840,6 +867,7 @@ export default function AdminPage() {
             title: productForm.title,
             price: Number(productForm.price),
             originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
+            divisaPrice: Number(productForm.divisaPrice) > 0 ? Number(productForm.divisaPrice) : undefined,
             cost: Number(productForm.cost) || 0,
             stock: Number(productForm.stock) || 0,
             category: productForm.category,
@@ -852,7 +880,7 @@ export default function AdminPage() {
             adCopy: productForm.adCopy,
             isBestSeller: productForm.isBestSeller,
             images: imagesArray.length > 0 ? imagesArray : p.images,
-            colors: productForm.colors,
+            colors: colorsToSave,
             sizes: sizesArray.length > 0 ? sizesArray : undefined,
             demoVideo: demoVideoUrl || undefined,
           };
@@ -866,6 +894,7 @@ export default function AdminPage() {
         title: productForm.title,
         price: Number(productForm.price),
         originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
+        divisaPrice: Number(productForm.divisaPrice) > 0 ? Number(productForm.divisaPrice) : undefined,
         cost: Number(productForm.cost) || 0,
         stock: Number(productForm.stock) || 0,
         category: productForm.category,
@@ -878,7 +907,7 @@ export default function AdminPage() {
         adCopy: productForm.adCopy,
         isBestSeller: productForm.isBestSeller,
         images: imagesArray.length > 0 ? imagesArray : ['/logo-todomax.png'],
-        colors: productForm.colors,
+        colors: colorsToSave,
         sizes: sizesArray.length > 0 ? sizesArray : undefined,
         demoVideo: demoVideoUrl || undefined,
         paymentMethods: ['Pago Móvil', 'Zelle', 'Binance Pay'],
@@ -893,11 +922,13 @@ export default function AdminPage() {
     setEditingProductId(null);
     setColorGalleryFor(null);
     setProductForm({
-      title: '', price: '', originalPrice: '', cost: '', stock: '',
+      title: '', price: '', originalPrice: '', divisaPrice: '', cost: '', stock: '',
       category: 'Hogar', affiliateCommission: '10', description: '',
       features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [], sizes: '', demoVideo: '',
     });
   };
+
+  const formSizes = Array.from(new Set(productForm.sizes.split(/[,\n]/).map(x => x.trim().slice(0, 30)).filter(Boolean)));
 
   const handleEditProduct = (p: Product) => {
     setEditingProductId(p.id);
@@ -908,6 +939,7 @@ export default function AdminPage() {
       title: p.title,
       price: String(p.price),
       originalPrice: p.originalPrice ? String(p.originalPrice) : '',
+      divisaPrice: p.divisaPrice ? String(p.divisaPrice) : '',
       cost: String(p.cost || 0),
       stock: String(p.stock || 0),
       category: p.category,
@@ -1732,6 +1764,12 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {!selectedOrder.payment?.receiptImage && selectedOrder.payment?.method === 'Efectivo al retirar' && (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 text-xs font-black text-center">
+                      💵 Pago en efectivo al retirar en tienda
+                    </div>
+                  )}
+
                   {selectedOrder.payment?.receiptImage && (
                     <div>
                       <h4 className="text-xs font-black uppercase text-slate-500 mb-2">Comprobante de Pago Adjunto</h4>
@@ -1883,6 +1921,18 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">Oferta en Divisas ($)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="Opcional"
+                      value={productForm.divisaPrice}
+                      onChange={e => setProductForm({ ...productForm, divisaPrice: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div>
                     <label className="block font-bold text-slate-500 uppercase mb-1">Costo ($)</label>
                     <input
                       type="number"
@@ -2021,7 +2071,9 @@ export default function AdminPage() {
                                 aria-label={`Cantidad / Stock de ${c.name}`}
                                 title="Cantidad / Stock"
                                 value={typeof c.stock === 'number' ? c.stock : ''}
+                                readOnly={formSizes.length > 0 && !!c.sizeStock}
                                 onChange={(e) => {
+                                  if (formSizes.length > 0 && c.sizeStock) return;
                                   const raw = e.target.value;
                                   const n = raw === '' ? undefined : Math.max(0, Math.floor(Number(raw)) || 0);
                                   setProductForm(prev => ({
@@ -2070,6 +2122,42 @@ export default function AdminPage() {
                                 ×
                               </button>
                             </div>
+                            {formSizes.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-slate-200">
+                                <p className="font-bold text-slate-500 uppercase text-[10px] mb-1">
+                                  Stock por talla · Total {c.name}: {formSizes.reduce((acc, sz) => acc + (Number(c.sizeStock?.[sz]) || 0), 0)} piezas
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {formSizes.map(sz => (
+                                    <label key={sz} className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-1">
+                                      <span className="font-black text-slate-700 text-[11px]">{sz}</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        inputMode="numeric"
+                                        aria-label={`Stock de ${c.name} talla ${sz}`}
+                                        value={typeof c.sizeStock?.[sz] === 'number' ? c.sizeStock[sz] : ''}
+                                        placeholder="0"
+                                        onChange={(e) => {
+                                          const n = Math.max(0, Math.floor(Number(e.target.value)) || 0);
+                                          setProductForm(prev => ({
+                                            ...prev,
+                                            colors: prev.colors.map(x => {
+                                              if (x.name !== c.name) return x;
+                                              const ss: Record<string, number> = {};
+                                              formSizes.forEach(z => { ss[z] = z === sz ? n : Math.max(0, Number(x.sizeStock?.[z]) || 0); });
+                                              return { ...x, sizeStock: ss, stock: Object.values(ss).reduce((t, v) => t + v, 0) };
+                                            }),
+                                          }));
+                                        }}
+                                        className="w-14 px-1 py-0.5 border border-slate-300 rounded text-center font-bold text-slate-700 focus:outline-none focus:border-orange-500"
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             {colorGalleryFor === c.name && (
                               <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
                                 {gallery.map(g => (
@@ -2190,7 +2278,7 @@ export default function AdminPage() {
                         setEditingProductId(null);
                         setColorGalleryFor(null);
                         setProductForm({
-                          title: '', price: '', originalPrice: '', cost: '', stock: '',
+                          title: '', price: '', originalPrice: '', divisaPrice: '', cost: '', stock: '',
                           category: 'Hogar', affiliateCommission: '10', description: '',
                           features: '', benefits: '', badge: '', adCopy: '', driveUrl: '', isBestSeller: false, images: ['', '', '', ''], colors: [], sizes: '', demoVideo: '',
                         });

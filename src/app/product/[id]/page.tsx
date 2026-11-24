@@ -14,6 +14,7 @@ import { siteConfig } from '@/config/site';
 import { useCartStore } from '@/store/cartStore';
 import { getVideoEmbedUrl, isDirectVideoUrl } from '@/lib/videoEmbed';
 import Price from '@/components/Price';
+import { getAvailableStock, sizeStockOf } from '@/lib/stockUtils';
 
 export default function ProductPage() {
   const params = useParams();
@@ -78,8 +79,9 @@ export default function ProductPage() {
     productColors.find(c => c.name === pickedColor) ||
     productColors.find(c => c.stock !== 0) ||
     productColors[0];
-  const hasColorStock = typeof activeColor?.stock === 'number';
-  const availableStock = hasColorStock ? (activeColor!.stock as number) : product.stock;
+  const effectiveSize = pickedSize && sizeStockOf(activeColor, pickedSize) !== 0 ? pickedSize : null;
+  const hasColorStock = typeof activeColor?.stock === 'number' || sizeStockOf(activeColor, effectiveSize) !== undefined;
+  const availableStock = getAvailableStock(product, activeColor?.name, effectiveSize);
   const qty = Math.max(1, Math.min(quantity, availableStock));
   // La foto del color solo se carga al hacer clic en el color (bajo demanda)
   const colorPhoto = colorPhotoOn && pickedColor ? productColors.find(c => c.name === pickedColor)?.image : undefined;
@@ -88,7 +90,7 @@ export default function ProductPage() {
   const isOutOfStock = availableStock <= 0;
   const embedUrl = getVideoEmbedUrl(product.demoVideo);
   const directDemo = isDirectVideoUrl(product.demoVideo) ? product.demoVideo : undefined;
-  const sizeMissing = productSizes.length > 0 && !pickedSize;
+  const sizeMissing = productSizes.length > 0 && !effectiveSize;
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 2) {
@@ -109,7 +111,8 @@ export default function ProductPage() {
         image: firstImageForCart,
         stock: availableStock,
         selectedColor: activeColor?.name,
-        selectedSize: pickedSize || undefined,
+        selectedSize: effectiveSize || undefined,
+        divisaPrice: product.divisaPrice,
       },
       qty
     );
@@ -127,7 +130,8 @@ export default function ProductPage() {
         image: firstImageForCart,
         stock: availableStock,
         selectedColor: activeColor?.name,
-        selectedSize: pickedSize || undefined,
+        selectedSize: effectiveSize || undefined,
+        divisaPrice: product.divisaPrice,
       },
       qty
     );
@@ -268,6 +272,12 @@ export default function ProductPage() {
                   )}
                 </div>
 
+                {typeof product.divisaPrice === 'number' && product.divisaPrice > 0 && product.divisaPrice < product.price && (
+                  <p className="text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 inline-block">
+                    Oferta en Divisas: {siteConfig.currencySymbol}{product.divisaPrice.toFixed(2)}
+                  </p>
+                )}
+
                 <p className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
                   <Truck className="w-4 h-4 text-emerald-600" />
                   {product.price * qty >= siteConfig.shipping.freeShippingThreshold
@@ -361,24 +371,31 @@ export default function ProductPage() {
               )}
               {productSizes.length > 0 && (
                 <div className="space-y-2">
-                  <p className={`text-xs font-bold ${needSize && !pickedSize ? 'text-red-600' : 'text-slate-700'}`}>
-                    Talla: {pickedSize || (needSize ? 'elige una talla' : '—')}
+                  <p className={`text-xs font-bold ${needSize && !effectiveSize ? 'text-red-600' : 'text-slate-700'}`}>
+                    Talla: {effectiveSize || (needSize ? 'elige una talla' : '—')}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {productSizes.map(s => (
+                    {productSizes.map(s => {
+                      const soldOutSize = sizeStockOf(activeColor, s) === 0;
+                      return (
                       <button
                         key={s}
                         type="button"
+                        disabled={soldOutSize}
+                        title={soldOutSize ? `${s} (Agotada)` : s}
                         onClick={() => { setPickedSize(s); setNeedSize(false); }}
                         className={`min-w-[44px] h-10 px-3 rounded-xl border-2 text-sm font-bold cursor-pointer transition-all ${
-                          pickedSize === s
+                          soldOutSize
+                            ? 'opacity-40 line-through border-slate-200 text-slate-400 cursor-not-allowed'
+                            : effectiveSize === s
                             ? 'bg-slate-900 text-white border-slate-900'
                             : needSize ? 'border-red-300 text-slate-700' : 'border-slate-300 text-slate-700 hover:border-slate-500'
                         }`}
                       >
                         {s}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

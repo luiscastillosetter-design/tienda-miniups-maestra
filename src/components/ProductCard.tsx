@@ -8,6 +8,7 @@ import { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
 import ProductCover from '@/components/ProductCover';
 import Price from '@/components/Price';
+import { getAvailableStock, sizeStockOf } from '@/lib/stockUtils';
 
 const isVideo = (url?: string) => {
   if (!url) return false;
@@ -34,8 +35,10 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
 
   // Sin selección: primer color con piezas (stock indefinido cuenta como disponible)
   const activeColor = colors.find((c) => c.name === pickedColor) || colors.find((c) => c.stock !== 0) || colors[0];
-  const hasColorStock = typeof activeColor?.stock === 'number';
-  const availableStock = hasColorStock ? (activeColor!.stock as number) : product.stock;
+  // Talla elegida válida (si quedó agotada en el color actual, se ignora)
+  const effectiveSize = pickedSize && sizeStockOf(activeColor, pickedSize) !== 0 ? pickedSize : null;
+  const hasColorStock = typeof activeColor?.stock === 'number' || sizeStockOf(activeColor, effectiveSize) !== undefined;
+  const availableStock = getAvailableStock(product, activeColor?.name, effectiveSize);
   const outOfStock = availableStock <= 0;
   // Foto del color elegido: solo se carga cuando el cliente hace clic (carga bajo demanda)
   const colorImage = pickedColor ? colors.find((c) => c.name === pickedColor)?.image : undefined;
@@ -43,7 +46,7 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
     if (outOfStock) return;
-    if (sizes.length > 0 && !pickedSize) {
+    if (sizes.length > 0 && !effectiveSize) {
       setNeedSize(true);
       return;
     }
@@ -56,7 +59,8 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
         image: colorImage || activeColor?.image || firstValidImg,
         stock: availableStock,
         selectedColor: activeColor?.name,
-        selectedSize: sizes.length > 0 ? pickedSize || undefined : undefined,
+        selectedSize: sizes.length > 0 ? effectiveSize || undefined : undefined,
+        divisaPrice: product.divisaPrice,
       },
       1
     );
@@ -130,16 +134,22 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
               aria-label="Tallas"
               className="flex gap-1 mt-2 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-0.5"
             >
-              {sizes.map((s) => (
+              {sizes.map((s) => {
+                const soldOutSize = sizeStockOf(activeColor, s) === 0;
+                return (
                 <button
                   key={s}
                   type="button"
+                  disabled={soldOutSize}
+                  title={soldOutSize ? `${s} (Agotada)` : s}
                   onClick={() => {
                     setPickedSize((prev) => (prev === s ? null : s));
                     setNeedSize(false);
                   }}
                   className={`shrink-0 min-w-[28px] px-1.5 h-6 rounded-md border text-[10px] font-bold cursor-pointer transition-colors ${
-                    pickedSize === s
+                    soldOutSize
+                      ? 'opacity-40 line-through border-slate-200 text-slate-400 cursor-not-allowed'
+                      : effectiveSize === s
                       ? 'bg-slate-900 text-white border-slate-900'
                       : needSize
                         ? 'border-red-400 text-red-600 bg-red-50'
@@ -148,14 +158,22 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
                 >
                   {s}
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
           {needSize && <p className="text-[10px] font-bold text-red-600 mt-1">Elige una talla</p>}
         </div>
 
         <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
-          <Price value={product.price} original={product.originalPrice} className="text-base md:text-lg font-black text-slate-900" />
+          <div className="min-w-0">
+            <Price value={product.price} original={product.originalPrice} className="text-base md:text-lg font-black text-slate-900" />
+            {typeof product.divisaPrice === 'number' && product.divisaPrice > 0 && product.divisaPrice < product.price && (
+              <p className="text-[10px] font-bold text-emerald-700 leading-tight mt-0.5">
+                Oferta en Divisas: ${product.divisaPrice.toFixed(2)}
+              </p>
+            )}
+          </div>
           {buyStyle === 'text' ? (
             <button
               onClick={handleBuyNow}
