@@ -111,9 +111,37 @@ function CatalogoContent() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  const filteredProducts = selectedCategory === 'Todos'
-    ? products
-    : products.filter((p) => normalizeCatName(p.category) === normalizeCatName(selectedCategory));
+  const byName = (a: Product, b: Product) =>
+    String(a.title || '').localeCompare(String(b.title || ''), 'es', { sensitivity: 'base' });
+
+  const filteredProducts = (() => {
+    if (selectedCategory !== 'Todos') {
+      return products
+        .filter((p) => normalizeCatName(p.category) === normalizeCatName(selectedCategory))
+        .sort(byName);
+    }
+    const groups = new Map<string, Product[]>();
+    products.forEach((p) => {
+      const key = p.category || 'Sin categoría';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(p);
+    });
+    const queues = Array.from(groups.keys())
+      .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+      .map((k) => groups.get(k)!.slice().sort(byName));
+    const result: Product[] = [];
+    let remaining = true;
+    while (remaining) {
+      remaining = false;
+      for (const q of queues) {
+        if (q.length > 0) {
+          result.push(...q.splice(0, 2));
+          if (q.length > 0) remaining = true;
+        }
+      }
+    }
+    return result;
+  })();
 
   return (
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-28">

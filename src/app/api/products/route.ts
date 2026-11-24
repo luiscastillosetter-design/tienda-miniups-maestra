@@ -37,7 +37,26 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(body)) {
       return NextResponse.json({ success: false, error: 'Formato inválido' }, { status: 400 });
     }
-    const saved = await dbService.set('store_products', body);
+    // Protección: si el cliente envía un producto sin la clave driveUrl (estado admin desactualizado),
+    // se conserva el valor ya guardado. Para borrarlo el admin envía driveUrl: ''.
+    let toSave = body;
+    try {
+      const existing: any = await dbService.get('store_products');
+      if (Array.isArray(existing)) {
+        const prevDrive = new Map<string, string>();
+        existing.forEach((p: any) => {
+          if (p && p.id != null && typeof p.driveUrl === 'string' && p.driveUrl.trim()) {
+            prevDrive.set(String(p.id), p.driveUrl);
+          }
+        });
+        toSave = body.map((p: any) =>
+          p && typeof p === 'object' && !('driveUrl' in p) && prevDrive.has(String(p.id))
+            ? { ...p, driveUrl: prevDrive.get(String(p.id)) }
+            : p
+        );
+      }
+    } catch (_) {}
+    const saved = await dbService.set('store_products', toSave);
     if (!saved) {
       return NextResponse.json(
         { success: false, error: 'No se pudo guardar en la base de datos' },

@@ -49,7 +49,16 @@ export default function AfiliadosPage() {
     }
 
     const init = async () => {
-      const prods = await productService.getProducts();
+      let prods: Product[] = [];
+      try {
+        // Datos frescos desde Supabase (sin caché de navegador/CDN ni respaldo local sin driveUrl)
+        const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) prods = data;
+        }
+      } catch (_) {}
+      if (prods.length === 0) prods = await productService.getProducts();
       if (Array.isArray(prods) && prods.length > 0) {
         setLiveProducts(prods);
       }
@@ -449,7 +458,7 @@ export default function AfiliadosPage() {
 
                         {product.driveUrl ? (
                           <a
-                            href={product.driveUrl}
+                            href={/^https?:\/\//i.test(product.driveUrl.trim()) ? product.driveUrl.trim() : `https://${product.driveUrl.trim().replace(/^\/+/, '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full flex items-center justify-center gap-2 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-xs font-black py-2.5 rounded-xl shadow-sm transition-all cursor-pointer"

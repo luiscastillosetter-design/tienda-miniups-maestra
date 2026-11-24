@@ -844,7 +844,7 @@ export default function AdminPage() {
             stock: Number(productForm.stock) || 0,
             category: productForm.category,
             affiliateCommission: 10,
-            driveUrl: productForm.driveUrl.trim() || undefined,
+            driveUrl: productForm.driveUrl.trim(),
             description: productForm.description,
             features: featuresArray,
             benefits: benefitsArray,

@@ -74,6 +74,7 @@ export default function CheckoutPage() {
   const [direccion, setDireccion] = useState('');
   const isPickup = /retiro/i.test(courier);
 
+  const [moneda, setMoneda] = useState<'VES' | 'USD'>('VES');
   const [metodoPago, setMetodoPago] = useState('Pago Móvil');
   const [referencia, setReferencia] = useState('');
   const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
@@ -212,7 +213,8 @@ export default function CheckoutPage() {
   // key: 'cedula' | 'telefono' -> solo dígitos; 'monto' -> tal cual (ya limpio); otros -> texto sin espacios extra
   const handleCopyField = (key: string, value: string) => {
     let text = String(value || '').trim();
-    if (key === 'cedula' || key === 'telefono' || key.endsWith('-digits')) text = text.replace(/\D/g, '');
+    if (key === 'telefono') text = text.replace(/\D/g, '').slice(-7); // solo los últimos 7 dígitos (sin 58 ni operadora)
+    else if (key === 'cedula' || key.endsWith('-digits')) text = text.replace(/\D/g, '');
     else if (key !== 'monto') text = text.replace(/\s+/g, ' ');
     if (!text) return;
     // Se invoca sincrónicamente dentro del evento de clic (requisito de iOS/Safari)
@@ -220,6 +222,30 @@ export default function CheckoutPage() {
     setCopiedField(key);
     setTimeout(() => setCopiedField((prev) => (prev === key ? null : prev)), 2000);
   };
+
+  const renderCopyRow = (key: string, label: string, value: string) => (
+    <p key={key} className="flex items-center gap-2 flex-wrap">
+      <span>
+        <span className="text-slate-400">{label}:</span> {value}
+      </span>
+      <button
+        type="button"
+        onClick={() => handleCopyField(key, value)}
+        aria-label={`Copiar ${label}`}
+        title={copiedField === key ? '¡Copiado!' : `Copiar ${label}`}
+        className="inline-flex items-center justify-center gap-1 p-1.5 rounded-lg bg-white/10 hover:bg-orange-500/25 text-slate-300 hover:text-white transition-colors cursor-pointer active:scale-90"
+      >
+        {copiedField === key ? (
+          <>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[10px] font-bold text-emerald-400">¡Copiado!</span>
+          </>
+        ) : (
+          <Copy className="w-3.5 h-3.5" />
+        )}
+      </button>
+    </p>
+  );
 
   const handleImageUpload =(e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -548,8 +574,66 @@ export default function CheckoutPage() {
                     <label className="block text-[11px] font-bold text-slate-500 uppercase mb-2">
                       Selecciona cómo deseas pagar
                     </label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {['Pago Móvil', 'Transferencia', 'Zelle', 'Binance Pay'].map((metodo) => (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      {([['VES', 'Bolívares (Bs.)'], ['USD', 'Divisas ($)']] as const).map(([code, label]) => (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => {
+                            setMoneda(code);
+                            setMetodoPago(code === 'VES' ? 'Pago Móvil' : 'Zelle');
+                          }}
+                          className={`p-4 rounded-2xl border text-sm font-black transition-all cursor-pointer ${
+                            moneda === code
+                              ? 'bg-slate-900 border-slate-900 text-white shadow-md'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4 text-center">
+                      {moneda === 'VES' ? (
+                        tasaBcv ? (
+                          <>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase">Total a pagar en Bolívares</p>
+                            <p className="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+                              Bs. {formatearMonto(convertirPrecio(total, 'VES', tasaBcv), 'VES')}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyField('monto', convertirPrecio(total, 'VES', tasaBcv).toFixed(2))}
+                              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-orange-500 text-white text-xs font-bold transition-colors cursor-pointer active:scale-95"
+                            >
+                              {copiedField === 'monto' ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> ¡Copiado!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-4 h-4" /> Copiar monto
+                                </>
+                              )}
+                            </button>
+                          </>
+                        ) : (
+                          <p className="text-xs font-bold text-slate-500">Cargando tasa BCV…</p>
+                        )
+                      ) : (
+                        <>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase">Total a pagar en Divisas</p>
+                          <p className="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+                            {siteConfig.currencySymbol}
+                            {total.toFixed(2)}
+                          </p>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {(moneda === 'VES' ? ['Pago Móvil', 'Transferencia'] : ['Binance Pay', 'Zelle']).map((metodo) => (
                         <button
                           key={metodo}
                           type="button"
@@ -660,40 +744,22 @@ export default function CheckoutPage() {
                       )}
                       {metodoPago === 'Transferencia' && (
                         <>
-                          <p>
-                            <span className="text-slate-400">Banco:</span> {liveSettings.transferencia.banco}
-                          </p>
-                          <p>
-                            <span className="text-slate-400">Cuenta:</span> {liveSettings.transferencia.cuenta}
-                          </p>
-                          <p>
-                            <span className="text-slate-400">Titular:</span> {liveSettings.transferencia.titular}
-                          </p>
-                          <p>
-                            <span className="text-slate-400">RIF:</span> {liveSettings.transferencia.rif}
-                          </p>
+                          {renderCopyRow('banco-t', 'Banco', liveSettings.transferencia.banco)}
+                          {renderCopyRow('cuenta-digits', 'Cuenta', liveSettings.transferencia.cuenta)}
+                          {renderCopyRow('titular-t', 'Titular', liveSettings.transferencia.titular)}
+                          {renderCopyRow('rif-t', 'RIF', liveSettings.transferencia.rif)}
                         </>
                       )}
                       {metodoPago === 'Zelle' && (
                         <>
-                          <p>
-                            <span className="text-slate-400">Correo:</span> {liveSettings.zelle.email}
-                          </p>
-                          <p>
-                            <span className="text-slate-400">Titular:</span> {liveSettings.zelle.titular}
-                          </p>
+                          {renderCopyRow('zelle-email', 'Correo', liveSettings.zelle.email)}
+                          {renderCopyRow('zelle-titular', 'Titular', liveSettings.zelle.titular)}
                         </>
                       )}
                       {metodoPago === 'Binance Pay' && (
                         <>
-                          <p>
-                            <span className="text-slate-400">Pay ID:</span> {liveSettings.binance.payId}
-                          </p>
-                          {liveSettings.binance.email && (
-                            <p>
-                              <span className="text-slate-400">Correo Binance:</span> {liveSettings.binance.email}
-                            </p>
-                          )}
+                          {renderCopyRow('binance-id', 'Pay ID', liveSettings.binance.payId)}
+                          {liveSettings.binance.email && renderCopyRow('binance-email', 'Correo Binance', liveSettings.binance.email)}
                         </>
                       )}
                     </div>
