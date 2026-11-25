@@ -99,6 +99,12 @@ export default function CheckoutPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
+  const [confirmedSummary, setConfirmedSummary] = useState<{
+    items: { title: string; quantity: number; selectedColor?: string; selectedSize?: string; price: number }[];
+    metodoPago: string;
+    total: number;
+    totalBs: number | null;
+  } | null>(null);
 
   useEffect(() => {
     // Cargar configuración de tienda en vivo desde Redis
@@ -366,6 +372,28 @@ export default function CheckoutPage() {
       (window as any).fbq('track', 'Purchase', { value: serverSummary?.total ?? total, currency: 'USD' });
     }
 
+    // Snapshot ligero para la pantalla de confirmación (antes de vaciar el carrito)
+    {
+      const snapItems = (serverSummary?.items ?? items.map((i) => ({ ...i, price: unitPrice(i) }))) as any[];
+      const snapTotal = Number(serverSummary?.total ?? total) || 0;
+      const esBs = /pago m[oó]vil|transferencia/i.test(metodoPago);
+      const snapBs = esBs
+        ? Number(serverSummary?.totalBs) || (tasaBcv ? convertirPrecio(snapTotal, 'VES', tasaBcv) : null)
+        : null;
+      setConfirmedSummary({
+        items: snapItems.map((i) => ({
+          title: String(i.title ?? ''),
+          quantity: Number(i.quantity) || 1,
+          selectedColor: i.selectedColor || undefined,
+          selectedSize: i.selectedSize || undefined,
+          price: Number(i.price) || 0,
+        })),
+        metodoPago,
+        total: snapTotal,
+        totalBs: snapBs,
+      });
+    }
+
     clearCart();
     setConfirmedOrderId(finalOrderId);
     setIsProcessing(false);
@@ -374,17 +402,68 @@ export default function CheckoutPage() {
 
   if (confirmedOrderId) {
     const adminNum = siteConfig.whatsapp.number.replace(/\D/g, '');
-    const adminUrl = `https://wa.me/${adminNum}?text=${encodeURIComponent(`Hola, tengo una consulta sobre mi pedido ${confirmedOrderId}`)}`;
+    const cs = confirmedSummary;
+    const esEfectivoConf = cs?.metodoPago === 'Efectivo al retirar';
+    const lineaItem = (i: { title: string; quantity: number; selectedColor?: string; selectedSize?: string }) => {
+      const det = [i.selectedColor ? `Color: ${i.selectedColor}` : '', i.selectedSize ? `Talla: ${i.selectedSize}` : '']
+        .filter(Boolean)
+        .join(', ');
+      return `${i.quantity}x ${i.title}${det ? ` (${det})` : ''}`;
+    };
+    const waTexto = cs
+      ? `Hola, acabo de registrar el pedido #${confirmedOrderId}:\n${cs.items.map((i) => `- ${lineaItem(i)}`).join('\n')}\nMétodo: ${cs.metodoPago} | Total: $${cs.total.toFixed(2)}${cs.totalBs ? ` (Bs. ${formatearMonto(cs.totalBs, 'VES')})` : ''}\n${esEfectivoConf ? 'Pagaré en efectivo al retirar en tienda.' : 'Quedo atento a la verificación de mi pago.'}`
+      : `Hola, tengo una consulta sobre mi pedido ${confirmedOrderId}`;
+    const adminUrl = `https://wa.me/${adminNum}?text=${encodeURIComponent(waTexto)}`;
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 pt-24">
         <div className="bg-white rounded-3xl p-10 md:p-12 text-center shadow-xl border border-gray-100 max-w-2xl w-full">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 mb-3">¡Pedido #{confirmedOrderId} confirmado!</h2>
-          <p className="text-slate-600 font-medium leading-relaxed mb-8">
-            Te enviamos los detalles automáticamente a tu WhatsApp.
-          </p>
+          <h2 className="text-3xl font-black text-slate-900 mb-3">¡Pedido #{confirmedOrderId} recibido!</h2>
+          {esEfectivoConf ? (
+            <>
+              <span className="inline-block px-4 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-black uppercase mb-3">
+                Pago en efectivo al retirar en tienda
+              </span>
+              <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                Tu pedido fue registrado. El pago se realiza en efectivo al momento de retirarlo en la tienda.
+              </p>
+            </>
+          ) : (
+            <>
+              <span className="inline-block px-4 py-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-black uppercase mb-3">
+                Pago pendiente de verificación
+              </span>
+              <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                Recibimos tu solicitud y comprobante. Nuestro equipo verificará que el monto coincida con la factura y te notificará por WhatsApp cuando tu pago sea aprobado.
+              </p>
+            </>
+          )}
+          {cs && cs.items.length > 0 && (
+            <div className="text-left bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-8 text-sm">
+              <p className="text-[11px] font-black uppercase text-slate-500 mb-2">Productos de tu pedido</p>
+              <ul className="space-y-1.5">
+                {cs.items.map((i, idx) => (
+                  <li key={idx} className="text-slate-700 font-medium break-words">
+                    <span className="font-black text-orange-600">{i.quantity}x</span> {i.title}
+                    {(i.selectedColor || i.selectedSize) && (
+                      <span className="text-slate-500">
+                        {' '}({[i.selectedColor ? `Color: ${i.selectedColor}` : '', i.selectedSize ? `Talla: ${i.selectedSize}` : ''].filter(Boolean).join(', ')})
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between font-black text-slate-900">
+                <span>Total</span>
+                <span className="text-right">
+                  ${cs.total.toFixed(2)}
+                  {cs.totalBs ? <span className="block text-xs text-slate-600">Bs. {formatearMonto(cs.totalBs, 'VES')}</span> : null}
+                </span>
+              </div>
+            </div>
+          )}
           <Link
             href="/catalogo"
             className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1"
