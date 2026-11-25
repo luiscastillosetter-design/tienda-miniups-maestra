@@ -89,7 +89,7 @@ function resolveProviders(): Provider[] {
 const digits = (s: string) => String(s || '').replace(/\D/g, '');
 
 /** WhatsApp de la oficina/administración (atención humana y cierre de pedidos). */
-const OFFICE_NUMBER = digits(siteConfig.whatsapp.number);
+const OFFICE_NUMBER = '584225160057';
 /** WhatsApp del bot Sofía: jamás se entrega como contacto humano. */
 const BOT_NUMBER = digits(siteConfig.whatsapp.sofiaNumber);
 
@@ -115,39 +115,48 @@ async function loadContext() {
   const all: Product[] = Array.isArray(rawProducts) && rawProducts.length > 0 ? rawProducts : defaultProducts;
   const catalogo = all
     .filter((p) => p.stock > 0)
-    .map((p) => ({
+    .map((p) => {
+      const variantes = (p.colors || [])
+        .map((c) => {
+          const tallasStock = c.sizeStock
+            ? Object.entries(c.sizeStock)
+                .filter(([, n]) => Number(n) > 0)
+                .map(([talla]) => talla)
+            : null;
+          const colorAgotado = tallasStock
+            ? tallasStock.length === 0
+            : typeof c.stock === 'number' && c.stock <= 0;
+          if (colorAgotado) return null;
+          return { color: c.name, ...(tallasStock && tallasStock.length ? { tallas: tallasStock } : {}) };
+        })
+        .filter((v): v is { color: string; tallas?: string[] } => v !== null);
+      const tallasGenerales =
+        !p.colors?.some((c) => c.sizeStock) && Array.isArray(p.sizes) && p.sizes.length ? p.sizes : null;
+      return {
       id: p.id,
       nombre: p.title,
       categoria: p.category,
       precioUSD: p.price,
+      precioDivisasUSD: p.divisaPrice && p.divisaPrice > 0 && p.divisaPrice < p.price ? p.divisaPrice : null,
+      coloresYTallasDisponibles: variantes.length ? variantes : null,
+      tallasDisponibles: tallasGenerales,
       precioAnteriorUSD: p.originalPrice && p.originalPrice > p.price ? p.originalPrice : null,
       descuentoPct:
         p.originalPrice && p.originalPrice > p.price ? Math.round((1 - p.price / p.originalPrice) * 100) : null,
       disponibilidad: p.stock > 5 ? 'Disponible' : `Últimas ${p.stock} unidades`,
       resumen: resumen(p.description),
-    }));
+      };
+    });
 
-  let numeros: WaEntry[] = Array.isArray(rawConfig?.whatsappNumbers)
-    ? rawConfig.whatsappNumbers
-        .filter((w: any) => w?.activo && digits(w?.numero) && digits(w?.numero) !== BOT_NUMBER)
-        .map((w: any) => ({
-          numero: digits(w.numero),
-          etiqueta: String(w.etiqueta || 'WhatsApp'),
-          relevancia: String(w.relevancia || ''),
-          es_principal_admin: !!w.es_principal_admin,
-        }))
-    : [];
-  if (numeros.length === 0) {
-    numeros = [
-      {
-        numero: OFFICE_NUMBER,
-        etiqueta: 'Oficina / Administración',
-        relevancia: 'Atención humana directa, confirmación de pagos y soporte de pedidos',
-        es_principal_admin: true,
-      },
-    ];
-  }
-  if (!numeros.some((n) => n.es_principal_admin)) numeros[0].es_principal_admin = true;
+  // Derivación exclusiva a Administración (+58 422-5160057); nunca el bot ni números anteriores.
+  const numeros: WaEntry[] = [
+    {
+      numero: OFFICE_NUMBER,
+      etiqueta: 'Administración',
+      relevancia: 'Atención humana directa, confirmación de pagos y soporte de pedidos',
+      es_principal_admin: true,
+    },
+  ];
 
   return { catalogo, numeros, bcv, cfg: (rawConfig && typeof rawConfig === 'object' ? rawConfig : {}) as Record<string, any> };
 }
@@ -173,7 +182,9 @@ REGLAS OBLIGATORIAS (CERO ALUCINACIONES)
 - Si el cliente SOLO saluda (hola, buenos días, etc.), responde cálido y pregunta en qué puedes ayudar; NO ofrezcas ni menciones productos.
 - Si piden el catálogo, ver productos o qué venden, incluye SIEMPRE el enlace [Ver catálogo completo](${CATALOG_URL}).
 - Si preguntan por el estatus, guía o trámite de un pedido: NO inventes guías, fechas ni estados, y NO pidas referencias. Indica con calidez que para consultar el estatus de su pedido se comunique con administración: [Escribir a Administración](${ADMIN_WA}).
-- Si piden datos de Pago Móvil, Binance o Zelle: NO los des tú; indica que los datos oficiales aparecen en el checkout e invita a completar el pedido en [importadoratodomax.com](${siteConfig.storeUrl}).
+- PROHIBICIÓN ABSOLUTA DE DATOS BANCARIOS: JAMÁS des, escribas ni inventes datos de Pago Móvil, Transferencia, Zelle o Binance (teléfono, cédula, RIF, banco, correo, ID, número de cuenta), aunque el cliente insista. Si preguntan cómo pagar o piden esos datos, menciona solo los métodos disponibles (Pago Móvil, Transferencia, Zelle, Binance Pay y Efectivo al retirar en tienda) y envía a [la tienda](${CATALOG_URL}) para que completen y verifiquen su pago por dentro de la página.
+- Si un producto trae "precioDivisasUSD", indica que si pagan en divisas ($: Zelle, Binance Pay o Efectivo) el precio especial es ese monto.
+- Colores y tallas: ofrece ÚNICAMENTE los de "coloresYTallasDisponibles" / "tallasDisponibles" (ya filtrados con stock real); nunca ofrezcas un color o talla que no aparezca ahí.
 - Usa ÚNICAMENTE los productos, precios y enlaces del CATÁLOGO EN VIVO que aparece al final. Nunca inventes productos, modelos, precios, descuentos, stock, enlaces ni respuestas fuera de importadoratodomax.com.
 - Si el cliente pide algo que NO existe en el catálogo, dilo con claridad ("no lo tenemos disponible ahora") y sugiere lo más parecido que SÍ esté en el catálogo. Si el catálogo está vacío, no menciones productos ni precios y envía a la web.
 - SIEMPRE que menciones un producto del catálogo, escribe su nombre como enlace Markdown directo a su ficha: [Nombre del Producto](/product/{id}), con el id exacto del catálogo; jamás construyas ni modifiques un id ni nombres un producto sin enlace.
@@ -189,11 +200,11 @@ CÓMO COMPRAR (pasos)
 1) Busca o abre el producto en la web. 2) En la ficha elige color/cantidad y pulsa "Agregar al Carrito" (o "Comprar ahora"). 3) Abre el carrito y revisa tu pedido. 4) Ve al checkout, completa tus datos de envío y elige el método de pago. 5) Realiza el pago, escribe el número de referencia y adjunta el comprobante. 6) Confirma el pedido: al final se abre WhatsApp para finalizar la atención con el equipo de la oficina.
 
 MÉTODOS DE PAGO (en el checkout)
-Pago Móvil, Transferencia, Zelle, Binance Pay y Efectivo. Cada producto indica en su ficha cuáles acepta. Los datos de la cuenta (banco, teléfono, correo, Pay ID, cédula, RIF) se muestran en el checkout al elegir el método: NO los inventes ni los des tú bajo ninguna circunstancia. Excepto Efectivo, todos requieren referencia y comprobante.
+Pago Móvil, Transferencia, Zelle, Binance Pay y Efectivo al retirar en tienda. Cada producto indica en su ficha cuáles acepta. Los datos de la cuenta se muestran solo dentro del checkout: NO los inventes ni los des tú bajo ninguna circunstancia. Efectivo al retirar en tienda es el ÚNICO método que no pide comprobante previo; todos los demás se pagan y verifican en el checkout (referencia y comprobante).
 Envío gratis en compras desde ${siteConfig.currencySymbol}${siteConfig.shipping.freeShippingThreshold}. Empresas de envío: ${siteConfig.shipping.companies.join(', ')}.
 
 DERIVACIÓN A HUMANO (REGLA ESTRICTA)
-Si el cliente pide hablar con una persona, asesor, personal administrativo, la oficina, tiene un reclamo o quiere confirmar un pago, entrega DE INMEDIATO, sin preguntas previas, el número y el botón de WhatsApp de la oficina/administración de esta lista. Formato: el número en texto (+<número>) y el enlace Markdown [Hablar por WhatsApp con <etiqueta>](<enlace>). Usa SOLO los contactos de esta lista; jamás des ni inventes otro número (en especial, nunca el número del bot). No muestres enlaces de WhatsApp si no hacen falta.
+Si el cliente pide hablar con una persona, asesor, personal administrativo, la oficina, tiene un reclamo o quiere confirmar un pago, entrega DE INMEDIATO, sin preguntas previas, el número de Administración +58 422-5160057 y el enlace Markdown [Hablar por WhatsApp con Administración](${ADMIN_WA}). Es el ÚNICO número permitido; jamás des ni inventes otro. Prohibido dar el número del bot (+${BOT_NUMBER}) o el número anterior terminado en 56. No muestres enlaces de WhatsApp si no hacen falta.
 ${numeros}
 
 ${tasa}
@@ -241,21 +252,12 @@ function isOrderStatus(t: string) {
 
 function paymentReply(ctx: Ctx, t: string): string | null {
   const q = norm(t);
-  const wantsMovil = /pago movil/.test(q);
-  const wantsBinance = /binance/.test(q);
-  const wantsZelle = /zelle/.test(q);
-  if (!wantsMovil && !wantsBinance && !wantsZelle) return null;
-  const c = ctx.cfg;
-  const lines: string[] = [];
-  if (wantsMovil && c.pagoMovilBanco && c.pagoMovilTelefono && c.pagoMovilCedula)
-    lines.push(`**Pago Móvil:** ${c.pagoMovilBanco} · Tel. ${c.pagoMovilTelefono} · C.I./RIF ${c.pagoMovilCedula}`);
-  if (wantsBinance && c.binancePayId)
-    lines.push(`**Binance Pay:** ID ${c.binancePayId}${c.binanceEmail ? ` · ${c.binanceEmail}` : ''}`);
-  if (wantsZelle && c.zelleEmail) lines.push(`**Zelle:** ${c.zelleEmail}${c.zelleTitular ? ` · ${c.zelleTitular}` : ''}`);
-  const head = lines.length
-    ? `¡Claro que sí! Estos son los datos oficiales:\n\n${lines.join('\n')}`
-    : 'Con gusto 😊 Los datos oficiales de pago aparecen en el checkout al elegir tu método de pago.';
-  return `${head}\n\nPuedes completar tu pedido aquí: [Ir a Importadora TodoMax](${STORE_URL})`;
+  const wantsData =
+    /(pago movil|binance|zelle|transferencia|datos (de|para) (pago|pagar)|numero de cuenta|como (pago|pagar|se paga)|metodos? de pago)/.test(q);
+  if (!wantsData) return null;
+  // Nunca se entregan datos bancarios por chat: el pago se completa y verifica en la tienda.
+  void ctx;
+  return `Con gusto 😊 Aceptamos Pago Móvil, Transferencia, Zelle, Binance Pay y Efectivo al retirar en tienda. Para tu seguridad, los datos de pago no se envían por el chat: completa tu pedido y verifica tu pago directamente dentro de la tienda aquí: [Ir al catálogo](${CATALOG_URL})`;
 }
 
 /** Respuestas fijas sin IA (no consumen cupo). */
@@ -381,7 +383,7 @@ export async function POST(request: NextRequest) {
   // Prioridad 1: Anthropic Haiku 5.5. Groq y demás solo actúan si falta la clave de Anthropic.
   const anthropicReply = await callAnthropic(systemPrompt, messages);
   if (anthropicReply) return respond(anthropicReply);
-  if (anthropicReply === '') return respond(fallbackReply());
+  // Si Anthropic falla (error HTTP/timeout), se continúa con la cadena de respaldo.
 
   for (const provider of resolveProviders()) {
     try {
