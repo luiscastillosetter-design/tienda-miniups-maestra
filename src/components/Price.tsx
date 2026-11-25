@@ -27,8 +27,9 @@ export default function Price({
   const { divisa, tasaBcv } = useCurrencyStore();
   const enVes = divisa === 'VES' && !!tasaBcv;
   const monto = convertirPrecio(value, divisa, tasaBcv);
-  const enOferta = typeof original === 'number' && original > value;
-  const montoAnterior = enOferta ? convertirPrecio(original!, divisa, tasaBcv) : 0;
+  const originalNum = Number(original);
+  const enOferta = Number.isFinite(originalNum) && originalNum > Number(value);
+  const montoAnterior = enOferta ? convertirPrecio(originalNum, divisa, tasaBcv) : 0;
 
   return (
     <span className="inline-flex flex-col leading-none gap-1">

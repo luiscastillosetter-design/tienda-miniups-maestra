@@ -669,7 +669,12 @@ export default function AdminPage() {
   const actualizarEstadoPedido = async (orderId: string, nuevoEstado: Order['status'], tracking?: string) => {
     const ordenPrevia = orders.find(o => o.id === orderId);
 
-    if (nuevoEstado === 'Pago Aprobado' && ordenPrevia && ordenPrevia.status === 'Pendiente de verificación') {
+    // Estados con stock ya descontado; el descuento/reversa ocurre solo al cruzar la frontera, nunca dos veces
+    const ESTADOS_DESCONTADOS: Order['status'][] = ['Pago Aprobado', 'En Preparación', 'Despachado', 'Entregado'];
+    const estabaDescontado = !!ordenPrevia && ESTADOS_DESCONTADOS.includes(ordenPrevia.status);
+    const quedaDescontado = ESTADOS_DESCONTADOS.includes(nuevoEstado);
+
+    if (ordenPrevia && !estabaDescontado && quedaDescontado) {
       const productosActualizados = products.map(p => {
         const itemsPedido = ordenPrevia.items.filter(it => String(it.id) === String(p.id));
         if (itemsPedido.length > 0) {
@@ -685,11 +690,7 @@ export default function AdminPage() {
       await syncProducts(productosActualizados);
     }
 
-    if (
-      nuevoEstado === 'Cancelado' &&
-      ordenPrevia &&
-      ['Pago Aprobado', 'En Preparación', 'Despachado', 'Entregado'].includes(ordenPrevia.status)
-    ) {
+    if (ordenPrevia && estabaDescontado && !quedaDescontado) {
       const productosActualizados = products.map(p => {
         const itemsPedido = ordenPrevia.items.filter(it => String(it.id) === String(p.id));
         if (itemsPedido.length > 0) {
@@ -740,10 +741,7 @@ export default function AdminPage() {
     else if (cleanPhone.length === 10 && cleanPhone.startsWith('4')) cleanPhone = '58' + cleanPhone;
     const cleanMessage = String(message || '').replace(/�/g, '');
     const encoded = encodeURIComponent(cleanMessage);
-    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    return isMobile
-      ? `https://wa.me/${cleanPhone}?text=${encoded}`
-      : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
+    return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
   };
 
   const esRetiroEnTienda = (order: Order) =>
@@ -779,7 +777,7 @@ export default function AdminPage() {
       mensaje = `¡Buenas noticias ${order.customer.nombre}! 🚚 Tu pedido *${order.id}* ha sido DESPACHADO por *${order.shipping.courier}*. Número de Guía: *${order.shipping.trackingNumber || 'En tránsito'}*. ¡Gracias por confiar en TodoMax!`;
     }
 
-    window.open(buildWhatsAppUrl(telefono, mensaje), '_blank');
+    window.open(buildWhatsAppUrl(telefono, mensaje), '_blank', 'noopener,noreferrer');
   };
 
   const saveCategories = async (list: string[]) => {
@@ -1871,6 +1869,32 @@ export default function AdminPage() {
                   )}
 
                   <div className="space-y-3 pt-2">
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-black uppercase text-slate-500">Cambiar paso (puedes volver a cualquier estado para rectificar)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(['Pendiente de verificación', 'Pago Aprobado', 'En Preparación', 'Despachado', 'Entregado', 'Cancelado'] as Order['status'][]).map(st => {
+                          const esActual = selectedOrder.status === st;
+                          const requiereMonto =
+                            selectedOrder.status === 'Pendiente de verificación' &&
+                            st !== 'Pendiente de verificación' && st !== 'Cancelado' &&
+                            selectedOrder.payment?.method !== 'Efectivo al retirar' && !montoVerificado;
+                          return (
+                            <button
+                              key={st}
+                              type="button"
+                              disabled={esActual || requiereMonto}
+                              title={requiereMonto ? 'Confirma la verificación del monto primero' : undefined}
+                              onClick={() => actualizarEstadoPedido(selectedOrder.id, st)}
+                              className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-colors cursor-pointer disabled:cursor-not-allowed ${
+                                esActual ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-40'
+                              }`}
+                            >
+                              {st}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedOrder.status === 'Pendiente de verificación' && selectedOrder.payment?.method !== 'Efectivo al retirar' && (() => {
                         const totalUsd = Number(selectedOrder.financials?.total || 0);

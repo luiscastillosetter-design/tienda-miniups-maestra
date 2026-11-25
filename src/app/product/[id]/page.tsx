@@ -265,9 +265,9 @@ export default function ProductPage() {
               <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
                 <div className="flex items-baseline gap-3">
                   <Price value={product.price} showSecondary secondaryClassName="text-xs mt-1" className="text-3xl md:text-5xl font-black text-slate-900" />
-                  {product.originalPrice && (
+                  {Number(product.originalPrice) > Number(product.price) && (
                     <span className="text-lg text-gray-400 line-through">
-                      <Price value={product.originalPrice} />
+                      <Price value={Number(product.originalPrice)} />
                     </span>
                   )}
                 </div>
