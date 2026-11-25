@@ -33,7 +33,7 @@ export default function Footer() {
             shippingCompanies: companies.length > 0 ? companies : siteConfig.shipping.companies,
             whatsappNumbers: Array.isArray(cfg.whatsappNumbers)
               ? cfg.whatsappNumbers
-                  .filter((w: any) => w?.activo && String(w?.numero || '').replace(/\D/g, ''))
+                  .filter((w: any) => w?.activo && String(w?.numero || '').replace(/\D/g, '') === siteConfig.whatsapp.number.replace(/\D/g, ''))
                   .map((w: any) => ({
                     numero: String(w.numero).replace(/\D/g, ''),
                     etiqueta: String(w.etiqueta || 'WhatsApp'),

@@ -26,7 +26,9 @@ export default function StoreLocationSection() {
       .catch(() => {});
   }, []);
 
-  const digits = String(phone || '').replace(/\D/g, '');
+  // El botón de WhatsApp siempre apunta al número de administración
+  void phone;
+  const digits = siteConfig.whatsapp.number.replace(/\D/g, '');
 
   return (
     <section className="group/loc w-full bg-gradient-to-br from-white via-white to-orange-50/40 border border-gray-200/80 rounded-2xl md:rounded-3xl shadow-xs hover:shadow-xl hover:shadow-orange-500/10 transition-all duration-500 overflow-hidden grid grid-cols-1 lg:grid-cols-2">
