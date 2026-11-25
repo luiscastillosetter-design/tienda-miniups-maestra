@@ -12,6 +12,7 @@ import Autoplay from 'embla-carousel-autoplay';
 import TrustAndPolicies from '@/components/TrustAndPolicies';
 import ProductCard from '@/components/ProductCard';
 import { normalizeSearchText } from '@/lib/search';
+import { sortCatalogTwoByTwo, sortByTitle } from '@/lib/catalogSort';
 
 function normalizeCatName(val: string) {
   return normalizeSearchText(val || 'Todos').trim();
@@ -111,36 +112,13 @@ function CatalogoContent() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  const byName = (a: Product, b: Product) =>
-    String(a.title || '').localeCompare(String(b.title || ''), 'es', { sensitivity: 'base' });
-
   const filteredProducts = (() => {
     if (selectedCategory !== 'Todos') {
-      return products
-        .filter((p) => normalizeCatName(p.category) === normalizeCatName(selectedCategory))
-        .sort(byName);
+      return sortByTitle(
+        products.filter((p) => normalizeCatName(p.category) === normalizeCatName(selectedCategory))
+      );
     }
-    const groups = new Map<string, Product[]>();
-    products.forEach((p) => {
-      const key = p.category || 'Sin categoría';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(p);
-    });
-    const queues = Array.from(groups.keys())
-      .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
-      .map((k) => groups.get(k)!.slice().sort(byName));
-    const result: Product[] = [];
-    let remaining = true;
-    while (remaining) {
-      remaining = false;
-      for (const q of queues) {
-        if (q.length > 0) {
-          result.push(...q.splice(0, 2));
-          if (q.length > 0) remaining = true;
-        }
-      }
-    }
-    return result;
+    return sortCatalogTwoByTwo(products);
   })();
 
   return (

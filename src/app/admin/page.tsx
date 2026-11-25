@@ -1898,7 +1898,7 @@ export default function AdminPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block font-bold text-slate-500 uppercase mb-1">Precio ($)</label>
                     <input
@@ -1911,16 +1911,6 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-500 uppercase mb-1">Antes ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={productForm.originalPrice}
-                      onChange={e => setProductForm({ ...productForm, originalPrice: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
-                    />
-                  </div>
-                  <div>
                     <label className="block font-bold text-slate-500 uppercase mb-1">Oferta en Divisas ($)</label>
                     <input
                       type="number"
@@ -1929,6 +1919,19 @@ export default function AdminPage() {
                       placeholder="Opcional"
                       value={productForm.divisaPrice}
                       onChange={e => setProductForm({ ...productForm, divisaPrice: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-500 uppercase mb-1">Antes ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={productForm.originalPrice}
+                      onChange={e => setProductForm({ ...productForm, originalPrice: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
                     />
                   </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { productService } from '@/services/productService';
@@ -12,6 +12,7 @@ import ProductRail from '@/components/ProductRail';
 import CategoryBar from '@/components/CategoryBar';
 import StoreLocationSection from '@/components/StoreLocationSection';
 import ProductCard from '@/components/ProductCard';
+import { sortCatalogTwoByTwo, sortByTitle } from '@/lib/catalogSort';
 import { Flame, ArrowRight } from 'lucide-react';
 
 function HomeContent() {
@@ -51,7 +52,8 @@ function HomeContent() {
     return url.endsWith('.mp4') || url.includes('.mp4?') || url.startsWith('data:video');
   };
 
-  const bestSellers = products.filter(p => p.isBestSeller);
+  const sortedProducts = useMemo(() => sortCatalogTwoByTwo(products), [products]);
+  const bestSellers = useMemo(() => sortByTitle(products.filter(p => p.isBestSeller)), [products]);
 
   return (
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-28">
@@ -85,7 +87,7 @@ function HomeContent() {
                 <div key={idx} className="w-full aspect-square rounded-3xl bg-slate-200/70 animate-pulse" />
               ))
             ) : (
-              products.map((product) => (
+              sortedProducts.map((product) => (
                 <ProductCard key={product.id} product={product} buyStyle="text" className="snap-start h-full" />
               ))
             )}
