@@ -61,6 +61,8 @@ interface Order {
     cost: number;
     commission?: number;
     utility: number;
+    tasaBcv?: number;
+    totalBs?: number;
   };
   attribution: {
     affiliateCode: string;
@@ -134,6 +136,11 @@ export default function AdminPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [montoVerificado, setMontoVerificado] = useState(false);
+  // El checkbox de verificación se reinicia al abrir, cambiar o cerrar un pedido
+  useEffect(() => {
+    setMontoVerificado(false);
+  }, [selectedOrder?.id]);
   const [orderFilter, setOrderFilter] = useState('Todos');
   const [trackingInput, setTrackingInput] = useState('');
 
@@ -1680,8 +1687,23 @@ export default function AdminPage() {
                           <span className="text-[10px] text-slate-400">{order.customer.cedula} • {order.customer.telefono}</span>
                         </td>
                         <td className="p-4">
-                          <div className="max-w-[200px] truncate">
-                            {order.items.map(it => `${it.quantity}x ${it.title}${it.selectedColor ? ` (Color: ${it.selectedColor})` : ''}${it.selectedSize ? ` (Talla: ${it.selectedSize})` : ''}`).join(', ')}
+                          <div className="min-w-[200px] max-w-[280px] space-y-1 text-xs">
+                            {order.items.slice(0, 2).map((it, idx) => (
+                              <p key={idx} className="leading-snug break-words">
+                                <span className="font-black">{it.quantity}x</span> {it.title}
+                                {it.selectedColor ? ` · Color: ${it.selectedColor}` : ''}
+                                {it.selectedSize ? ` · Talla: ${it.selectedSize}` : ''}
+                              </p>
+                            ))}
+                            {order.items.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => openOrder(order)}
+                                className="inline-block px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-black cursor-pointer hover:bg-orange-200"
+                              >
+                                +{order.items.length - 2} más — Ver detalle
+                              </button>
+                            )}
                           </div>
                         </td>
                         <td className="p-4 font-black text-slate-900 whitespace-nowrap">
@@ -1764,6 +1786,56 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {(() => {
+                    const totalUsd = Number(selectedOrder.financials?.total || 0);
+                    const esBs = /pago m[oó]vil|transferencia/i.test(selectedOrder.payment?.method || '');
+                    const tasa = Number(selectedOrder.financials?.tasaBcv) || tasaBcv || 0;
+                    const totalBs = selectedOrder.financials?.totalBs || (tasa ? totalUsd * tasa : 0);
+                    return (
+                      <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                        <h4 className="text-xs font-black uppercase text-slate-500 bg-slate-50 px-4 py-2 border-b border-slate-200">
+                          Productos del pedido
+                        </h4>
+                        <ul className="divide-y divide-slate-100">
+                          {selectedOrder.items.map((it, idx) => (
+                            <li key={idx} className="px-4 py-3 text-xs flex items-start justify-between gap-3">
+                              <div className="min-w-0 break-words">
+                                <p className="font-bold text-slate-800">
+                                  <span className="font-black text-orange-600">{it.quantity}x</span> {it.title}
+                                </p>
+                                {(it.selectedColor || it.selectedSize) && (
+                                  <p className="text-slate-500">
+                                    {it.selectedColor ? `Color: ${it.selectedColor}` : ''}
+                                    {it.selectedColor && it.selectedSize ? ' · ' : ''}
+                                    {it.selectedSize ? `Talla: ${it.selectedSize}` : ''}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right whitespace-nowrap">
+                                <p className="text-slate-500">${Number(it.price || 0).toFixed(2)} c/u</p>
+                                <p className="font-black text-slate-900">${(Number(it.price || 0) * it.quantity).toFixed(2)}</p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="px-4 py-3 bg-emerald-50 border-t border-emerald-200 text-xs flex items-center justify-between gap-3">
+                          <span className="font-black uppercase text-slate-600">Total del pedido</span>
+                          <span className="text-right">
+                            <span className="block font-black text-emerald-700 text-base">${totalUsd.toFixed(2)}</span>
+                            {esBs && totalBs > 0 && (
+                              <span className="block font-black text-slate-800">
+                                Monto esperado: Bs. {Number(totalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            )}
+                            {esBs && !(totalBs > 0) && (
+                              <span className="block text-amber-700 font-bold">Tasa BCV no disponible</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {!selectedOrder.payment?.receiptImage && selectedOrder.payment?.method === 'Efectivo al retirar' && (
                     <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 text-xs font-black text-center">
                       💵 Pago en efectivo al retirar en tienda
@@ -1800,13 +1872,40 @@ export default function AdminPage() {
 
                   <div className="space-y-3 pt-2">
                     <div className="flex flex-wrap gap-2">
+                      {selectedOrder.status === 'Pendiente de verificación' && selectedOrder.payment?.method !== 'Efectivo al retirar' && (() => {
+                        const totalUsd = Number(selectedOrder.financials?.total || 0);
+                        const esBs = /pago m[oó]vil|transferencia/i.test(selectedOrder.payment?.method || '');
+                        const tasa = Number(selectedOrder.financials?.tasaBcv) || tasaBcv || 0;
+                        const totalBs = selectedOrder.financials?.totalBs || (tasa ? totalUsd * tasa : 0);
+                        return (
+                          <div className="w-full bg-amber-50 border border-amber-300 rounded-2xl p-4 text-xs space-y-3">
+                            <p className="font-black text-amber-900">
+                              ⚠️ Verifica que hayas recibido exactamente: ${totalUsd.toFixed(2)}
+                              {esBs && totalBs > 0
+                                ? ` / Bs. ${Number(totalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : ''}
+                            </p>
+                            <label className="flex items-start gap-2 cursor-pointer font-bold text-slate-800">
+                              <input
+                                type="checkbox"
+                                checked={montoVerificado}
+                                onChange={e => setMontoVerificado(e.target.checked)}
+                                className="mt-0.5 w-4 h-4 accent-emerald-600"
+                              />
+                              <span>Confirmo que revisé el comprobante y el monto recibido coincide exactamente con el total.</span>
+                            </label>
+                          </div>
+                        );
+                      })()}
+
                       {selectedOrder.status === 'Pendiente de verificación' && (
                         <button
+                          disabled={selectedOrder.payment?.method !== 'Efectivo al retirar' && !montoVerificado}
                           onClick={() => {
                             actualizarEstadoPedido(selectedOrder.id, 'Pago Aprobado');
                             enviarNotificacionCliente(selectedOrder, 'aprobado');
                           }}
-                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
                         >
                           <CheckCircle className="w-4 h-4" />
                           <span>Validar Pago y Notificar</span>
