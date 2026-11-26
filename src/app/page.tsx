@@ -41,6 +41,16 @@ function HomeContent() {
     load();
   }, []);
 
+  const [salesRank, setSalesRank] = useState<string[]>([]);
+  useEffect(() => {
+    fetch('/api/best-sellers')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (d && Array.isArray(d.bestSellerIds)) setSalesRank(d.bestSellerIds.map(String));
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const ref = searchParams.get('ref');
     if (ref) {
@@ -54,7 +64,25 @@ function HomeContent() {
   };
 
   const sortedProducts = useMemo(() => sortCatalogTwoByTwo(products), [products]);
-  const bestSellers = useMemo(() => sortByTitle(products.filter(p => p.isBestSeller)), [products]);
+  const bestSellers = useMemo(() => {
+    const byId = new Map(products.map(p => [String(p.id), p]));
+    const list: Product[] = [];
+    const seen = new Set<string>();
+    for (const id of salesRank) {
+      const p = byId.get(String(id));
+      if (p && Number(p.stock) > 0 && !seen.has(String(p.id))) {
+        seen.add(String(p.id));
+        list.push(p);
+      }
+    }
+    for (const p of sortByTitle(products.filter(p => p.isBestSeller))) {
+      if (!seen.has(String(p.id))) {
+        seen.add(String(p.id));
+        list.push(p);
+      }
+    }
+    return list.slice(0, 12);
+  }, [products, salesRank]);
 
   return (
     <div className="w-full bg-slate-50 min-h-screen pt-[180px] md:pt-[160px] pb-28">
