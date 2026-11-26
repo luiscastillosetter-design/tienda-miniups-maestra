@@ -353,16 +353,21 @@ export default function ProductPage() {
                   <p className="text-xs font-bold text-slate-700">Color: {activeColor?.name}</p>
                   <div className="flex flex-wrap gap-2.5">
                     {productColors.map(c => {
-                      const soldOut = c.stock === 0;
+                      const sizeTotal = c.sizeStock && typeof c.sizeStock === 'object' && Object.keys(c.sizeStock).length > 0
+                        ? Object.values(c.sizeStock).reduce((a, b) => a + (Number(b) || 0), 0)
+                        : undefined;
+                      const realColorStock = sizeTotal !== undefined ? sizeTotal : c.stock;
+                      const soldOut = typeof realColorStock === 'number' && realColorStock <= 0;
                       return (
                         <div key={c.name} className="flex flex-col items-center gap-0.5">
                           <button
                             type="button"
+                            disabled={soldOut}
                             title={soldOut ? `${c.name} (Agotado)` : c.name}
                             aria-label={`Color ${c.name}${soldOut ? ' agotado' : ''}`}
                             onClick={() => { setPickedColor(c.name); setColorPhotoOn(!!c.image); setZoomPos(null); }}
-                            className={`relative w-9 h-9 rounded-full border-2 cursor-pointer transition-all overflow-hidden ${
-                              soldOut ? 'opacity-40' : ''
+                            className={`relative w-9 h-9 rounded-full border-2 transition-all overflow-hidden ${
+                              soldOut ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                             } ${
                               activeColor?.name === c.name ? 'border-orange-500 ring-2 ring-orange-300 scale-110' : 'border-slate-300 hover:border-slate-500'
                             }`}

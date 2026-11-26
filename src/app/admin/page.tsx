@@ -862,6 +862,11 @@ export default function AdminPage() {
       return { ...c, sizeStock: ss, stock: Object.values(ss).reduce((a, b) => a + b, 0) };
     });
 
+    // Con colores cargados, el stock general es la suma exacta del stock de sus colores
+    const stockToSave = colorsToSave.length > 0
+      ? colorsToSave.reduce((s, c) => s + (typeof c.stock === 'number' ? c.stock : 0), 0)
+      : Number(productForm.stock) || 0;
+
     let updated = [...products];
 
     if (editingProductId) {
@@ -874,7 +879,7 @@ export default function AdminPage() {
             originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
             divisaPrice: Number(productForm.divisaPrice) > 0 ? Number(productForm.divisaPrice) : undefined,
             cost: Number(productForm.cost) || 0,
-            stock: Number(productForm.stock) || 0,
+            stock: stockToSave,
             category: productForm.category,
             affiliateCommission: 10,
             driveUrl: productForm.driveUrl.trim(),
@@ -901,7 +906,7 @@ export default function AdminPage() {
         originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
         divisaPrice: Number(productForm.divisaPrice) > 0 ? Number(productForm.divisaPrice) : undefined,
         cost: Number(productForm.cost) || 0,
-        stock: Number(productForm.stock) || 0,
+        stock: stockToSave,
         category: productForm.category,
         affiliateCommission: 10,
             driveUrl: productForm.driveUrl.trim() || undefined,
@@ -2077,10 +2082,16 @@ export default function AdminPage() {
                     <input
                       type="number"
                       required
-                      value={productForm.stock}
-                      onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border rounded-xl font-semibold"
+                      value={productForm.colors.length > 0
+                        ? productForm.colors.reduce((s, x) => s + (typeof x.stock === 'number' ? x.stock : 0), 0)
+                        : productForm.stock}
+                      readOnly={productForm.colors.length > 0}
+                      onChange={e => { if (productForm.colors.length === 0) setProductForm({ ...productForm, stock: e.target.value }); }}
+                      className={`w-full px-3 py-2 border rounded-xl font-semibold ${productForm.colors.length > 0 ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50'}`}
                     />
+                    {productForm.colors.length > 0 && (
+                      <p className="mt-1 text-[10px] text-slate-400">Calculado automáticamente según colores/tallas</p>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -2547,7 +2558,9 @@ export default function AdminPage() {
               title: productForm.title,
               price: Number(productForm.price) || 0,
               originalPrice: productForm.originalPrice ? Number(productForm.originalPrice) : undefined,
-              stock: Number(productForm.stock) || 0,
+              stock: productForm.colors.length > 0
+                ? productForm.colors.reduce((s, x) => s + (typeof x.stock === 'number' ? x.stock : 0), 0)
+                : Number(productForm.stock) || 0,
               category: productForm.category,
               description: productForm.description,
               features: productForm.features.split('\n').map(f => f.trim()).filter(Boolean),

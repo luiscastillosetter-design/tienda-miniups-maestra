@@ -64,24 +64,45 @@ function HomeContent() {
   };
 
   const sortedProducts = useMemo(() => sortCatalogTwoByTwo(products), [products]);
+  // Stock real: suma de variantes (sizeStock o stock por color) o stock general si no hay colores
+  const getRealProductStock = (p: Product): number => {
+    const colors = Array.isArray(p.colors) ? p.colors : [];
+    if (colors.length > 0) {
+      let defined = false;
+      const total = colors.reduce((sum, c) => {
+        if (c.sizeStock && typeof c.sizeStock === 'object' && Object.keys(c.sizeStock).length > 0) {
+          defined = true;
+          return sum + Object.values(c.sizeStock).reduce((a, b) => a + (Number(b) || 0), 0);
+        }
+        if (typeof c.stock === 'number') {
+          defined = true;
+          return sum + c.stock;
+        }
+        return sum;
+      }, 0);
+      if (defined) return total;
+    }
+    return Number(p.stock) || 0;
+  };
   const bestSellers = useMemo(() => {
     const byId = new Map(products.map(p => [String(p.id), p]));
     const list: Product[] = [];
     const seen = new Set<string>();
     for (const id of salesRank) {
       const p = byId.get(String(id));
-      if (p && Number(p.stock) > 0 && !seen.has(String(p.id))) {
+      if (p && getRealProductStock(p) > 0 && !seen.has(String(p.id))) {
         seen.add(String(p.id));
         list.push(p);
       }
     }
     for (const p of sortByTitle(products.filter(p => p.isBestSeller))) {
-      if (!seen.has(String(p.id))) {
+      if (getRealProductStock(p) > 0 && !seen.has(String(p.id))) {
         seen.add(String(p.id));
         list.push(p);
       }
     }
     return list.slice(0, 12);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, salesRank]);
 
   return (
