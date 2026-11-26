@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, MessageCircle } from 'lucide-react';
+import { adminWaLink, STORE_URL } from '@/lib/adminWhatsapp';
 import { Product } from '@/data/products';
 import { useCartStore } from '@/store/cartStore';
 import ProductCover from '@/components/ProductCover';
@@ -197,6 +198,17 @@ export default function ProductCard({ product, buyStyle = 'icon', className = ''
             </button>
           )}
         </div>
+        <a
+          href={adminWaLink(
+            `Hola, estoy viendo ${product.title} ($${Number(product.price).toFixed(2)}) en la web y quiero consultar: ${STORE_URL}/product/${product.id}`
+          )}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center justify-center gap-1.5 w-full text-[11px] md:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-500 hover:text-white border border-emerald-200 rounded-xl py-2 no-underline transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
+        >
+          <MessageCircle className="w-3.5 h-3.5" /> Contáctanos
+        </a>
       </div>
     </div>
   );

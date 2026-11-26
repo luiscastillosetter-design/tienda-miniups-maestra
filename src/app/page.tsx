@@ -13,7 +13,8 @@ import CategoryBar from '@/components/CategoryBar';
 import StoreLocationSection from '@/components/StoreLocationSection';
 import ProductCard from '@/components/ProductCard';
 import { sortCatalogTwoByTwo, sortByTitle } from '@/lib/catalogSort';
-import { Flame, ArrowRight } from 'lucide-react';
+import { Flame, ArrowRight, Store, Banknote, MessageCircle } from 'lucide-react';
+import { adminWaLink } from '@/lib/adminWhatsapp';
 
 function HomeContent() {
   const router = useRouter();
@@ -65,6 +66,27 @@ function HomeContent() {
         {/* 2. CARRUSEL PRINCIPAL (3 segmentos) */}
         <section className="w-full">
           <HeroCarousel />
+        </section>
+
+        {/* Franja de confianza */}
+        <section className="w-full grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 -mt-4 md:-mt-6">
+          <div className="flex items-center gap-3 bg-white border border-gray-200/80 rounded-2xl px-4 py-3 shadow-xs transition-all hover:-translate-y-1 hover:shadow-lg">
+            <Store className="w-5 h-5 text-orange-500 shrink-0" />
+            <p className="text-xs md:text-sm font-bold text-slate-800">Tienda física · Retiro personal</p>
+          </div>
+          <div className="flex items-center gap-3 bg-white border border-gray-200/80 rounded-2xl px-4 py-3 shadow-xs transition-all hover:-translate-y-1 hover:shadow-lg">
+            <Banknote className="w-5 h-5 text-emerald-600 shrink-0" />
+            <p className="text-xs md:text-sm font-bold text-slate-800">Efectivo al retirar disponible</p>
+          </div>
+          <a
+            href={adminWaLink('Hola, vengo de la página web de TodoMax y quiero asesoría.')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 shadow-xs no-underline transition-all hover:-translate-y-1 hover:shadow-lg hover:bg-emerald-100"
+          >
+            <MessageCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+            <p className="text-xs md:text-sm font-bold text-emerald-800">Atención humana directa por WhatsApp</p>
+          </a>
         </section>
 
         {/* 3. CATÁLOGO EN 2 FILAS */}

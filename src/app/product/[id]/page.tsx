@@ -6,8 +6,10 @@ import Link from 'next/link';
 import DescriptionContent from '@/components/DescriptionContent';
 import { 
   ShoppingCart, ChevronLeft, Truck, CheckCircle2, 
-  CreditCard, Play, Flame, ListChecks, Search 
+  CreditCard, Play, Flame, ListChecks, Search,
+  MessageCircle, Store, Banknote, Headset
 } from 'lucide-react';
+import { adminWaLink, STORE_URL } from '@/lib/adminWhatsapp';
 import { productService } from '@/services/productService';
 import type { Product } from '@/data/products';
 import { siteConfig } from '@/config/site';
@@ -466,6 +468,34 @@ export default function ProductPage() {
                   <span>{isOutOfStock ? 'Agotado' : 'Comprar Ahora'}</span>
                 </button>
               </div>
+
+              <a
+                href={adminWaLink(
+                  `Hola, estoy viendo ${product.title} ($${Number(product.price).toFixed(2)})${pickedColor ? `, color ${pickedColor}` : ''}${effectiveSize ? `, talla ${effectiveSize}` : ''} en la web y quiero consultar: ${STORE_URL}/product/${product.id}`
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 px-3 bg-emerald-50 hover:bg-emerald-500 text-emerald-700 hover:text-white border border-emerald-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 no-underline transition-all hover:-translate-y-0.5 active:scale-95"
+              >
+                <MessageCircle className="w-4 h-4 shrink-0" />
+                <span>¿Dudas con este producto? Pregunta por WhatsApp</span>
+              </a>
+
+              {/* Sello de confianza anti-estafa */}
+              <ul className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-600 font-medium">
+                <li className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <Store className="w-4 h-4 text-orange-500 shrink-0" />
+                  <span>Tienda física y retiro personal</span>
+                </li>
+                <li className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <Banknote className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Efectivo al retirar disponible</span>
+                </li>
+                <li className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <Headset className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Atención humana directa por WhatsApp</span>
+                </li>
+              </ul>
 
               {/* Métodos de Pago y Confianza */}
               <div className="grid grid-cols-2 gap-3 pt-2 text-[11px] text-gray-500 font-medium">

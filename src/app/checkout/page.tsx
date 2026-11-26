@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCartStore } from '@/store/cartStore';
 import { useCurrencyStore, convertirPrecio, formatearMonto } from '@/store/currencyStore';
 import { siteConfig } from '@/config/site';
+import { adminWaLink } from '@/lib/adminWhatsapp';
 import { effectiveDivisaPrice } from '@/lib/stockUtils';
 import { isSelfPurchase, SELF_PURCHASE_NOTICE } from '@/lib/affiliateGuard';
 import { ChevronLeft, Copy, CheckCircle2, ShieldCheck, Upload, ShoppingBag } from 'lucide-react';
@@ -1060,6 +1061,19 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 )}
+
+                <a
+                  href={adminWaLink(
+                    `Hola, quiero que un asesor me ayude con este pedido:\n${items
+                      .map((i) => `- ${i.quantity}x ${i.title}${i.selectedColor ? ` (${i.selectedColor})` : ''}${i.selectedSize ? ` talla ${i.selectedSize}` : ''}`)
+                      .join('\n')}\nTotal estimado: $${total.toFixed(2)}`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-center text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl px-4 py-3 no-underline transition-all hover:-translate-y-0.5"
+                >
+                  ¿Prefieres que un asesor te ayude con este pedido? Escríbenos por WhatsApp
+                </a>
 
                 <button
                   onClick={procesarYEnviarPedido}

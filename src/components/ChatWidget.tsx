@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { siteConfig } from '@/config/site';
+import { adminWaLink } from '@/lib/adminWhatsapp';
 import { MessageCircle, X, Send, ShoppingBag, ExternalLink } from 'lucide-react';
 
 interface Msg {
@@ -275,13 +276,13 @@ export default function ChatWidget() {
               </div>
             </div>
             <a
-              href={`https://wa.me/${siteConfig.whatsapp.sofiaNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Hola Sofía, vengo de la web de Importadora TodoMax')}`}
+              href={adminWaLink('Hola, estoy en la tienda web de TodoMax y quiero hablar con un asesor.')}
               target="_blank"
               rel="noopener noreferrer"
-              title={`Chatear con Sofía por WhatsApp (${siteConfig.whatsapp.sofiaNumber})`}
+              title="Hablar con un asesor por WhatsApp"
               className="ml-auto shrink-0 inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1.5 rounded-full no-underline transition-all hover:scale-105 active:scale-95"
             >
-              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+              <MessageCircle className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Hablar con un asesor</span><span className="sm:hidden">WhatsApp</span>
             </a>
             <button
               type="button"
