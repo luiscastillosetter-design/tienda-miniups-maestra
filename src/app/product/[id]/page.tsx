@@ -503,6 +503,22 @@ export default function ProductPage() {
                 <span>¿Dudas con este producto? Pregunta por WhatsApp</span>
               </a>
 
+              <div className="space-y-1">
+                <a
+                  href={adminWaLink(
+                    `Hola, quiero comprar con Cashea: ${product.title} ($${Number(product.price).toFixed(2)})${pickedColor || effectiveSize ? ` (${[pickedColor, effectiveSize].filter(Boolean).join(' / ')})` : ''}. Link: ${STORE_URL}/product/${product.id}`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3.5 px-3 bg-[#FFE600] hover:bg-[#FACC15] text-slate-900 font-black rounded-2xl text-xs flex items-center justify-center gap-2 no-underline shadow-md hover:-translate-y-0.5 transition-all active:scale-95"
+                >
+                  <span>Comprar con Cashea</span>
+                </a>
+                <p className="text-[10px] text-slate-500 text-center font-medium">
+                  Se concreta en nuestra tienda oficial de Cashea con un asesor
+                </p>
+              </div>
+
               {/* Sello de confianza anti-estafa */}
               <ul className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-600 font-medium">
                 <li className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">

@@ -15,6 +15,7 @@ import ProductCard from '@/components/ProductCard';
 import { sortCatalogTwoByTwo, sortByTitle } from '@/lib/catalogSort';
 import { Flame, ArrowRight, Store, Banknote, MessageCircle } from 'lucide-react';
 import { adminWaLink } from '@/lib/adminWhatsapp';
+import CasheaBanner from '@/components/CasheaBanner';
 
 function HomeContent() {
   const router = useRouter();
@@ -137,6 +138,9 @@ function HomeContent() {
             <p className="text-xs md:text-sm font-bold text-emerald-800">Atención humana directa por WhatsApp</p>
           </a>
         </section>
+
+        {/* Cashea */}
+        <CasheaBanner />
 
         {/* 3. CATÁLOGO EN 2 FILAS */}
         <section className="w-full" id="catalogo-grilla">

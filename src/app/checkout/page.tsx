@@ -1062,6 +1062,25 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
+                <div className="rounded-2xl border-2 border-[#FFE600] bg-slate-900 p-4 space-y-2">
+                  <p className="text-sm font-black text-[#FFE600]">¿Prefieres pagar con Cashea?</p>
+                  <p className="text-xs text-slate-300 font-medium">
+                    Las compras con Cashea se concretan directo con administración en la tienda virtual oficial de TodoMax.
+                  </p>
+                  <a
+                    href={adminWaLink(
+                      `Hola, quiero pagar con Cashea este pedido en la tienda virtual de TodoMax:\n${items
+                        .map((i) => `- ${i.quantity}x ${i.title}${i.selectedColor ? ` (${i.selectedColor})` : ''}${i.selectedSize ? ` talla ${i.selectedSize}` : ''}`)
+                        .join('\n')}\nTotal estimado: $${total.toFixed(2)}`
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-xs font-black text-slate-900 bg-[#FFE600] hover:bg-[#FACC15] rounded-xl px-4 py-3 no-underline transition-all hover:-translate-y-0.5"
+                  >
+                    Pagar este pedido con Cashea por WhatsApp
+                  </a>
+                </div>
+
                 <a
                   href={adminWaLink(
                     `Hola, quiero que un asesor me ayude con este pedido:\n${items
