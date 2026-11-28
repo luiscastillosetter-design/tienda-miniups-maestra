@@ -90,6 +90,11 @@ export default function ProductPage() {
   const currentMedia = colorPhoto || product.images?.[selectedImageIndex] || product.images?.[0];
   const firstImageForCart = colorPhoto || product.images?.find((img) => !isVideo(img)) || product.images?.[0] || '';
   const isOutOfStock = availableStock <= 0;
+  const enOferta =
+    Number.isFinite(Number(product.originalPrice)) && Number(product.originalPrice) > Number(product.price);
+  const porcentajeOferta = enOferta
+    ? Math.round((1 - Number(product.price) / Number(product.originalPrice)) * 100)
+    : 0;
   const embedUrl = getVideoEmbedUrl(product.demoVideo);
   const directDemo = isDirectVideoUrl(product.demoVideo) ? product.demoVideo : undefined;
   const sizeMissing = productSizes.length > 0 && !effectiveSize;
@@ -231,6 +236,12 @@ export default function ProductPage() {
                 </span>
               )}
 
+              {enOferta && (
+                <span className="absolute top-4 right-4 bg-orange-500 text-white text-xs font-black px-3 py-1 rounded-xl uppercase shadow-md pointer-events-none">
+                  Oferta -{porcentajeOferta}%
+                </span>
+              )}
+
               {/* Indicador de Lupa en PC */}
               {!isVideo(currentMedia) && !zoomPos && (
                 <span className="hidden md:flex items-center gap-1.5 absolute bottom-4 right-4 bg-white/90 backdrop-blur-md text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-full shadow-xs border border-gray-200 pointer-events-none">
@@ -265,11 +276,17 @@ export default function ProductPage() {
 
               {/* Bloque de Precios y Envío */}
               <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-3">
-                <div className="flex items-baseline gap-3">
-                  <Price value={product.price} showSecondary secondaryClassName="text-xs mt-1" className="text-3xl md:text-5xl font-black text-slate-900" />
-                  {Number(product.originalPrice) > Number(product.price) && (
-                    <span className="text-lg text-gray-400 line-through">
-                      <Price value={Number(product.originalPrice)} />
+                <div className="flex items-end flex-wrap gap-x-3 gap-y-2">
+                  <Price
+                    value={product.price}
+                    original={enOferta ? Number(product.originalPrice) : undefined}
+                    showSecondary
+                    secondaryClassName="text-xs mt-1"
+                    className="text-3xl md:text-5xl font-black text-slate-900"
+                  />
+                  {enOferta && (
+                    <span className="mb-1 text-xs md:text-sm font-black text-orange-600 bg-orange-50 border border-orange-200 px-2 py-1 rounded-lg">
+                      -{porcentajeOferta}%
                     </span>
                   )}
                 </div>
