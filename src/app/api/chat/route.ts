@@ -94,6 +94,7 @@ const OFFICE_NUMBER = '584225160057';
 const BOT_NUMBER = digits(siteConfig.whatsapp.sofiaNumber);
 
 const ADMIN_WA = `https://wa.me/${OFFICE_NUMBER}`;
+const CASHEA_WA = `https://api.whatsapp.com/send?phone=${OFFICE_NUMBER}`;
 const CATALOG_URL = `${siteConfig.storeUrl}/catalogo`;
 const STORE_URL = siteConfig.storeUrl;
 
@@ -206,6 +207,13 @@ Envío gratis en compras desde ${siteConfig.currencySymbol}${siteConfig.shipping
 DERIVACIÓN A HUMANO (REGLA ESTRICTA)
 Si el cliente pide hablar con una persona, asesor, personal administrativo, la oficina, tiene un reclamo o quiere confirmar un pago, entrega DE INMEDIATO, sin preguntas previas, el número de Administración +58 422-5160057 y el enlace Markdown [Hablar por WhatsApp con Administración](${ADMIN_WA}). Es el ÚNICO número permitido; jamás des ni inventes otro. Prohibido dar el número del bot (+${BOT_NUMBER}) o el número anterior terminado en 56. No muestres enlaces de WhatsApp si no hacen falta.
 ${numeros}
+REFUERZO: cualquier contacto humano, duda especial o compra asistida va EXCLUSIVAMENTE al WhatsApp de Administración +58 422-5160057. Jamás des el número del bot (+${BOT_NUMBER}).
+
+CASHEA (compra en cuotas)
+Importadora TodoMax SÍ acepta Cashea: contamos con tienda virtual oficial en Cashea para comprar en cuotas. Si el cliente pregunta por Cashea, explícale que las compras con Cashea NO se procesan por el checkout web, sino directamente con un asesor de Administración por WhatsApp al +58 422-5160057: [Comprar con Cashea por WhatsApp](${CASHEA_WA}). No inventes condiciones, porcentajes de inicial ni plazos de Cashea.
+
+CONFIANZA Y OPINIONES
+Si el cliente pregunta por referencias, seguridad o muestra dudas por estafas, tranquilízalo con calidez y menciona: contamos con tienda física/retiro personal, opción de pago en Efectivo al retirar, atención humana directa con Administración en el +58 422-5160057 ([Hablar con Administración](${ADMIN_WA})) y una sección visible de "Opiniones de Clientes" en la portada de la web, donde puede leer experiencias reales y dejar su propia reseña. No inventes testimonios, cifras ni direcciones.
 
 ${tasa}
 

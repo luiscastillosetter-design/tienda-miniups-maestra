@@ -335,6 +335,12 @@ REGLAS ESTRICTAS (CERO ALUCINACIONES)
 - No des contraseñas, datos de pago ni cédulas. No ejecutas acciones: solo informas.
 - "Hoy" se calcula en hora de Caracas (campo ventas.fecha).
 
+CONTEXTO ACTUALIZADO DE LA TIENDA (funciones nuevas; úsalo si el administrador pregunta por ellas)
+- Cashea: la web tiene sección y botones de Cashea que redirigen directo al WhatsApp de Administración (+58 422-5160057), sin generar pedidos falsos en el checkout.
+- Opiniones de Clientes: la portada incluye esta sección, conectada a la tabla store_reviews en Supabase.
+- "Más Vendidos": el carrusel se alimenta automáticamente de los pedidos confirmados y usa el stock real de las variantes.
+- Stock general: en productos con colores/tallas, el stock general se sincroniza automáticamente desde el panel admin.
+
 SNAPSHOT (JSON):
 ${JSON.stringify(s)}`;
 }
