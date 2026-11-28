@@ -16,6 +16,7 @@ import { sortCatalogTwoByTwo, sortByTitle } from '@/lib/catalogSort';
 import { Flame, ArrowRight, Store, Banknote, MessageCircle } from 'lucide-react';
 import { adminWaLink } from '@/lib/adminWhatsapp';
 import CasheaBanner from '@/components/CasheaBanner';
+import CustomerReviews from '@/components/CustomerReviews';
 
 function HomeContent() {
   const router = useRouter();
@@ -197,6 +198,9 @@ function HomeContent() {
             )}
           </ProductRail>
         </section>
+
+        {/* OPINIONES DE CLIENTES */}
+        <CustomerReviews />
 
         {/* 6. UBICACIÓN Y HORARIOS */}
         <StoreLocationSection />
